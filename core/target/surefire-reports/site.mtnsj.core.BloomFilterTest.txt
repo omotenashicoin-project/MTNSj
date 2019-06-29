@@ -1,0 +1,8 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.BloomFilterTest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 0 sec <<< FAILURE! - in site.mtnsj.core.BloomFilterTest
+walletTest(site.mtnsj.core.BloomFilterTest)  Time elapsed: 0 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 128 not in [191]
+	at site.mtnsj.core.BloomFilterTest.walletTest(BloomFilterTest.java:74)
+

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Pair.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.utils</a> &gt; <span class="el_source">Pair.java</span></div><h1>Pair.java</h1><pre class="source lang-java linenums">package site.mtnsj.utils;
+
+/**
+ * Created by Eric on 2/24/2016.
+ */
+public class Pair&lt;First, Second&gt; {
+    private First first;
+    private Second second;
+
+<span class="nc" id="L10">    public Pair(First first, Second second) {</span>
+<span class="nc" id="L11">        this.first = first;</span>
+<span class="nc" id="L12">        this.second = second;</span>
+<span class="nc" id="L13">    }</span>
+
+    public void setFirst(First first) {
+<span class="nc" id="L16">        this.first = first;</span>
+<span class="nc" id="L17">    }</span>
+
+    public void setSecond(Second second) {
+<span class="nc" id="L20">        this.second = second;</span>
+<span class="nc" id="L21">    }</span>
+
+    public First getFirst() {
+<span class="nc" id="L24">        return first;</span>
+    }
+
+    public Second getSecond() {
+<span class="nc" id="L28">        return second;</span>
+    }
+
+    public void set(First first, Second second) {
+<span class="nc" id="L32">        setFirst(first);</span>
+<span class="nc" id="L33">        setSecond(second);</span>
+<span class="nc" id="L34">    }</span>
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L38" title="All 2 branches missed.">        if (this == o) return true;</span>
+<span class="nc bnc" id="L39" title="All 4 branches missed.">        if (o == null || getClass() != o.getClass()) return false;</span>
+
+<span class="nc" id="L41">        Pair pair = (Pair) o;</span>
+
+<span class="nc bnc" id="L43" title="All 6 branches missed.">        if (first != null ? !first.equals(pair.first) : pair.first != null) return false;</span>
+<span class="nc bnc" id="L44" title="All 6 branches missed.">        if (second != null ? !second.equals(pair.second) : pair.second != null) return false;</span>
+
+<span class="nc" id="L46">        return true;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        int result = first != null ? first.hashCode() : 0;</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        result = 31 * result + (second != null ? second.hashCode() : 0);</span>
+<span class="nc" id="L53">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

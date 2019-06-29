@@ -1,0 +1,54 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.LevelDBFullPrunedBlockChainTest
+-------------------------------------------------------------------------------
+Tests run: 7, Failures: 0, Errors: 7, Skipped: 0, Time elapsed: 0.989 sec <<< FAILURE! - in site.mtnsj.core.LevelDBFullPrunedBlockChainTest
+testFirst100KBlocks(site.mtnsj.core.LevelDBFullPrunedBlockChainTest)  Time elapsed: 0 sec  <<< ERROR!
+java.lang.NullPointerException
+
+testFinalizedBlocks(site.mtnsj.core.LevelDBFullPrunedBlockChainTest)  Time elapsed: 0.188 sec  <<< ERROR!
+site.mtnsj.core.VerificationException: 
+Could not verify block:
+ block: 
+   hash: 57f6fd9afe0d3f33c1dc4eb78ddf915e85732c4f67f17c019695e873bfe5e770
+   version: 1
+   previous block: 6de03fdf7a8db6579708dcb8796954f6803867707beedeada913fc60943a9cec
+   merkle root: f85ba6cda2ad636d938ea7c09399d7171b37a85958505731227317cc36ce0f7c
+   time: 1559093084 (2019-05-29T01:24:44Z)
+   difficulty target (nBits): 545259519
+   nonce: 0
+   with 1 transaction(s):
+  f85ba6cda2ad636d938ea7c09399d7171b37a85958505731227317cc36ce0f7c
+     == COINBASE TXN (scriptSig PUSHDATA(2)[5701])  (scriptPubKey PUSHDATA(33)[0308efbf808ce5d545b76cf485f3866b91e1872e43daf8bafa4a4165d8fa6c44d8] CHECKSIG)
+
+Caused by: site.mtnsj.core.VerificationException: Transaction fees out of range
+
+missingHeightFromCoinbase(site.mtnsj.core.LevelDBFullPrunedBlockChainTest)  Time elapsed: 0.132 sec  <<< ERROR!
+java.lang.RuntimeException: Can not open DB
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+Caused by: org.fusesource.leveldbjni.internal.NativeDB$DBException: IO error: lock /mnt/c/deps/wallet/MTNSj/core/test-leveldb/LOCK: already held by process
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+
+testGetOpenTransactionOutputs(site.mtnsj.core.LevelDBFullPrunedBlockChainTest)  Time elapsed: 0.129 sec  <<< ERROR!
+java.lang.RuntimeException: Can not open DB
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+Caused by: org.fusesource.leveldbjni.internal.NativeDB$DBException: IO error: lock /mnt/c/deps/wallet/MTNSj/core/test-leveldb/LOCK: already held by process
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+
+skipScripts(site.mtnsj.core.LevelDBFullPrunedBlockChainTest)  Time elapsed: 0.134 sec  <<< ERROR!
+java.lang.RuntimeException: Can not open DB
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+Caused by: org.fusesource.leveldbjni.internal.NativeDB$DBException: IO error: lock /mnt/c/deps/wallet/MTNSj/core/test-leveldb/LOCK: already held by process
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+
+testGeneratedChain(site.mtnsj.core.LevelDBFullPrunedBlockChainTest)  Time elapsed: 0.381 sec  <<< ERROR!
+java.lang.RuntimeException: Can not open DB
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+Caused by: org.fusesource.leveldbjni.internal.NativeDB$DBException: IO error: lock /mnt/c/deps/wallet/MTNSj/core/test-leveldb/LOCK: already held by process
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+
+testUTXOProviderWithWallet(site.mtnsj.core.LevelDBFullPrunedBlockChainTest)  Time elapsed: 0.025 sec  <<< ERROR!
+java.lang.RuntimeException: Can not open DB
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+Caused by: org.fusesource.leveldbjni.internal.NativeDB$DBException: IO error: lock /mnt/c/deps/wallet/MTNSj/core/test-leveldb/LOCK: already held by process
+	at site.mtnsj.core.LevelDBFullPrunedBlockChainTest.createStore(LevelDBFullPrunedBlockChainTest.java:40)
+

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>AbstractManager.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">AbstractManager.java</span></div><h1>AbstractManager.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+
+import static com.google.common.base.Preconditions.checkState;
+
+/**
+ * Created by Hash Engineering on 6/21/2016.
+ * modified OmotenashiCoin Project by kani
+ */
+public abstract class AbstractManager extends Message {
+
+    Context context;
+    public AbstractManager(Context context)
+    {
+<span class="nc" id="L15">        super(context.getParams());</span>
+<span class="nc" id="L16">        this.context = context;</span>
+<span class="nc" id="L17">    }</span>
+    public AbstractManager(NetworkParameters params, byte [] payload, int cursor)
+    {
+<span class="nc" id="L20">        super(params, payload, cursor);</span>
+<span class="nc" id="L21">    }</span>
+
+    public abstract int calculateMessageSizeInBytes();
+
+    public abstract void checkAndRemove();
+
+    public abstract void clear();
+
+    public void load(byte [] payload, int offset)
+    {
+<span class="nc" id="L31">        this.protocolVersion = params.getProtocolVersionNum(NetworkParameters.ProtocolVersion.CURRENT);</span>
+<span class="nc" id="L32">        this.payload = payload;</span>
+<span class="nc" id="L33">        this.cursor = this.offset = offset;</span>
+<span class="nc" id="L34">        this.length = payload.length;</span>
+        /*this.parsed = false;
+        if (parseLazy) {
+            parseLite();
+        } else {
+            parseLite();
+            parse();
+            parsed = true;
+        }*/
+
+<span class="nc bnc" id="L44" title="All 2 branches missed.">        if (this.length == UNKNOWN_LENGTH)</span>
+<span class="nc" id="L45">            checkState(false, &quot;Length field has not been set in constructor for %s after %s parse. &quot; +</span>
+                            &quot;Refer to Message.parseLite() for detail of required Length field contract.&quot;,
+<span class="nc" id="L47">                    getClass().getSimpleName(), /*parseLazy ? &quot;lite&quot; :*/ &quot;full&quot;);</span>
+
+        //if (parseRetain || !parsed)
+        //    return;
+<span class="nc" id="L51">        this.payload = null;</span>
+<span class="nc" id="L52">        parse();</span>
+<span class="nc" id="L53">    }</span>
+
+    public abstract AbstractManager createEmpty();
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

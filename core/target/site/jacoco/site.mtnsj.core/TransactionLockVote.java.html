@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>TransactionLockVote.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">TransactionLockVote.java</span></div><h1>TransactionLockVote.java</h1><pre class="source lang-java linenums">/**
+ * Copyright 2014 Hash Engineering Solutions
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package site.mtnsj.core;
+
+import org.darkcoinj.DarkSendSigner;
+import org.darkcoinj.InstantSend;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.Serializable;
+
+public class TransactionLockVote extends Message implements Serializable {
+
+<span class="nc" id="L29">    private static final Logger log = LoggerFactory.getLogger(TransactionLockVote.class);</span>
+
+    public Sha256Hash txHash;
+    TransactionOutPoint outpoint;
+    TransactionOutPoint outpointMasternode;
+    MasternodeSignature vchMasternodeSignature;
+    //public TransactionInput vinMasternode;
+
+    //local memory only
+    public int confirmedHeight;
+
+    public long getTimeCreated() {
+<span class="nc" id="L41">        return timeCreated;</span>
+    }
+
+    long timeCreated;
+
+
+    MasternodeManager masternodeManager;
+
+    //MasterNodeSystem system;
+
+    TransactionLockVote(NetworkParameters params, byte[] payload)
+    {
+<span class="nc" id="L53">        super(params, payload, 0);</span>
+      //  this.system = MasterNodeSystem.get();
+<span class="nc" id="L55">        masternodeManager = Context.get().masternodeManager;</span>
+<span class="nc" id="L56">    }</span>
+
+    protected static int calcLength(byte[] buf, int offset) {
+        VarInt varint;
+        // jump past version (uint32)
+<span class="nc" id="L61">        int cursor = offset;// + 4;</span>
+        // jump past the txHash
+<span class="nc" id="L63">        cursor += 32 ;</span>
+        //vinMasternode TransactionInput
+<span class="nc" id="L65">        cursor += 36;</span>
+<span class="nc" id="L66">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L67">        long scriptLen = varint.value;</span>
+        // 4 = length of sequence field (unint32)
+<span class="nc" id="L69">        cursor += scriptLen + 4 + varint.getOriginalSizeInBytes();</span>
+
+        //vchMasternodeSignature
+<span class="nc" id="L72">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L73">        long size = varint.value;</span>
+<span class="nc" id="L74">        cursor += varint.getOriginalSizeInBytes();</span>
+<span class="nc" id="L75">        cursor += size;</span>
+
+        //blockHeight
+<span class="nc" id="L78">        cursor += 4;</span>
+
+
+<span class="nc" id="L81">        return cursor - offset;</span>
+    }
+    @Override
+    protected void parse() throws ProtocolException {
+
+<span class="nc" id="L86">        cursor = offset;</span>
+
+<span class="nc" id="L88">        txHash = readHash();</span>
+
+<span class="nc" id="L90">        outpoint = new TransactionOutPoint(params, payload, cursor);</span>
+<span class="nc" id="L91">        cursor += outpoint.getMessageSize();</span>
+
+<span class="nc" id="L93">        outpointMasternode = new TransactionOutPoint(params, payload, cursor);</span>
+<span class="nc" id="L94">        cursor+= outpointMasternode.getMessageSize();</span>
+
+<span class="nc" id="L96">        vchMasternodeSignature = new MasternodeSignature(params, payload, cursor);</span>
+<span class="nc" id="L97">        cursor += vchMasternodeSignature.getMessageSize();</span>
+
+<span class="nc" id="L99">        confirmedHeight = -1;</span>
+<span class="nc" id="L100">        timeCreated = Utils.currentTimeSeconds();</span>
+
+<span class="nc" id="L102">        length = cursor - offset;</span>
+
+
+<span class="nc" id="L105">    }</span>
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+
+<span class="nc" id="L109">        stream.write(txHash.getBytes()); //writes 32</span>
+
+<span class="nc" id="L111">        outpoint.bitcoinSerialize(stream);</span>
+<span class="nc" id="L112">        outpointMasternode.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L114">        stream.write(new VarInt(vchMasternodeSignature.length).encode());</span>
+<span class="nc" id="L115">        vchMasternodeSignature.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L117">    }</span>
+
+    public String toString()
+    {
+<span class="nc" id="L121">        return &quot;TransactionLockVote: tx: &quot; + txHash +</span>
+                &quot;height: &quot; + confirmedHeight;
+    }
+
+    public long getHeight()
+<span class="nc" id="L126">    {return confirmedHeight;}</span>
+
+
+    public Sha256Hash getHash()
+    {
+        try {
+<span class="nc" id="L132">            UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream();</span>
+<span class="nc" id="L133">            bos.write(txHash.getBytes());</span>
+<span class="nc" id="L134">            outpoint.bitcoinSerialize(bos);</span>
+<span class="nc" id="L135">            outpointMasternode.bitcoinSerialize(bos);</span>
+
+<span class="nc" id="L137">            return Sha256Hash.twiceOf(bos.toByteArray());</span>
+        }
+<span class="nc" id="L139">        catch(IOException x)</span>
+        {
+<span class="nc" id="L141">            return Sha256Hash.ZERO_HASH;</span>
+        }
+    }
+
+    public boolean isValid(Peer peer)
+    {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if(Context.get().isLiteMode())</span>
+<span class="nc" id="L148">            return true;</span>
+
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if(!masternodeManager.has(outpointMasternode)) {</span>
+<span class="nc" id="L151">            log.info(&quot;instantsend--CTxLockVote::IsValid -- Unknown masternode &quot;+ outpointMasternode.toStringCpp());</span>
+<span class="nc" id="L152">            masternodeManager.askForMN(peer, outpointMasternode);</span>
+<span class="nc" id="L153">            return false;</span>
+        }
+
+        /*int nPrevoutHeight = GetUTXOHeight(outpoint);
+        if(nPrevoutHeight == -1) {
+            LogPrint(&quot;instantsend&quot;, &quot;CTxLockVote::IsValid -- Failed to find UTXO %s\n&quot;, outpoint.ToStringShort());
+            // Validating utxo set is not enough, votes can arrive after outpoint was already spent,
+            // if lock request was mined. We should process them too to count them later if they are legit.
+            CTransaction txOutpointCreated;
+            uint256 nHashOutpointConfirmed;
+            if(!GetTransaction(outpoint.hash, txOutpointCreated, Params().GetConsensus(), nHashOutpointConfirmed, true) || nHashOutpointConfirmed == uint256()) {
+                LogPrint(&quot;instantsend&quot;, &quot;CTxLockVote::IsValid -- Failed to find outpoint %s\n&quot;, outpoint.ToStringShort());
+                return false;
+            }
+            LOCK(cs_main);
+            BlockMap::iterator mi = mapBlockIndex.find(nHashOutpointConfirmed);
+            if(mi == mapBlockIndex.end() || !mi-&gt;second) {
+                // not on this chain?
+                LogPrint(&quot;instantsend&quot;, &quot;CTxLockVote::IsValid -- Failed to find block %s for outpoint %s\n&quot;, nHashOutpointConfirmed.ToString(), outpoint.ToStringShort());
+                return false;
+            }
+            nPrevoutHeight = mi-&gt;second-&gt;nHeight;
+        }
+
+        int nLockInputHeight = nPrevoutHeight + 4;
+
+        int n = mnodeman.GetMasternodeRank(CTxIn(outpointMasternode), nLockInputHeight, MIN_INSTANTSEND_PROTO_VERSION);
+
+        if(n == -1) {
+            //can be caused by past versions trying to vote with an invalid protocol
+            LogPrint(&quot;instantsend&quot;, &quot;CTxLockVote::IsValid -- Outdated masternode %s\n&quot;, outpointMasternode.ToStringShort());
+            return false;
+        }
+        LogPrint(&quot;instantsend&quot;, &quot;CTxLockVote::IsValid -- Masternode %s, rank=%d\n&quot;, outpointMasternode.ToStringShort(), n);
+
+        int nSignaturesTotal = COutPointLock::SIGNATURES_TOTAL;
+        if(n &gt; nSignaturesTotal) {
+            LogPrint(&quot;instantsend&quot;, &quot;CTxLockVote::IsValid -- Masternode %s is not in the top %d (%d), vote hash=%s\n&quot;,
+                    outpointMasternode.ToStringShort(), nSignaturesTotal, n, GetHash().ToString());
+            return false;
+        }
+*/
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        if(!checkSignature()) {</span>
+<span class="nc" id="L196">            log.info(&quot;CTxLockVote::IsValid -- Signature invalid&quot;);</span>
+<span class="nc" id="L197">            return false;</span>
+        }
+
+<span class="nc" id="L200">        return true;</span>
+    }
+
+    boolean checkSignature()
+    {
+<span class="nc" id="L205">        StringBuilder errorMessage = new StringBuilder();</span>
+<span class="nc" id="L206">        String strMessage = txHash.toString() + outpoint.toStringCpp();</span>
+
+<span class="nc" id="L208">        MasternodeInfo infoMn = masternodeManager.getMasternodeInfo(outpointMasternode);</span>
+
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        if(!infoMn.fInfoValid) {</span>
+<span class="nc" id="L211">            log.info(&quot;CTxLockVote::CheckSignature -- Unknown Masternode: masternode=&quot;+ outpointMasternode.toString());</span>
+<span class="nc" id="L212">            return false;</span>
+        }
+
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        if(!DarkSendSigner.verifyMessage(infoMn.pubKeyMasternode, vchMasternodeSignature, strMessage, errorMessage)) {</span>
+<span class="nc" id="L216">            log.info(&quot;CTxLockVote::CheckSignature -- VerifyMessage() failed, error: &quot;+  errorMessage);</span>
+<span class="nc" id="L217">            return false;</span>
+        }
+
+<span class="nc" id="L220">        return true;</span>
+    }
+<span class="nc" id="L222">    public Sha256Hash getTxHash() { return txHash; }</span>
+<span class="nc" id="L223">    public TransactionOutPoint getOutpointMasternode() { return outpointMasternode; }</span>
+<span class="nc" id="L224">    public TransactionOutPoint getOutpoint() { return outpoint; }</span>
+
+<span class="nc" id="L226">    public void setConfirmedHeight(int confirmedHeight) { this.confirmedHeight = confirmedHeight; }</span>
+
+
+    public boolean isExpired(int height)
+    {
+        // Locks and votes expire nInstantSendKeepLock blocks after the block corresponding tx was included into.
+<span class="nc bnc" id="L232" title="All 4 branches missed.">        return (confirmedHeight != -1) &amp;&amp; (height - confirmedHeight &gt; InstantSend.nInstantSendKeepLock);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

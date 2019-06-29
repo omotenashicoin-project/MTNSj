@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MD2.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">MD2.java</span></div><h1>MD2.java</h1><pre class="source lang-java linenums">// $Id: MD2.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the MD2 digest algorithm under the {@link
+ * Digest} API, using the {@link DigestEngine} class. MD4 is described
+ * in RFC 1319.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class MD2 extends DigestEngine {
+
+	/**
+	 * Create the object.
+	 */
+	public MD2()
+<span class="nc" id="L47">	{</span>
+<span class="nc" id="L48">	}</span>
+
+	/** Internal &quot;magic&quot; table. */
+<span class="nc" id="L51">	private static final int[] S = {</span>
+		 41,  46,  67, 201, 162, 216, 124,   1,
+		 61,  54,  84, 161, 236, 240,   6,  19,
+		 98, 167,   5, 243, 192, 199, 115, 140,
+		152, 147,  43, 217, 188,  76, 130, 202,
+		 30, 155,  87,  60, 253, 212, 224,  22,
+		103,  66, 111,  24, 138,  23, 229,  18,
+		190,  78, 196, 214, 218, 158, 222,  73,
+		160, 251, 245, 142, 187,  47, 238, 122,
+		169, 104, 121, 145,  21, 178,   7,  63,
+		148, 194,  16, 137,  11,  34,  95,  33,
+		128, 127,  93, 154,  90, 144,  50,  39,
+		 53,  62, 204, 231, 191, 247, 151,   3,
+		255,  25,  48, 179,  72, 165, 181, 209,
+		215,  94, 146,  42, 172,  86, 170, 198,
+		 79, 184,  56, 210, 150, 164, 125, 182,
+		118, 252, 107, 226, 156, 116,   4, 241,
+		 69, 157, 112,  89, 100, 113, 135,  32,
+		134,  91, 207, 101, 230,  45, 168,   2,
+		 27,  96,  37, 173, 174, 176, 185, 246,
+		 28,  70,  97, 105,  52,  64, 126,  15,
+		 85,  71, 163,  35, 221,  81, 175,  58,
+		195,  92, 249, 206, 186, 197, 234,  38,
+		 44,  83,  13, 110, 133,  40, 132,   9,
+		211, 223, 205, 244,  65, 129,  77,  82,
+		106, 220,  55, 200, 108, 193, 171, 250,
+		 36, 225, 123,   8,  12, 189, 177,  74,
+		120, 136, 149, 139, 227,  99, 232, 109,
+		233, 203, 213, 254,  59,   0,  29,  57,
+		242, 239, 183,  14, 102,  88, 208, 228,
+		166, 119, 114, 248, 235, 117,  75,  10,
+		 49,  68,  80, 180, 143, 237,  31,  26,
+		219, 153, 141,  51, 159,  17, 131,  20
+	};
+
+	private int[] X, C;
+	private byte[] D;
+	private int L;
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L93">		MD2 d = new MD2();</span>
+<span class="nc" id="L94">		System.arraycopy(X, 0, d.X, 0, X.length);</span>
+<span class="nc" id="L95">		System.arraycopy(C, 0, d.C, 0, C.length);</span>
+<span class="nc" id="L96">		d.L = L;</span>
+<span class="nc" id="L97">		return copyState(d);</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L103">		return 16;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L109">		return 16;</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc bnc" id="L115" title="All 2 branches missed.">		for (int i = 0; i &lt; 16; i ++) {</span>
+<span class="nc" id="L116">			X[i] = 0;</span>
+<span class="nc" id="L117">			C[i] = 0;</span>
+		}
+<span class="nc" id="L119">		L = 0;</span>
+<span class="nc" id="L120">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L125">		int pending = flush();</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">		for (int i = 0; i &lt; (16 - pending); i ++)</span>
+<span class="nc" id="L127">			update((byte)(16 - pending));</span>
+<span class="nc" id="L128">		flush();</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		for (int i = 0; i &lt; 16; i ++)</span>
+<span class="nc" id="L130">			D[i] = (byte)(C[i]);</span>
+<span class="nc" id="L131">		processBlock(D);</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">		for (int i = 0; i &lt; 16; i ++)</span>
+<span class="nc" id="L133">			output[outputOffset + i] = (byte)(X[i]);</span>
+<span class="nc" id="L134">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L139">		X = new int[48];</span>
+<span class="nc" id="L140">		C = new int[16];</span>
+<span class="nc" id="L141">		D = new byte[16];</span>
+<span class="nc" id="L142">		engineReset();</span>
+<span class="nc" id="L143">	}</span>
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc" id="L148">		int tL = L;</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">		for (int i = 0; i &lt; 16; i ++) {</span>
+<span class="nc" id="L150">			int u = data[i] &amp; 0xFF;</span>
+<span class="nc" id="L151">			X[16 + i] = u;</span>
+<span class="nc" id="L152">			X[32 + i] = X[i] ^ u;</span>
+<span class="nc" id="L153">			tL = (C[i] ^= S[u ^ tL]);</span>
+		}
+<span class="nc" id="L155">		L = tL;</span>
+<span class="nc" id="L156">		int t = 0;</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">		for (int j = 0; j &lt; 18; j ++) {</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">			for (int k = 0; k &lt; 48; k += 8) {</span>
+<span class="nc" id="L159">				t = (X[k + 0] ^= S[t]);</span>
+<span class="nc" id="L160">				t = (X[k + 1] ^= S[t]);</span>
+<span class="nc" id="L161">				t = (X[k + 2] ^= S[t]);</span>
+<span class="nc" id="L162">				t = (X[k + 3] ^= S[t]);</span>
+<span class="nc" id="L163">				t = (X[k + 4] ^= S[t]);</span>
+<span class="nc" id="L164">				t = (X[k + 5] ^= S[t]);</span>
+<span class="nc" id="L165">				t = (X[k + 6] ^= S[t]);</span>
+<span class="nc" id="L166">				t = (X[k + 7] ^= S[t]);</span>
+			}
+<span class="nc" id="L168">			t = (t + j) &amp; 0xFF;</span>
+		}
+<span class="nc" id="L170">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L175">		return &quot;MD2&quot;;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

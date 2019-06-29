@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Speed.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash.test</a> &gt; <span class="el_source">Speed.java</span></div><h1>Speed.java</h1><pre class="source lang-java linenums">// $Id: Speed.java 229 2010-06-16 20:22:27Z tp $
+
+package fr.cryptohash.test;
+
+import fr.cryptohash.Digest;
+
+import java.util.Hashtable;
+import java.util.Vector;
+
+/**
+ * &lt;p&gt;This class implements some speed tests for hash functions.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 229 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+<span class="nc" id="L44">public class Speed {</span>
+
+	/*
+	 * Each entry in the FUNS and FUNS_SHA3 arrays consists in two
+	 * consecutive names. The first name is the one which is matched
+	 * with the command-line arguments. The second name is the
+	 * corresponding class name. If the second name contains a comma,
+	 * then this is a SHA-3-like class with four acceptable output
+	 * sizes (224, 256, 384 and 512 bits); the comma separated list
+	 * of suffixes indicates those sizes which are relevant.
+	 *
+	 * Matched functions should be benchmarked in array order (FUNS
+	 * first, then FUNS_SHA3).
+	 */
+
+<span class="nc" id="L59">	private static final String[] FUNS = {</span>
+		&quot;haval3&quot;,        &quot;HAVAL256_3&quot;,
+		&quot;haval4&quot;,        &quot;HAVAL256_4&quot;,
+		&quot;haval5&quot;,        &quot;HAVAL256_5&quot;,
+		&quot;md2&quot;,           &quot;MD2&quot;,
+		&quot;md4&quot;,           &quot;MD4&quot;,
+		&quot;md5&quot;,           &quot;MD5&quot;,
+		&quot;panama&quot;,        &quot;PANAMA&quot;,
+		&quot;radiogatun32&quot;,  &quot;RadioGatun32&quot;,
+		&quot;radiogatun64&quot;,  &quot;RadioGatun64&quot;,
+		&quot;ripemd&quot;,        &quot;RIPEMD&quot;,
+		&quot;ripemd128&quot;,     &quot;RIPEMD128&quot;,
+		&quot;ripemd160&quot;,     &quot;RIPEMD160&quot;,
+		&quot;sha0&quot;,          &quot;SHA0&quot;,
+		&quot;sha1&quot;,          &quot;SHA1&quot;,
+		&quot;sha&quot;,           &quot;SHA,256,512&quot;,
+		&quot;tiger&quot;,         &quot;Tiger&quot;,
+		&quot;whirlpool&quot;,     &quot;Whirlpool&quot;
+	};
+
+<span class="nc" id="L79">	private static final String[] FUNS_SHA3 = {</span>
+		&quot;blake&quot;,      &quot;BLAKE,256,512&quot;,
+		&quot;bmw&quot;,        &quot;BMW,256,512&quot;,
+		&quot;cubehash&quot;,   &quot;CubeHash,512&quot;,
+		&quot;echo&quot;,       &quot;ECHO,256,512&quot;,
+		&quot;fugue&quot;,      &quot;Fugue,256,384,512&quot;,
+		&quot;groestl&quot;,    &quot;Groestl,256,512&quot;,
+		&quot;hamsi&quot;,      &quot;Hamsi,256,512&quot;,
+		&quot;jh&quot;,         &quot;JH,512&quot;,
+		&quot;keccak&quot;,     &quot;Keccak,224,256,384,512&quot;,
+		&quot;luffa&quot;,      &quot;Luffa,256,384,512&quot;,
+		&quot;shabal&quot;,     &quot;Shabal,512&quot;,
+		&quot;shavite&quot;,    &quot;SHAvite,256,512&quot;,
+		&quot;simd&quot;,       &quot;SIMD,256,512&quot;,
+		&quot;skein&quot;,      &quot;Skein,256,512&quot;
+	};
+
+<span class="nc" id="L96">	private static final Hashtable NAME_TO_CLASSNAMES = new Hashtable();</span>
+<span class="nc" id="L97">	private static final Vector ORDERED_CLASSNAMES = new Vector();</span>
+
+	private static void addFun(String name, String cspec,
+		Vector sha3classes)
+	{
+<span class="nc" id="L102">		int n = cspec.indexOf(',');</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">		if (n &lt; 0) {</span>
+<span class="nc" id="L104">			NAME_TO_CLASSNAMES.put(name, cspec);</span>
+<span class="nc" id="L105">			ORDERED_CLASSNAMES.addElement(cspec);</span>
+		} else {
+<span class="nc" id="L107">			String base = cspec.substring(0, n);</span>
+<span class="nc" id="L108">			NAME_TO_CLASSNAMES.put(name + &quot;224&quot;, base + &quot;224&quot;);</span>
+<span class="nc" id="L109">			ORDERED_CLASSNAMES.addElement(base + &quot;224&quot;);</span>
+<span class="nc" id="L110">			NAME_TO_CLASSNAMES.put(name + &quot;256&quot;, base + &quot;256&quot;);</span>
+<span class="nc" id="L111">			ORDERED_CLASSNAMES.addElement(base + &quot;256&quot;);</span>
+<span class="nc" id="L112">			NAME_TO_CLASSNAMES.put(name + &quot;384&quot;, base + &quot;384&quot;);</span>
+<span class="nc" id="L113">			ORDERED_CLASSNAMES.addElement(base + &quot;384&quot;);</span>
+<span class="nc" id="L114">			NAME_TO_CLASSNAMES.put(name + &quot;512&quot;, base + &quot;512&quot;);</span>
+<span class="nc" id="L115">			ORDERED_CLASSNAMES.addElement(base + &quot;512&quot;);</span>
+<span class="nc" id="L116">			int len = cspec.length();</span>
+<span class="nc" id="L117">			StringBuffer sb = new StringBuffer();</span>
+<span class="nc" id="L118">			n ++;</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">			while (n &lt; len) {</span>
+<span class="nc" id="L120">				int p = cspec.indexOf(',', n);</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">				if (p &lt; 0)</span>
+<span class="nc" id="L122">					p = len;</span>
+<span class="nc" id="L123">				String suffix = cspec.substring(n, p);</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">				if (sb.length() &gt; 0)</span>
+<span class="nc" id="L125">					sb.append(',');</span>
+<span class="nc" id="L126">				String cname = base + suffix;</span>
+<span class="nc" id="L127">				sb.append(cname);</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">				if (sha3classes != null)</span>
+<span class="nc" id="L129">					sha3classes.addElement(cname);</span>
+<span class="nc" id="L130">				n = p + 1;</span>
+<span class="nc" id="L131">			}</span>
+<span class="nc" id="L132">			String ac = sb.toString();</span>
+<span class="nc" id="L133">			NAME_TO_CLASSNAMES.put(name, ac);</span>
+		}
+<span class="nc" id="L135">	}</span>
+
+<span class="nc" id="L137">	private static final Vector SHA3_CLASSES = new Vector();</span>
+
+	static {
+<span class="nc bnc" id="L140" title="All 2 branches missed.">		for (int i = 0; i &lt; FUNS.length; i += 2)</span>
+<span class="nc" id="L141">			addFun(FUNS[i], FUNS[i + 1], null);</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">		for (int i = 0; i &lt; FUNS_SHA3.length; i += 2)</span>
+<span class="nc" id="L143">			addFun(FUNS_SHA3[i], FUNS_SHA3[i + 1], SHA3_CLASSES);</span>
+	}
+
+	/*
+	 * FUNS_ALIAS contains mappings from alternate command-line names
+	 * to one of the matched names defined in FUNS and FUNS_SHA3.
+	 */
+
+<span class="nc" id="L151">	private static final String[] FUNS_ALIAS = {</span>
+		&quot;rmd&quot;,        &quot;ripemd&quot;,
+		&quot;rmd128&quot;,     &quot;ripemd128&quot;,
+		&quot;rmd160&quot;,     &quot;ripemd160&quot;,
+		&quot;sha2&quot;,       &quot;sha&quot;,
+		&quot;shavite3&quot;,   &quot;shavite&quot;
+	};
+
+<span class="nc" id="L159">	private static final Hashtable ALIASES = new Hashtable();</span>
+	static {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">		for (int i = 0; i &lt; FUNS_ALIAS.length; i += 2)</span>
+<span class="nc" id="L162">			ALIASES.put(FUNS_ALIAS[i], FUNS_ALIAS[i + 1]);</span>
+<span class="nc" id="L163">	}</span>
+
+	/**
+	 * Program entry point. The arguments should be function names,
+	 * for which speed is measured. If no argument is given, then
+	 * all implemented functions are benchmarked.
+	 *
+	 * @param args   the program arguments
+	 * @throws Exception  on (internal) error
+	 */
+	public static void main(String[] args)
+		throws Exception
+	{
+<span class="nc" id="L176">		Hashtable todo = new Hashtable();</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">		for (int i = 0; i &lt; args.length; i ++) {</span>
+<span class="nc" id="L178">			String s = normalize(args[i]);</span>
+<span class="nc" id="L179">			String t = (String)ALIASES.get(s);</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">			if (t != null)</span>
+<span class="nc" id="L181">				s = t;</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">			if (s.equals(&quot;sha3&quot;)) {</span>
+<span class="nc" id="L183">				int n = SHA3_CLASSES.size();</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">				for (int j = 0; j &lt; n; j ++)</span>
+<span class="nc" id="L185">					todo.put(SHA3_CLASSES.elementAt(j), &quot;&quot;);</span>
+<span class="nc" id="L186">			} else {</span>
+<span class="nc" id="L187">				String cns = (String)NAME_TO_CLASSNAMES.get(s);</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">				if (cns == null)</span>
+<span class="nc" id="L189">					usage(args[i]);</span>
+<span class="nc" id="L190">				int n = 0;</span>
+				for (;;) {
+<span class="nc" id="L192">					int p = cns.indexOf(',', n);</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">					String cn = cns.substring(n,</span>
+<span class="nc" id="L194">						(p &lt; 0) ? cns.length() : p);</span>
+<span class="nc" id="L195">					todo.put(cn, &quot;&quot;);</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">					if (p &lt; 0) </span>
+<span class="nc" id="L197">						break;</span>
+<span class="nc" id="L198">					n = p + 1;</span>
+<span class="nc" id="L199">				}</span>
+			}
+		}
+
+<span class="nc bnc" id="L203" title="All 2 branches missed.">		boolean all = (todo.size() == 0);</span>
+
+<span class="nc" id="L205">		int n = ORDERED_CLASSNAMES.size();</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">		for (int i = 0; i &lt; n; i ++) {</span>
+<span class="nc" id="L207">			String cn = (String)ORDERED_CLASSNAMES.elementAt(i);</span>
+<span class="nc bnc" id="L208" title="All 4 branches missed.">			if (!all &amp;&amp; !todo.containsKey(cn))</span>
+<span class="nc" id="L209">				continue;</span>
+<span class="nc" id="L210">			Digest d = (Digest)Class.forName(</span>
+<span class="nc" id="L211">				&quot;fr.cryptohash.&quot; + cn).newInstance();</span>
+<span class="nc" id="L212">			speed(d.toString(), d);</span>
+		}
+<span class="nc" id="L214">	}</span>
+
+	private static String normalize(String name)
+	{
+<span class="nc" id="L218">		name = name.toLowerCase();</span>
+<span class="nc" id="L219">		StringBuffer sb = new StringBuffer();</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">		for (int i = 0; i &lt; name.length(); i ++) {</span>
+<span class="nc" id="L221">			char c = name.charAt(i);</span>
+<span class="nc bnc" id="L222" title="All 4 branches missed.">			if (c != '-' &amp;&amp; c != '/')</span>
+<span class="nc" id="L223">				sb.append(c);</span>
+		}
+<span class="nc" id="L225">		return sb.toString();</span>
+	}
+
+	private static void usage(String name)
+	{
+<span class="nc" id="L230">		System.err.println(&quot;unknown hash function name: '&quot;</span>
+			+ name + &quot;'&quot;);
+<span class="nc" id="L232">		System.exit(1);</span>
+<span class="nc" id="L233">	}</span>
+
+	private static void speed(String name, Digest dig)
+	{
+<span class="nc" id="L237">		System.out.println(&quot;Speed test: &quot; + name);</span>
+<span class="nc" id="L238">		byte[] buf = new byte[8192];</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">		for (int i = 0; i &lt; buf.length; i ++)</span>
+<span class="nc" id="L240">			buf[i] = 'a';</span>
+<span class="nc" id="L241">		int dlen = dig.getDigestLength();</span>
+<span class="nc" id="L242">		int j = 0;</span>
+<span class="nc" id="L243">		long num = 2L;</span>
+<span class="nc" id="L244">		for (int clen = 16;; clen &lt;&lt;= 2) {</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">			if (clen == 4096) {</span>
+<span class="nc" id="L246">				clen = 8192;</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">				if (num &gt; 1L)</span>
+<span class="nc" id="L248">					num &gt;&gt;= 1;</span>
+			}
+			long tt;
+			for (;;) {
+<span class="nc" id="L252">				tt = speedUnit(dig, j, buf, clen, num);</span>
+<span class="nc" id="L253">				j += dlen;</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">				if (j &gt; (buf.length - dlen))</span>
+<span class="nc" id="L255">					j = 0;</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">				if (tt &gt; 6000L) {</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">					if (num &lt;= 1L)</span>
+<span class="nc" id="L258">						break;</span>
+<span class="nc" id="L259">					num &gt;&gt;= 1L;</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">				} else if (tt &lt; 2000L) {</span>
+<span class="nc" id="L261">					num += num;</span>
+				} else {
+					break;
+				}
+			}
+<span class="nc" id="L266">			long tlen = (long)clen * num;</span>
+<span class="nc" id="L267">			long div = 10L * tt;</span>
+<span class="nc" id="L268">			long rate = (tlen + (div - 1) / 2) / div;</span>
+<span class="nc" id="L269">			System.out.println(&quot;message length = &quot;</span>
+<span class="nc" id="L270">				+ formatLong((long)clen, 5)</span>
+				+ &quot; -&gt; &quot;
+<span class="nc" id="L272">				+ prependSpaces(Long.toString(rate / 100L), 4)</span>
+				+ &quot;.&quot;
+<span class="nc" id="L274">				+ prependZeroes(Long.toString(rate % 100L), 2)</span>
+				+ &quot; MBytes/s&quot;);
+<span class="nc bnc" id="L276" title="All 2 branches missed.">			if (clen == 8192) {</span>
+<span class="nc" id="L277">				tt = speedLong(dig, buf, clen, num);</span>
+<span class="nc" id="L278">				tlen = (long)clen * num;</span>
+<span class="nc" id="L279">				div = 10L * tt;</span>
+<span class="nc" id="L280">				rate = (tlen + (div - 1) / 2) / div;</span>
+<span class="nc" id="L281">				System.out.println(&quot;long messages          -&gt; &quot;</span>
+<span class="nc" id="L282">					+ prependSpaces(</span>
+<span class="nc" id="L283">						Long.toString(rate / 100L), 4)</span>
+					+ &quot;.&quot;
+<span class="nc" id="L285">					+ prependZeroes(</span>
+<span class="nc" id="L286">						Long.toString(rate % 100L), 2)</span>
+					+ &quot; MBytes/s&quot;);
+<span class="nc" id="L288">				break;</span>
+			}
+<span class="nc bnc" id="L290" title="All 2 branches missed.">			if (num &gt; 4L)</span>
+<span class="nc" id="L291">				num &gt;&gt;= 2;</span>
+		}
+<span class="nc" id="L293">	}</span>
+
+	private static long speedUnit(Digest dig, int j,
+		byte[] buf, int len, long num)
+	{
+<span class="nc" id="L298">		int dlen = dig.getDigestLength();</span>
+<span class="nc" id="L299">		long orig = System.currentTimeMillis();</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">		while (num -- &gt; 0) {</span>
+<span class="nc" id="L301">			dig.update(buf, 0, len);</span>
+<span class="nc" id="L302">			dig.digest(buf, j, dlen);</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">			if ((j += dlen) &gt; (buf.length - dlen))</span>
+<span class="nc" id="L304">				j = 0;</span>
+		}
+<span class="nc" id="L306">		long end = System.currentTimeMillis();</span>
+<span class="nc" id="L307">		return end - orig;</span>
+	}
+
+	private static long speedLong(Digest dig, byte[] buf, int len, long num)
+	{
+<span class="nc" id="L312">		byte[] out = new byte[dig.getDigestLength()];</span>
+<span class="nc" id="L313">		long orig = System.currentTimeMillis();</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">		while (num -- &gt; 0) {</span>
+<span class="nc" id="L315">			dig.update(buf, 0, len);</span>
+		}
+<span class="nc" id="L317">		long end = System.currentTimeMillis();</span>
+<span class="nc" id="L318">		dig.digest(out, 0, out.length);</span>
+<span class="nc" id="L319">		return end - orig;</span>
+	}
+
+	private static String formatLong(long num, int len)
+	{
+<span class="nc" id="L324">		return prependSpaces(Long.toString(num), len);</span>
+	}
+
+	private static String prependSpaces(String s, int len)
+	{
+<span class="nc" id="L329">		return prependChar(s, ' ', len);</span>
+	}
+
+	private static String prependZeroes(String s, int len)
+	{
+<span class="nc" id="L334">		return prependChar(s, '0', len);</span>
+	}
+
+	private static String prependChar(String s, char c, int len)
+	{
+<span class="nc" id="L339">		int slen = s.length();</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">		if (slen &gt;= len)</span>
+<span class="nc" id="L341">			return s;</span>
+<span class="nc" id="L342">		StringBuffer sb = new StringBuffer();</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">		while (len -- &gt; slen)</span>
+<span class="nc" id="L344">			sb.append(c);</span>
+<span class="nc" id="L345">		sb.append(s);</span>
+<span class="nc" id="L346">		return sb.toString();</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

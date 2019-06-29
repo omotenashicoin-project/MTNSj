@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasterNodeVote.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">MasterNodeVote.java</span></div><h1>MasterNodeVote.java</h1><pre class="source lang-java linenums">/**
+ * Copyright 2014 Hash Engineering Solutions
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package site.mtnsj.core;
+
+import site.mtnsj.script.Script;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.Serializable;
+
+import static site.mtnsj.core.Utils.int64ToByteStreamLE;
+import static site.mtnsj.core.Utils.uint32ToByteStreamLE;
+
+public class MasterNodeVote  extends ChildMessage implements Serializable {
+    public int votes;
+    public Script pubkey;
+    int version;
+    boolean setPubkey;
+
+    long blockHeight;
+
+    static final int CURRENT_VERSION=1;
+
+    private transient int optimalEncodingMessageSize;
+
+    MasterNodeVote()
+<span class="nc" id="L40">    {</span>
+<span class="nc" id="L41">        version = CURRENT_VERSION;</span>
+<span class="nc" id="L42">        votes = 0;</span>
+<span class="nc" id="L43">        pubkey = null;</span>
+<span class="nc" id="L44">        blockHeight = 0;</span>
+<span class="nc" id="L45">    }</span>
+    /*MasterNodeVote(NetworkParameters params, byte [] bytes, int cursor, Message parent, boolean parseLazy, boolean parseRetain, int length)
+    {
+        super(params, bytes, cursor, parent, parseLazy, parseRetain, length);
+    }*/
+
+
+    protected static int calcLength(byte[] buf, int offset) {
+        VarInt varint;
+        // jump past version (uint32)
+<span class="nc" id="L55">        int cursor = offset;// + 4;</span>
+        // jump past the block heignt (uint64)
+<span class="nc" id="L57">        cursor += 8;</span>
+
+        int i;
+        long scriptLen;
+
+<span class="nc" id="L62">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L63">        long sizeScript = varint.value;</span>
+<span class="nc" id="L64">        cursor += varint.getOriginalSizeInBytes();</span>
+<span class="nc" id="L65">        cursor += sizeScript;</span>
+
+
+        // 4 = length of number votes (uint32)
+<span class="nc" id="L69">        return cursor - offset + 4;</span>
+    }
+    @Override
+    protected void parse() throws ProtocolException {
+
+<span class="nc" id="L74">        cursor = offset;</span>
+<span class="nc" id="L75">        version = CURRENT_VERSION;</span>
+
+<span class="nc" id="L77">        blockHeight = readInt64();</span>
+<span class="nc" id="L78">        optimalEncodingMessageSize = 8;</span>
+
+
+<span class="nc" id="L81">        long scriptSize = readVarInt();</span>
+<span class="nc" id="L82">        optimalEncodingMessageSize += VarInt.sizeOf(scriptSize);</span>
+<span class="nc" id="L83">        byte [] scriptBytes = readBytes((int)scriptSize);</span>
+<span class="nc" id="L84">        pubkey = new Script(scriptBytes);</span>
+<span class="nc" id="L85">        optimalEncodingMessageSize += scriptSize;</span>
+
+<span class="nc" id="L87">        votes = (int)readUint32();</span>
+
+<span class="nc" id="L89">        optimalEncodingMessageSize += 4;</span>
+
+<span class="nc" id="L91">        length = cursor - offset;</span>
+
+
+<span class="nc" id="L94">    }</span>
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+        //uint32ToByteStreamLE(version, stream);
+<span class="nc" id="L98">        int64ToByteStreamLE(blockHeight, stream);</span>
+        //scrypt pubkey         //TODO: not finished
+<span class="nc" id="L100">        byte [] scriptBytes = pubkey.getProgram();</span>
+<span class="nc" id="L101">        stream.write(new VarInt(scriptBytes.length).encode());</span>
+<span class="nc" id="L102">        stream.write(scriptBytes);</span>
+        //this.
+<span class="nc" id="L104">        uint32ToByteStreamLE(votes, stream);</span>
+<span class="nc" id="L105">    }</span>
+
+    long getOptimalEncodingMessageSize()
+    {
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if(optimalEncodingMessageSize != 0)</span>
+<span class="nc" id="L110">            return optimalEncodingMessageSize;</span>
+
+        //TODO: not finished
+        //version
+        //optimalEncodingMessageSize = 4;
+        //block height
+<span class="nc" id="L116">        optimalEncodingMessageSize += 8;</span>
+        //pubkey
+<span class="nc" id="L118">        byte [] scriptBytes = pubkey.getProgram();</span>
+
+<span class="nc" id="L120">        optimalEncodingMessageSize += VarInt.sizeOf(scriptBytes.length);</span>
+<span class="nc" id="L121">        optimalEncodingMessageSize += scriptBytes.length;</span>
+        //votes
+<span class="nc" id="L123">        optimalEncodingMessageSize += 4;</span>
+
+<span class="nc" id="L125">        return optimalEncodingMessageSize;</span>
+    }
+
+    public String toString()
+    {
+<span class="nc" id="L130">        return &quot;Master Node Vote: v&quot; + version + &quot;; blockHeight &quot; + blockHeight + &quot;; pubkey&quot; + pubkey.toString() +  &quot;; votes: &quot; + votes + &quot;\n&quot;;</span>
+    }
+
+
+    public void vote()
+    {
+<span class="nc" id="L136">        votes++;</span>
+<span class="nc" id="L137">    }</span>
+    public int getVotes()
+<span class="nc" id="L139">    {return votes;}</span>
+
+    public long getHeight()
+<span class="nc" id="L142">    {return blockHeight;}</span>
+
+<span class="nc" id="L144">    Script getPubkey() { return pubkey;}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasternodeSync.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">MasternodeSync.java</span></div><h1>MasternodeSync.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+import site.mtnsj.utils.ListenerRegistration;
+import site.mtnsj.utils.Threading;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static com.google.common.base.Preconditions.checkState;
+
+/**
+ * Created by Eric on 2/21/2016.
+ */
+public class MasternodeSync {
+<span class="nc" id="L19">    private static final Logger log = LoggerFactory.getLogger(MasternodeSync.class);</span>
+    public static final int MASTERNODE_SYNC_INITIAL       =    0;
+    public static final int MASTERNODE_SYNC_SPORKS        =    1;
+    public static final int  MASTERNODE_SYNC_LIST         =     2;
+    public static final int  MASTERNODE_SYNC_MNW          =     3;
+    public static final int  MASTERNODE_SYNC_GOVERNANCE   =     4;
+    public static final int  MASTERNODE_SYNC_GOVOBJ       =     10;
+    public static final int  MASTERNODE_SYNC_GOVERNANCE_FIN   = 11;
+    public static final int  MASTERNODE_SYNC_FAILED       =     998;
+    public static final int  MASTERNODE_SYNC_FINISHED     =     999;
+
+    public static final int  MASTERNODE_SYNC_TIMEOUT      =    30;
+
+    public HashMap&lt;Sha256Hash, Integer&gt; mapSeenSyncMNB;
+    public HashMap&lt;Sha256Hash, Integer&gt; mapSeenSyncMNW;
+    public HashMap&lt;Sha256Hash, Integer&gt; mapSeenSyncBudget;
+
+    long lastMasternodeList;
+    long lastMasternodeWinner;
+    long lastBudgetItem;
+    long lastFailure;
+    int nCountFailures;
+
+    // sum of all counts
+    int sumMasternodeList;
+    int sumMasternodeWinner;
+    int sumBudgetItemProp;
+    int sumBudgetItemFin;
+    // peers that reported counts
+    int countMasternodeList;
+    int countMasternodeWinner;
+    int countBudgetItemProp;
+    int countBudgetItemFin;
+
+    // Count peers we've requested the list from
+    int RequestedMasternodeAssets;
+    int RequestedMasternodeAttempt;
+
+    // Time when current masternode asset sync started
+    long nAssetSyncStarted;
+
+    StoredBlock currentBlock;
+
+    //NetworkParameters params;
+    AbstractBlockChain blockChain;
+    Context context;
+
+<span class="nc bnc" id="L66" title="All 2 branches missed.">    public int masterNodeCountFromNetwork() { return countMasternodeList != 0 ? sumMasternodeList / countMasternodeList : 0; }</span>
+
+<span class="nc" id="L68">    void setBlockChain(AbstractBlockChain blockChain) { this.blockChain = blockChain; updateBlockTip(blockChain.chainHead);}</span>
+
+    public MasternodeSync(Context context)
+<span class="nc" id="L71">    {</span>
+<span class="nc" id="L72">        this.context = context;</span>
+
+<span class="nc" id="L74">        this.mapSeenSyncBudget = new HashMap&lt;Sha256Hash, Integer&gt;();</span>
+<span class="nc" id="L75">        this.mapSeenSyncMNB = new HashMap&lt;Sha256Hash, Integer&gt;();</span>
+<span class="nc" id="L76">        this.mapSeenSyncMNW = new HashMap&lt;Sha256Hash, Integer&gt;();</span>
+
+<span class="nc" id="L78">        eventListeners = new CopyOnWriteArrayList&lt;ListenerRegistration&lt;MasternodeSyncListener&gt;&gt;();</span>
+
+<span class="nc" id="L80">        reset();</span>
+<span class="nc" id="L81">    }</span>
+
+    void reset()
+    {
+<span class="nc" id="L85">        lastMasternodeList = Utils.currentTimeSeconds();</span>
+<span class="nc" id="L86">        lastMasternodeWinner = Utils.currentTimeSeconds();</span>
+<span class="nc" id="L87">        lastBudgetItem = Utils.currentTimeSeconds();</span>
+<span class="nc" id="L88">        mapSeenSyncMNB.clear();</span>
+<span class="nc" id="L89">        mapSeenSyncMNW.clear();</span>
+<span class="nc" id="L90">        mapSeenSyncBudget.clear();</span>
+<span class="nc" id="L91">        lastFailure = 0;</span>
+<span class="nc" id="L92">        nCountFailures = 0;</span>
+<span class="nc" id="L93">        sumMasternodeList = 0;</span>
+<span class="nc" id="L94">        sumMasternodeWinner = 0;</span>
+<span class="nc" id="L95">        sumBudgetItemProp = 0;</span>
+<span class="nc" id="L96">        sumBudgetItemFin = 0;</span>
+<span class="nc" id="L97">        countMasternodeList = 0;</span>
+<span class="nc" id="L98">        countMasternodeWinner = 0;</span>
+<span class="nc" id="L99">        countBudgetItemProp = 0;</span>
+<span class="nc" id="L100">        countBudgetItemFin = 0;</span>
+<span class="nc" id="L101">        RequestedMasternodeAssets = MASTERNODE_SYNC_INITIAL;</span>
+<span class="nc" id="L102">        RequestedMasternodeAttempt = 0;</span>
+<span class="nc" id="L103">        nAssetSyncStarted = Utils.currentTimeSeconds();//GetTime();</span>
+<span class="nc" id="L104">    }</span>
+
+    void addedMasternodeList(Sha256Hash hash)
+    {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if(context.masternodeManager.mapSeenMasternodeBroadcast.containsKey(hash)) {</span>
+<span class="nc" id="L109">            Integer count = mapSeenSyncMNB.get(hash);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if(count != null) {</span>
+<span class="nc" id="L111">                lastMasternodeList = Utils.currentTimeSeconds();</span>
+<span class="nc" id="L112">                mapSeenSyncMNB.put(hash, mapSeenSyncMNB.get(hash)+1);</span>
+            }
+            else {
+<span class="nc" id="L115">                mapSeenSyncMNB.put(hash, 1);</span>
+<span class="nc" id="L116">                lastMasternodeList = Utils.currentTimeSeconds();</span>
+            }
+<span class="nc" id="L118">        } else {</span>
+<span class="nc" id="L119">            lastMasternodeList = Utils.currentTimeSeconds();</span>
+<span class="nc" id="L120">            mapSeenSyncMNB.put(hash, 1);</span>
+        }
+<span class="nc" id="L122">    }</span>
+
+    boolean isSynced()
+    {
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        return RequestedMasternodeAssets == MASTERNODE_SYNC_FINISHED;</span>
+    }
+
+    /*void addedMasternodeWinner(Sha256Hash hash)
+    {
+        if(parmas.masternodePayments.mapMasternodePayeeVotes.count(hash)) {
+            if(mapSeenSyncMNW[hash] &lt; MASTERNODE_SYNC_THRESHOLD) {
+                lastMasternodeWinner = GetTime();
+                mapSeenSyncMNW[hash]++;
+            }
+        } else {
+            lastMasternodeWinner = GetTime();
+            mapSeenSyncMNW.insert(make_pair(hash, 1));
+        }
+    }*/
+
+    /*void CMasternodeSync::AddedBudgetItem(uint256 hash)
+    {
+        if(budget.mapSeenMasternodeBudgetProposals.count(hash) || budget.mapSeenMasternodeBudgetVotes.count(hash) ||
+                budget.mapSeenFinalizedBudgets.count(hash) || budget.mapSeenFinalizedBudgetVotes.count(hash)) {
+            if(mapSeenSyncBudget[hash] &lt; MASTERNODE_SYNC_THRESHOLD) {
+                lastBudgetItem = GetTime();
+                mapSeenSyncBudget[hash]++;
+            }
+        } else {
+            lastBudgetItem = GetTime();
+            mapSeenSyncBudget.insert(make_pair(hash, 1));
+        }
+    }*/
+
+    boolean isBudgetPropEmpty()
+    {
+<span class="nc bnc" id="L158" title="All 4 branches missed.">        return sumBudgetItemProp==0 &amp;&amp; countBudgetItemProp&gt;0;</span>
+    }
+
+    boolean isBudgetFinEmpty()
+    {
+<span class="nc bnc" id="L163" title="All 4 branches missed.">        return sumBudgetItemFin==0 &amp;&amp; countBudgetItemFin&gt;0;</span>
+    }
+
+    void getNextAsset()
+    {
+<span class="nc bnc" id="L168" title="All 4 branches missed.">        switch(RequestedMasternodeAssets)</span>
+        {
+            case(MASTERNODE_SYNC_INITIAL):
+            case(MASTERNODE_SYNC_FAILED): // should never be used here actually, use Reset() instead
+<span class="nc" id="L172">                clearFulfilledRequest();</span>
+<span class="nc" id="L173">                RequestedMasternodeAssets = MASTERNODE_SYNC_SPORKS;</span>
+<span class="nc" id="L174">                break;</span>
+            case(MASTERNODE_SYNC_SPORKS):
+<span class="nc" id="L176">                lastMasternodeList = Utils.currentTimeSeconds();</span>
+<span class="nc" id="L177">                RequestedMasternodeAssets = MASTERNODE_SYNC_LIST;</span>
+
+                //If we are in lite mode and allowing InstantX, then only sync the sporks
+<span class="nc bnc" id="L180" title="All 4 branches missed.">                if(context.isLiteMode() &amp;&amp; context.allowInstantXinLiteMode()) {</span>
+<span class="nc" id="L181">                    RequestedMasternodeAssets = MASTERNODE_SYNC_FINISHED;</span>
+<span class="nc" id="L182">                    queueOnSyncStatusChanged(RequestedMasternodeAssets, 1.0);</span>
+                }
+                break;
+            case(MASTERNODE_SYNC_LIST):
+<span class="nc" id="L186">                lastMasternodeWinner = Utils.currentTimeSeconds();</span>
+           /*     RequestedMasternodeAssets = MASTERNODE_SYNC_MNW;  //TODO:  Reactivate when sync needs Winners and Budget
+                break;
+            case(MASTERNODE_SYNC_MNW):
+                RequestedMasternodeAssets = MASTERNODE_SYNC_BUDGET
+                lastBudgetItem = Utils.currentTimeSeconds();
+                break;
+            case(MASTERNODE_SYNC_BUDGET):*/
+<span class="nc" id="L194">                log.info(&quot;CMasternodeSync::GetNextAsset - Sync has finished&quot;);</span>
+<span class="nc" id="L195">                RequestedMasternodeAssets = MASTERNODE_SYNC_FINISHED;</span>
+<span class="nc" id="L196">                queueOnSyncStatusChanged(RequestedMasternodeAssets, 1.0);</span>
+                break;
+        }
+<span class="nc" id="L199">        RequestedMasternodeAttempt = 0;</span>
+<span class="nc" id="L200">        nAssetSyncStarted = Utils.currentTimeSeconds();</span>
+        //queueOnSyncStatusChanged(RequestedMasternodeAssets);
+<span class="nc" id="L202">    }</span>
+
+    public int getSyncStatusInt()
+<span class="nc" id="L205">    { return RequestedMasternodeAssets; }</span>
+
+    public String getSyncStatus()
+    {
+<span class="nc bnc" id="L209" title="All 8 branches missed.">        switch (RequestedMasternodeAssets) {</span>
+<span class="nc" id="L210">            case MASTERNODE_SYNC_INITIAL: return (&quot;Synchronization pending...&quot;);</span>
+<span class="nc" id="L211">            case MASTERNODE_SYNC_SPORKS: return (&quot;Synchronizing sporks...&quot;);</span>
+<span class="nc" id="L212">            case MASTERNODE_SYNC_LIST: return (&quot;Synchronizing masternodes...&quot;);</span>
+<span class="nc" id="L213">            case MASTERNODE_SYNC_MNW: return (&quot;Synchronizing masternode winners...&quot;);</span>
+<span class="nc" id="L214">            case MASTERNODE_SYNC_GOVERNANCE: return (&quot;Synchronizing governance objects...&quot;);</span>
+<span class="nc" id="L215">            case MASTERNODE_SYNC_FAILED: return (&quot;Synchronization failed&quot;);</span>
+<span class="nc" id="L216">            case MASTERNODE_SYNC_FINISHED: return (&quot;Synchronization finished&quot;);</span>
+        }
+<span class="nc" id="L218">        return &quot;&quot;;</span>
+    }
+    public String getAssetName()
+    {
+<span class="nc bnc" id="L222" title="All 7 branches missed.">        switch(RequestedMasternodeAssets)</span>
+        {
+            case(MASTERNODE_SYNC_INITIAL):
+<span class="nc" id="L225">                return &quot;MASTERNODE_SYNC_INITIAL&quot;;</span>
+            case(MASTERNODE_SYNC_FAILED): // should never be used here actually, use Reset() instead
+<span class="nc" id="L227">                return &quot;MASTERNODE_SYNC_FAILED&quot;;</span>
+            case(MASTERNODE_SYNC_SPORKS):
+<span class="nc" id="L229">                return &quot;MASTERNODE_SYNC_SPORKS&quot;;</span>
+            case(MASTERNODE_SYNC_LIST):
+<span class="nc" id="L231">                return &quot;MASTERNODE_SYNC_LIST&quot;;</span>
+            case(MASTERNODE_SYNC_MNW):
+<span class="nc" id="L233">                return &quot;MASTERNODE_SYNC_MNW&quot;;</span>
+            case(MASTERNODE_SYNC_GOVERNANCE):
+<span class="nc" id="L235">                return &quot;MASTERNODE_SYNC_GOVERNANCE&quot;;</span>
+        }
+<span class="nc" id="L237">        return &quot;Invalid asset name&quot;;</span>
+    }
+
+
+    void processSyncStatusCount(Peer peer, SyncStatusCount ssc)
+    {
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            if(RequestedMasternodeAssets &gt;= MASTERNODE_SYNC_FINISHED) return;</span>
+
+            //this means we will receive no further communication
+<span class="nc bnc" id="L246" title="All 5 branches missed.">            switch(ssc.itemId)</span>
+            {
+                case(MASTERNODE_SYNC_LIST):
+<span class="nc bnc" id="L249" title="All 2 branches missed.">                    if(ssc.itemId != RequestedMasternodeAssets) return;</span>
+<span class="nc" id="L250">                    sumMasternodeList += ssc.count;</span>
+<span class="nc" id="L251">                    countMasternodeList++;</span>
+<span class="nc" id="L252">                    peer.setMasternodeListCount(ssc.count);</span>
+<span class="nc" id="L253">                    break;</span>
+                case(MASTERNODE_SYNC_MNW):
+<span class="nc bnc" id="L255" title="All 2 branches missed.">                    if(ssc.itemId != RequestedMasternodeAssets) return;</span>
+<span class="nc" id="L256">                    sumMasternodeWinner += ssc.count;</span>
+<span class="nc" id="L257">                    countMasternodeWinner++;</span>
+<span class="nc" id="L258">                    break;</span>
+                case(MASTERNODE_SYNC_GOVOBJ):
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                    if(RequestedMasternodeAssets != MASTERNODE_SYNC_GOVERNANCE) return;</span>
+<span class="nc" id="L261">                    sumBudgetItemProp += ssc.count;</span>
+<span class="nc" id="L262">                    countBudgetItemProp++;</span>
+<span class="nc" id="L263">                    break;</span>
+                case(MASTERNODE_SYNC_GOVERNANCE_FIN):
+<span class="nc bnc" id="L265" title="All 2 branches missed.">                    if(RequestedMasternodeAssets != MASTERNODE_SYNC_GOVERNANCE) return;</span>
+<span class="nc" id="L266">                    sumBudgetItemFin += ssc.count;</span>
+<span class="nc" id="L267">                    countBudgetItemFin++;</span>
+                    break;
+            }
+
+<span class="nc" id="L271">            log.info(&quot;CMasternodeSync:ProcessMessage - ssc - got inventory count {} {}&quot;, ssc.itemId, ssc.count);</span>
+        //queueOnSyncStatusChanged(RequestedMasternodeAssets);
+
+<span class="nc" id="L274">    }</span>
+
+    void clearFulfilledRequest()
+    {
+        //TODO:get the peergroup lock
+        //TRY_LOCK(cs_vNodes, lockRecv);
+        //if(!lockRecv) return;
+
+<span class="nc bnc" id="L282" title="All 2 branches missed.">        if(context.peerGroup == null)</span>
+<span class="nc" id="L283">            return;</span>
+
+<span class="nc" id="L285">        ReentrantLock nodeLock = context.peerGroup.getLock();</span>
+
+<span class="nc bnc" id="L287" title="All 2 branches missed.">        if(!nodeLock.tryLock())</span>
+<span class="nc" id="L288">            return;</span>
+
+        try {
+<span class="nc bnc" id="L291" title="All 2 branches missed.">            for (Peer pnode : context.peerGroup.getConnectedPeers())</span>
+            //BOOST_FOREACH(CNode* pnode, vNodes)
+            {
+<span class="nc" id="L294">                pnode.clearFulfilledRequest(&quot;spork-sync&quot;);</span>
+<span class="nc" id="L295">                pnode.clearFulfilledRequest(&quot;masternode-winner-sync&quot;);</span>
+<span class="nc" id="L296">                pnode.clearFulfilledRequest(&quot;governance-sync&quot;);</span>
+<span class="nc" id="L297">                pnode.clearFulfilledRequest(&quot;masternode-sync&quot;);</span>
+<span class="nc" id="L298">            }</span>
+        } finally {
+<span class="nc" id="L300">            nodeLock.unlock();</span>
+<span class="nc" id="L301">        }</span>
+<span class="nc" id="L302">    }</span>
+
+<span class="nc" id="L304">    static boolean fBlockchainSynced = false;</span>
+<span class="nc" id="L305">    static long lastProcess = Utils.currentTimeSeconds();</span>
+
+
+
+    public boolean isBlockchainSynced()
+    {
+        // if the last call to this function was more than 60 minutes ago (client was in sleep mode) reset the sync process
+<span class="nc bnc" id="L312" title="All 2 branches missed.">        if(Utils.currentTimeSeconds() - lastProcess &gt; 60*60) {</span>
+<span class="nc" id="L313">            reset();</span>
+<span class="nc" id="L314">            fBlockchainSynced = false;</span>
+        }
+<span class="nc" id="L316">        lastProcess = Utils.currentTimeSeconds();</span>
+
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if(fBlockchainSynced) return true;</span>
+
+        //if (fImporting || fReindex) return false;
+
+
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        if(currentBlock == null) return false;</span>
+
+
+
+        //if(pindex == NULL) return false;
+
+
+<span class="nc bnc" id="L330" title="All 2 branches missed.">        if(currentBlock.getHeader().getTimeSeconds() + 60*60 &lt; Utils.currentTimeSeconds())</span>
+<span class="nc" id="L331">            return false;</span>
+
+<span class="nc" id="L333">        fBlockchainSynced = true;</span>
+
+<span class="nc" id="L335">        return true;</span>
+    }
+<span class="nc" id="L337">    static int tick = 0;</span>
+
+    public void processTick()
+    {
+
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        if(tick++ %6 != 0) return;</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        if(currentBlock == null) return;</span>
+
+<span class="nc" id="L345">        int mnCount = context.masternodeManager.countEnabled();</span>
+
+<span class="nc bnc" id="L347" title="All 2 branches missed.">        if(isSynced()) {</span>
+        /*
+            Resync if we lose all masternodes from sleep/wake or failure to sync originally
+        */
+<span class="nc bnc" id="L351" title="All 2 branches missed.">            if(context.masternodeManager.countEnabled() == 0) {</span>
+<span class="nc" id="L352">                reset();</span>
+            } else
+                //if syncing is complete and we have masternodes, return
+<span class="nc" id="L355">                return;</span>
+        }
+
+        //try syncing again
+<span class="nc bnc" id="L359" title="All 4 branches missed.">        if(RequestedMasternodeAssets == MASTERNODE_SYNC_FAILED &amp;&amp; lastFailure + (1*60) &lt; Utils.currentTimeSeconds()) {</span>
+<span class="nc" id="L360">            reset();</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">        } else if (RequestedMasternodeAssets == MASTERNODE_SYNC_FAILED) {</span>
+<span class="nc" id="L362">            return;</span>
+        }
+
+<span class="nc" id="L365">        double nSyncProgress = (double)(RequestedMasternodeAttempt + (double)(RequestedMasternodeAssets - 1) * 8) / (8*4);</span>
+<span class="nc" id="L366">        log.info(&quot;CMasternodeSync::Process() - tick {} RequestedMasternodeAttempt {} RequestedMasternodeAssets {} nSyncProgress {}&quot;, tick, RequestedMasternodeAttempt, RequestedMasternodeAssets, nSyncProgress);</span>
+<span class="nc" id="L367">        queueOnSyncStatusChanged(RequestedMasternodeAssets, nSyncProgress);</span>
+
+<span class="nc bnc" id="L369" title="All 2 branches missed.">        if(RequestedMasternodeAssets == MASTERNODE_SYNC_INITIAL)</span>
+<span class="nc" id="L370">            getNextAsset();</span>
+
+        // sporks synced but blockchain is not, wait until we're almost at a recent block to continue
+<span class="nc bnc" id="L373" title="All 2 branches missed.">        if(context.getParams().getId().equals(NetworkParameters.ID_REGTEST) &amp;&amp;</span>
+<span class="nc bnc" id="L374" title="All 4 branches missed.">                !isBlockchainSynced() &amp;&amp; RequestedMasternodeAssets &gt; MASTERNODE_SYNC_SPORKS) return;</span>
+
+        //TRY_LOCK(cs_vNodes, lockRecv);
+        //if(!lockRecv) return;
+
+<span class="nc bnc" id="L379" title="All 2 branches missed.">        if(context.peerGroup == null)</span>
+<span class="nc" id="L380">            return;</span>
+
+<span class="nc" id="L382">        ReentrantLock nodeLock = context.peerGroup.getLock();</span>
+
+<span class="nc bnc" id="L384" title="All 2 branches missed.">        if(!nodeLock.tryLock())</span>
+<span class="nc" id="L385">            return;</span>
+
+        try {
+
+            //BOOST_FOREACH(CNode* pnode, vNodes)
+<span class="nc bnc" id="L390" title="All 2 branches missed.">            for (Peer pnode : context.peerGroup.getConnectedPeers()) {</span>
+                // QUICK MODE (REGTEST ONLY!)
+<span class="nc bnc" id="L392" title="All 2 branches missed.">                if (context.getParams().getId().equals(NetworkParameters.ID_REGTEST)) {</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">                    if (RequestedMasternodeAttempt &lt;= 2) {</span>
+<span class="nc" id="L394">                        pnode.sendMessage(new GetSporksMessage(context.getParams())); //get current network sporks</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">                    } else if (RequestedMasternodeAttempt &lt; 4) {</span>
+<span class="nc" id="L396">                        context.masternodeManager.dsegUpdate(pnode);</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">                    } else if (RequestedMasternodeAttempt &lt; 6) {</span>
+<span class="nc" id="L398">                        int nMnCount = context.masternodeManager.countEnabled();</span>
+<span class="nc" id="L399">                        pnode.sendMessage(new GetMasternodePaymentRequestSyncMessage(context.getParams(), nMnCount)); //sync payees</span>
+<span class="nc" id="L400">                        pnode.sendMessage(new GetMasternodeVoteSyncMessage(context.getParams(), Sha256Hash.ZERO_HASH)); //sync masternode votes</span>
+<span class="nc" id="L401">                    } else {</span>
+<span class="nc" id="L402">                        RequestedMasternodeAssets = MASTERNODE_SYNC_FINISHED;</span>
+                    }
+<span class="nc" id="L404">                    RequestedMasternodeAttempt++;</span>
+<span class="nc" id="L405">                    return;</span>
+                }
+
+                // NORMAL NETWORK MODE - TESTNET/MAINNET
+
+                // SPORK : ALWAYS ASK FOR SPORKS AS WE SYNC (we skip this mode now)
+<span class="nc bnc" id="L411" title="All 2 branches missed.">                if (RequestedMasternodeAssets == MASTERNODE_SYNC_SPORKS) {</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">                    if (pnode.hasFulfilledRequest(&quot;spork-sync&quot;)) continue;</span>
+<span class="nc" id="L413">                    pnode.fulfilledRequest(&quot;spork-sync&quot;);</span>
+
+<span class="nc" id="L415">                    pnode.sendMessage(new GetSporksMessage(context.getParams())); //get current network sporks</span>
+
+<span class="nc bnc" id="L417" title="All 2 branches missed.">                    if(RequestedMasternodeAssets == MASTERNODE_SYNC_SPORKS) {</span>
+<span class="nc" id="L418">                        getNextAsset();</span>
+<span class="nc" id="L419">                        return;</span>
+                    }
+                }
+                // MNLIST : SYNC MASTERNODE LIST FROM OTHER CONNECTED CLIENTS
+
+<span class="nc bnc" id="L424" title="All 2 branches missed.">                if (RequestedMasternodeAssets == MASTERNODE_SYNC_LIST) {</span>
+
+
+<span class="nc bnc" id="L427" title="All 2 branches missed.">                    if (pnode.getPeerVersionMessage().clientVersion &lt; context.masternodePayments.getMinMasternodePaymentsProto())</span>
+<span class="nc" id="L428">                        continue;</span>
+
+                    // shall we move onto the next asset?
+<span class="nc bnc" id="L431" title="All 2 branches missed.">                    if (mnCount &gt; context.masternodeManager.getEstimatedMasternodes((int)(currentBlock.getHeight() * 0.9))) {</span>
+<span class="nc" id="L432">                        getNextAsset();</span>
+<span class="nc" id="L433">                        return;</span>
+                    }
+
+<span class="nc bnc" id="L436" title="All 2 branches missed.">                    if (lastMasternodeList &lt; Utils.currentTimeSeconds() - MASTERNODE_SYNC_TIMEOUT) { //hasn't received a new item in the last five seconds, so we'll move to the</span>
+<span class="nc" id="L437">                        getNextAsset();</span>
+<span class="nc" id="L438">                        return;</span>
+                    }
+                    // requesting is the last thing we do (incase we needed to move to the next asset and we've requested from each peer already)
+
+<span class="nc bnc" id="L442" title="All 2 branches missed.">                    if (pnode.hasFulfilledRequest(&quot;masternode-sync&quot;)) continue;</span>
+<span class="nc" id="L443">                    pnode.fulfilledRequest(&quot;masternode-sync&quot;);</span>
+
+                    //see if we've synced the masternode list
+                    /* note: Is this activing up? It's probably related to int CMasternodeMan::GetEstimatedMasternodes(int nBlock) */
+
+<span class="nc" id="L448">                    context.masternodeManager.dsegUpdate(pnode);</span>
+<span class="nc" id="L449">                    RequestedMasternodeAttempt++;</span>
+
+<span class="nc" id="L451">                    return;</span>
+                }
+
+                // MNW : SYNC MASTERNODE WINNERS FROM OTHER CONNECTED CLIENTS
+
+<span class="nc bnc" id="L456" title="All 2 branches missed.">                if (RequestedMasternodeAssets == MASTERNODE_SYNC_MNW) {</span>
+
+<span class="nc bnc" id="L458" title="All 2 branches missed.">                    if (pnode.getPeerVersionMessage().clientVersion &lt; context.masternodePayments.getMinMasternodePaymentsProto())</span>
+<span class="nc" id="L459">                        continue;</span>
+
+
+                    // Shall we move onto the next asset?
+                    // --
+                    // This might take a lot longer than 2 minutes due to new blocks, but that's OK. It will eventually time out if needed
+<span class="nc bnc" id="L465" title="All 2 branches missed.">                    if(lastMasternodeWinner &lt; Utils.currentTimeSeconds() - MASTERNODE_SYNC_TIMEOUT){ //hasn't received a new item in the last five seconds, so we'll move to the</span>
+<span class="nc" id="L466">                        getNextAsset();</span>
+<span class="nc" id="L467">                        return;</span>
+                    }
+
+                    // if mnpayments already has enough blocks and votes, move to the next asset
+<span class="nc bnc" id="L471" title="All 2 branches missed.">                    if(context.masternodePayments.isEnoughData(mnCount)) {</span>
+<span class="nc" id="L472">                        getNextAsset();</span>
+<span class="nc" id="L473">                        return;</span>
+                    }
+
+                    // requesting is the last thing we do (incase we needed to move to the next asset and we've requested from each peer already)
+
+<span class="nc bnc" id="L478" title="All 2 branches missed.">                    if(pnode.hasFulfilledRequest(&quot;masternode-winner-sync&quot;)) continue;</span>
+<span class="nc" id="L479">                    pnode.fulfilledRequest(&quot;masternode-winner-sync&quot;);</span>
+
+<span class="nc" id="L481">                    pnode.sendMessage(new GetMasternodePaymentRequestSyncMessage(context.getParams(), mnCount)); //sync payees</span>
+<span class="nc" id="L482">                    RequestedMasternodeAttempt++;</span>
+
+
+<span class="nc" id="L485">                    return;</span>
+                }
+
+
+                // GOVOBJ : SYNC GOVERNANCE ITEMS FROM OUR PEERS
+<span class="nc bnc" id="L490" title="All 2 branches missed.">                if (RequestedMasternodeAssets == MASTERNODE_SYNC_GOVERNANCE) {</span>
+
+<span class="nc bnc" id="L492" title="All 2 branches missed.">                    if (pnode.getPeerVersionMessage().clientVersion &lt; context.masternodePayments.getMinMasternodePaymentsProto())</span>
+<span class="nc" id="L493">                        continue;</span>
+
+
+                    // shall we move onto the next asset
+                    // if(countBudgetItemProp &gt; 0 &amp;&amp; countBudgetItemFin)
+                    // {
+                    //     if(governance.CountProposalInventoryItems() &gt;= (sumBudgetItemProp / countBudgetItemProp)*0.9)
+                    //     {
+                    //         if(governance.CountFinalizedInventoryItems() &gt;= (sumBudgetItemFin / countBudgetItemFin)*0.9)
+                    //         {
+                    //             GetNextAsset();
+                    //             return;
+                    //         }
+                    //     }
+                    // }
+
+                    //we'll start rejecting votes if we accidentally get set as synced too soon, this allows plenty of time
+<span class="nc bnc" id="L510" title="All 2 branches missed.">                    if(lastBudgetItem &lt; Utils.currentTimeSeconds() - MASTERNODE_SYNC_TIMEOUT){</span>
+<span class="nc" id="L511">                        getNextAsset();</span>
+
+                        //try to activate our masternode if possible
+<span class="nc" id="L514">                        context.activeMasternode.manageStatus();</span>
+<span class="nc" id="L515">                        return;</span>
+                    }
+
+                    // requesting is the last thing we do, incase we needed to move to the next asset and we've requested from each peer already
+
+<span class="nc bnc" id="L520" title="All 2 branches missed.">                    if(pnode.hasFulfilledRequest(&quot;governance-sync&quot;)) continue;</span>
+<span class="nc" id="L521">                    pnode.fulfilledRequest(&quot;governance-sync&quot;);</span>
+
+                    //uint256 n = uint256();
+<span class="nc" id="L524">                    pnode.sendMessage(new GetMasternodeVoteSyncMessage(context.getParams(), Sha256Hash.ZERO_HASH)); //sync masternode votes</span>
+<span class="nc" id="L525">                    RequestedMasternodeAttempt++;</span>
+
+<span class="nc" id="L527">                    return; //this will cause each peer to get one request each six seconds for the various assets we need</span>
+                    }
+
+<span class="nc" id="L530">                }</span>
+
+        } finally {
+<span class="nc" id="L533">            nodeLock.unlock();</span>
+<span class="nc" id="L534">        }</span>
+<span class="nc" id="L535">    }</span>
+
+    /******************************************************************************************************************/
+
+    //region Event listeners
+    private transient CopyOnWriteArrayList&lt;ListenerRegistration&lt;MasternodeSyncListener&gt;&gt; eventListeners;
+    /**
+     * Adds an event listener object. Methods on this object are called when something interesting happens,
+     * like receiving money. Runs the listener methods in the user thread.
+     */
+    public void addEventListener(MasternodeSyncListener listener) {
+<span class="nc" id="L546">        addEventListener(listener, Threading.USER_THREAD);</span>
+<span class="nc" id="L547">}</span>
+
+    /**
+     * Adds an event listener object. Methods on this object are called when something interesting happens,
+     * like receiving money. The listener is executed by the given executor.
+     */
+    public void addEventListener(MasternodeSyncListener listener, Executor executor) {
+        // This is thread safe, so we don't need to take the lock.
+<span class="nc" id="L555">        eventListeners.add(new ListenerRegistration&lt;MasternodeSyncListener&gt;(listener, executor));</span>
+        //keychain.addEventListener(listener, executor);
+<span class="nc" id="L557">    }</span>
+
+    /**
+     * Removes the given event listener object. Returns true if the listener was removed, false if that listener
+     * was never added.
+     */
+    public boolean removeEventListener(MasternodeSyncListener listener) {
+        //keychain.removeEventListener(listener);
+<span class="nc" id="L565">        return ListenerRegistration.removeFromList(listener, eventListeners);</span>
+    }
+
+    private void queueOnSyncStatusChanged(final int newStatus, final double syncStatus) {
+        //checkState(lock.isHeldByCurrentThread());
+<span class="nc bnc" id="L570" title="All 2 branches missed.">        for (final ListenerRegistration&lt;MasternodeSyncListener&gt; registration : eventListeners) {</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">            if (registration.executor == Threading.SAME_THREAD) {</span>
+<span class="nc" id="L572">                registration.listener.onSyncStatusChanged(newStatus, syncStatus);</span>
+            } else {
+<span class="nc" id="L574">                registration.executor.execute(new Runnable() {</span>
+                    @Override
+                    public void run() {
+<span class="nc" id="L577">                        registration.listener.onSyncStatusChanged(newStatus, syncStatus);</span>
+<span class="nc" id="L578">                    }</span>
+                });
+            }
+<span class="nc" id="L581">        }</span>
+<span class="nc" id="L582">    }</span>
+    public void updateBlockTip(StoredBlock tip) {
+<span class="nc" id="L584">        currentBlock = tip;</span>
+<span class="nc" id="L585">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

@@ -1,0 +1,16 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.ECKeyTest
+-------------------------------------------------------------------------------
+Tests run: 22, Failures: 2, Errors: 1, Skipped: 0, Time elapsed: 0.502 sec <<< FAILURE! - in site.mtnsj.core.ECKeyTest
+testToString(site.mtnsj.core.ECKeyTest)  Time elapsed: 0.002 sec  <<< FAILURE!
+org.junit.ComparisonFailure: expected:<...00000000a, priv WIF=[5HpHagT65TZzG1PH3CSu63k8DbpvD8s5ip4nEB3kEsreBoNWTw6], isEncrypted=false,...> but was:<...00000000a, priv WIF=[7QHBhHj6mGBFkgzi9iYrBFWuundAAVxFJ5XZbcPDsAH5Gur6BNR], isEncrypted=false,...>
+	at site.mtnsj.core.ECKeyTest.testToString(ECKeyTest.java:325)
+
+verifyMessage(site.mtnsj.core.ECKeyTest)  Time elapsed: 0.001 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 0 not in [63, 8]
+	at site.mtnsj.core.ECKeyTest.verifyMessage(ECKeyTest.java:238)
+
+base58Encoding(site.mtnsj.core.ECKeyTest)  Time elapsed: 0.001 sec  <<< FAILURE!
+org.junit.ComparisonFailure: expected:<[mqAJmaxMcG5pPHHc3H3NtyXzY7kGbJLuMF]> but was:<[aZhRCYcHjD7HV9PBMXiTKTuxuzXraeJrUs]>
+	at site.mtnsj.core.ECKeyTest.base58Encoding(ECKeyTest.java:194)
+

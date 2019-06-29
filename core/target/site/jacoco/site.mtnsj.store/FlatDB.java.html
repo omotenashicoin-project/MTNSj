@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>FlatDB.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.store</a> &gt; <span class="el_source">FlatDB.java</span></div><h1>FlatDB.java</h1><pre class="source lang-java linenums">package site.mtnsj.store;
+
+/**
+ * Created by Hash Engineering on 6/21/2016.
+ */
+
+/**
+ *   Generic Dumping and Loading
+ *   ---------------------------
+ */
+
+
+import site.mtnsj.core.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+
+public class FlatDB&lt;Type extends AbstractManager&gt; {
+<span class="nc" id="L24">    private static final Logger log = LoggerFactory.getLogger(FlatDB.class);</span>
+    private String pathDB;
+    private String fileName;
+    private String directory;
+    private String magicMessage;
+<span class="nc" id="L29">    public enum ReadResult {</span>
+<span class="nc" id="L30">        Ok,</span>
+<span class="nc" id="L31">        FileError,</span>
+<span class="nc" id="L32">        HashReadError,</span>
+<span class="nc" id="L33">        IncorrectHash,</span>
+<span class="nc" id="L34">        IncorrectMagicMessage,</span>
+<span class="nc" id="L35">        IncorrectMagicNumber,</span>
+<span class="nc" id="L36">        IncorrectFormat,</span>
+<span class="nc" id="L37">        NoResult</span>
+    }
+
+<span class="nc" id="L40">    ReadResult lastReadResult = ReadResult.NoResult;</span>
+
+    Context context;
+
+    public FlatDB()
+<span class="nc" id="L45">    {</span>
+<span class="nc" id="L46">        context = Context.get();</span>
+<span class="nc" id="L47">    }</span>
+<span class="nc" id="L48">    public FlatDB(String directory, String fileName, String magicMessage) {</span>
+<span class="nc" id="L49">        context = Context.get();</span>
+<span class="nc" id="L50">        this.magicMessage = magicMessage;</span>
+<span class="nc" id="L51">        this.fileName = fileName;</span>
+<span class="nc" id="L52">        setPath(directory, fileName);</span>
+<span class="nc" id="L53">    }</span>
+
+    void setPath(String directory, String file)
+    {
+<span class="nc" id="L57">        this.directory = directory;</span>
+<span class="nc" id="L58">        pathDB = directory + &quot;/&quot; +file;</span>
+<span class="nc" id="L59">    }</span>
+    public String getDirectory()
+    {
+<span class="nc" id="L62">        return directory;</span>
+    }
+
+    boolean write(Type object) {
+
+        try {
+<span class="nc" id="L68">            long nStart = Utils.currentTimeMillis();</span>
+
+            // serialize, checksum data up to that point, then append checksum
+<span class="nc" id="L71">            UnsafeByteArrayOutputStream stream = new UnsafeByteArrayOutputStream(object.calculateMessageSizeInBytes()+4+magicMessage.getBytes().length);</span>
+<span class="nc" id="L72">            stream.write(magicMessage.getBytes());</span>
+<span class="nc" id="L73">            Utils.uint32ToByteStreamLE(object.getParams().getPacketMagic(), stream);</span>
+<span class="nc" id="L74">            object.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L76">            Sha256Hash hash = Sha256Hash.twiceOf(stream.toByteArray());</span>
+
+<span class="nc" id="L78">            stream.write(hash.getReversedBytes());</span>
+
+
+            // open output file, and associate with CAutoFile
+
+<span class="nc" id="L83">            FileOutputStream fileStream = new FileOutputStream(pathDB);</span>
+
+            //FILE * file = fopen(pathDB.string().c_str(), &quot;wb&quot;);
+            //CAutoFile fileout (file, SER_DISK, CLIENT_VERSION);
+            //if (fileout.IsNull())
+            //    return error(&quot;%s : Failed to open file %s&quot;, __func__, pathDB.string());
+
+
+            // Write and commit header, data
+<span class="nc" id="L92">            fileStream.write(stream.toByteArray());</span>
+            //fileStream.write(hash.getBytes());
+
+
+
+//    FileCommit(fileout);
+<span class="nc" id="L98">            fileStream.close();</span>
+            //fileout.fclose();
+
+<span class="nc" id="L101">            log.info(&quot;Written info to {}  {}ms\n&quot;, pathDB, Utils.currentTimeMillis() - nStart);</span>
+<span class="nc" id="L102">            log.info(&quot;  {}\n&quot;, object.toString());</span>
+
+<span class="nc" id="L104">            return true;</span>
+
+        }
+<span class="nc" id="L107">        catch(IOException x)</span>
+        {
+<span class="nc" id="L109">            return false;</span>
+        }
+    }
+
+    ReadResult read(Type object, boolean fDryRun) {
+
+<span class="nc" id="L115">        long nStart = Utils.currentTimeMillis();</span>
+        try {
+            // open input file, and associate with CAutoFile
+
+<span class="nc" id="L119">            FileInputStream fileStream = new FileInputStream(pathDB);</span>
+
+<span class="nc" id="L121">            File file = new File(pathDB);</span>
+
+            /*FILE * file = fopen(pathDB.string().c_str(), &quot;rb&quot;);
+            CAutoFile filein (file, SER_DISK, CLIENT_VERSION);
+            if (filein.IsNull()) {
+                error(&quot;%s : Failed to open file %s&quot;, __func__, pathDB.string());
+                return FileError;
+            }*/
+
+            // use file size to size memory buffer
+
+<span class="nc" id="L132">            long fileSize = file.length();//fileStream.boost::filesystem::file_size(pathDB);</span>
+<span class="nc" id="L133">            long dataSize = fileSize - 32;</span>
+            // Don't try to resize to a negative number if file is small
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            if (dataSize &lt; 0)</span>
+<span class="nc" id="L136">                dataSize = 0;</span>
+
+            //vector&lt;unsigned char&gt;vchData;
+            //vchData.resize(dataSize);
+<span class="nc" id="L140">            byte [] hashIn = new byte[32];</span>
+<span class="nc" id="L141">            byte [] vchData = new byte[(int)dataSize];</span>
+
+            try {
+<span class="nc" id="L144">                fileStream.read(vchData);</span>
+<span class="nc" id="L145">                fileStream.read(hashIn);</span>
+<span class="nc" id="L146">            } catch (IOException x)</span>
+            {
+<span class="nc" id="L148">                return ReadResult.HashReadError;</span>
+<span class="nc" id="L149">            }</span>
+<span class="nc" id="L150">            fileStream.close();</span>
+
+
+
+            //CDataStream ssMasternodes (vchData, SER_DISK, CLIENT_VERSION);
+
+
+
+            // verify stored checksum matches input data
+<span class="nc" id="L159">            Sha256Hash hashTmp = Sha256Hash.twiceOf(vchData);</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            if (!Arrays.equals(hashIn, hashTmp.getReversedBytes())) {</span>
+<span class="nc" id="L161">                log.error(&quot;Checksum mismatch, data corrupted&quot;);</span>
+<span class="nc" id="L162">                return ReadResult.IncorrectHash;</span>
+            }
+
+            long pchMsgTmp;
+            String strMagicMessageTmp;
+            try {
+                // de-serialize file header (masternode cache file specific magic message) and ..
+
+
+<span class="nc" id="L171">                strMagicMessageTmp = new String(vchData, 0, magicMessage.length());</span>
+
+                // ... verify the message matches predefined one
+<span class="nc bnc" id="L174" title="All 2 branches missed.">                if (!magicMessage.equals(strMagicMessageTmp)) {</span>
+<span class="nc" id="L175">                    log.error(&quot;Invalid masternode cache magic message&quot;);</span>
+<span class="nc" id="L176">                    return ReadResult.IncorrectMagicMessage;</span>
+                }
+
+                // de-serialize file header (network specific magic number) and ..
+                //ssMasternodes &gt;&gt; FLATDATA(pchMsgTmp);
+<span class="nc" id="L181">                pchMsgTmp = (int)Utils.readUint32(vchData, magicMessage.length());</span>
+
+                // ... verify the network matches ours
+<span class="nc bnc" id="L184" title="All 2 branches missed.">                if (pchMsgTmp != context.getParams().getPacketMagic()) {</span>
+<span class="nc" id="L185">                    log.error(&quot;Invalid network magic number&quot;);</span>
+<span class="nc" id="L186">                    return ReadResult.IncorrectMagicNumber;</span>
+                }
+                // de-serialize data into CMasternodeMan object
+
+<span class="nc" id="L190">                object.load(vchData, magicMessage.length()+ 4);</span>
+
+<span class="nc" id="L192">            } catch (Exception e){</span>
+<span class="nc" id="L193">                object.clear();</span>
+<span class="nc" id="L194">                log.error(&quot;Deserialize or I/O error - {}&quot;,  e.getMessage());</span>
+<span class="nc" id="L195">                return  ReadResult.IncorrectFormat;</span>
+<span class="nc" id="L196">            }</span>
+
+<span class="nc" id="L198">            log.info(&quot;Loaded info from {}  {}ms&quot;, fileName, Utils.currentTimeMillis() - nStart);</span>
+<span class="nc" id="L199">            log.info(&quot;  {}&quot;, object.toString());</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">            if (!fDryRun) {</span>
+<span class="nc" id="L201">                log.info(&quot;Masternode manager - cleaning....&quot;);</span>
+<span class="nc" id="L202">                object.checkAndRemove();</span>
+<span class="nc" id="L203">                log.info(&quot;Masternode manager - result:&quot;);</span>
+<span class="nc" id="L204">                log.info(&quot;  {}&quot;, object.toString());</span>
+            }
+
+<span class="nc" id="L207">            return ReadResult.Ok;</span>
+        }
+<span class="nc" id="L209">        catch(IOException x) {</span>
+<span class="nc" id="L210">            return ReadResult.FileError;</span>
+        }
+    }
+    ReadResult read(Type object) {
+<span class="nc" id="L214">            return read(object, false);</span>
+        }
+
+    public boolean load(Type objToLoad)
+    {
+
+<span class="nc" id="L220">        log.info(&quot;Reading info from {}...&quot;, fileName);</span>
+<span class="nc" id="L221">        ReadResult readResult = read(objToLoad);</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">        if (readResult == ReadResult.FileError)</span>
+<span class="nc" id="L223">            log.warn(&quot;Missing file - {}, will try to recreate&quot;, fileName);</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">        else if (readResult != ReadResult.Ok)</span>
+        {
+<span class="nc" id="L226">            log.error(&quot;Error reading {}: &quot;, fileName);</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">            if(readResult == ReadResult.IncorrectFormat)</span>
+            {
+<span class="nc" id="L229">                log.error(&quot;magic is ok but data has invalid format, will try to recreate\n&quot;);</span>
+            }
+            else {
+<span class="nc" id="L232">                log.error(&quot;file format is unknown or invalid, please fix it manually\n&quot;);</span>
+                // program should exit with an error
+<span class="nc" id="L234">                return false;</span>
+            }
+        }
+<span class="nc" id="L237">        return false;</span>
+    }
+
+    public boolean dump(Type objToSave)
+    {
+<span class="nc" id="L242">        long nStart = Utils.currentTimeSeconds();</span>
+
+
+        // LOAD SERIALIZED FILE TO DETERMINE SAFETY OF SAVING INTO THAT FILE
+
+        /*
+
+
+            2016-06-02 21:23:55     dash-shutoff |      Governance Objects: 1, Seen Budgets: 1, Seen Budget Votes: 0, Vote Count: 0
+            2016-06-02 21:23:55     dash-shutoff |      Governance Objects: 1, Seen Budgets: 0, Seen Budget Votes: 0, Vote Count: 0
+            2016-06-02 21:29:17            dashd |      Governance Objects: 1, Seen Budgets: 0, Seen Budget Votes: 0, Vote Count: 0
+            2016-06-02 21:29:17            dashd | CFlatDB - Governance Objects: 1, Seen Budgets: 0, Seen Budget Votes: 0, Vote Count: 0
+            2016-06-02 21:29:25     dash-shutoff |      Governance Objects: 1, Seen Budgets: 0, Seen Budget Votes: 0, Vote Count: 0
+            2016-06-02 21:30:07     dash-shutoff |      Governance Objects: 1, Seen Budgets: 1, Seen Budget Votes: 0, Vote Count: 0
+            2016-06-02 21:30:16            dashd |      Governance Objects: 1, Seen Budgets: 1, Seen Budget Votes: 0, Vote Count: 0
+            2016-06-02 21:30:16            dashd | CFlatDB - Governance Objects: 1, Seen Budgets: 1, Seen Budget Votes: 0, Vote Count: 0
+
+
+            This fact can be demonstrated by adding a governance item, then stopping and starting the client.
+            With the code enabled, &quot;Seen Budgets&quot; will equal 0, whereas the object should have one entry.
+        */
+
+<span class="nc" id="L264">        log.info(&quot;Verifying {} format...\n&quot;, fileName);</span>
+<span class="nc" id="L265">        Type tmpObjToLoad = (Type)objToSave.createEmpty();</span>
+<span class="nc" id="L266">        ReadResult readResult = read(tmpObjToLoad);</span>
+
+        // there was an error and it was not an error on file opening =&gt; do not proceed
+<span class="nc bnc" id="L269" title="All 2 branches missed.">        if (readResult == ReadResult.FileError)</span>
+<span class="nc" id="L270">            log.warn(&quot;Missing file - {}, will try to recreate&quot;, fileName);</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">        else if (readResult != ReadResult.Ok)</span>
+        {
+<span class="nc" id="L273">            log.error(&quot;Error reading{}: &quot;, fileName);</span>
+<span class="nc bnc" id="L274" title="All 2 branches missed.">            if(readResult == ReadResult.IncorrectFormat)</span>
+<span class="nc" id="L275">                log.error(&quot;magic is ok but data has invalid format, will try to recreate&quot;);</span>
+            else
+            {
+<span class="nc" id="L278">                log.error(&quot;file format is unknown or invalid, please fix it manually&quot;);</span>
+<span class="nc" id="L279">                return false;</span>
+            }
+        }
+
+<span class="nc" id="L283">        log.info(&quot;Writing info to {}...&quot;, fileName);</span>
+<span class="nc" id="L284">        write(objToSave);</span>
+<span class="nc" id="L285">        log.info(&quot;{} dump finished  {}ms&quot;, fileName, Utils.currentTimeSeconds() - nStart);</span>
+
+<span class="nc" id="L287">        return true;</span>
+    }
+};
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>HashStore.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.store</a> &gt; <span class="el_source">HashStore.java</span></div><h1>HashStore.java</h1><pre class="source lang-java linenums">/**
+ * Copyright 2013 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package site.mtnsj.store;
+
+import site.mtnsj.core.*;
+import site.mtnsj.utils.Threading;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import java.nio.MappedByteBuffer;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
+
+// TODO: Lose the mmap in this class. There are too many platform bugs that require odd workarounds.
+
+/**
+ * An SPVBlockStore holds a limited number of block headers in a memory mapped ring buffer. With such a store, you
+ * may not be able to process very deep re-orgs and could be disconnected from the chain (requiring a replay),
+ * but as they are virtually unheard of this is not a significant risk.
+ */
+public class HashStore {
+<span class="nc" id="L38">    private static final Logger log = LoggerFactory.getLogger(HashStore.class);</span>
+
+    /** The default number of headers that will be stored in the ring buffer. */
+    public static final int DEFAULT_NUM_HASHES = 5000;
+    public static final String HEADER_MAGIC = &quot;SPVH&quot;;
+
+    protected volatile MappedByteBuffer buffer;
+    protected int numHeaders;
+    protected NetworkParameters params;
+
+<span class="nc" id="L48">    protected ReentrantLock lock = Threading.lock(&quot;SPVBlockStore&quot;);</span>
+
+    // The entire ring-buffer is mmapped and accessing it should be as fast as accessing regular memory once it's
+    // faulted in. Unfortunately, in theory practice and theory are the same. In practice they aren't.
+    //
+    // MMapping a file in Java does not give us a byte[] as you may expect but rather a ByteBuffer, and whilst on
+    // the OpenJDK/Oracle JVM calls into the get() methods are compiled down to inlined native code on Android each
+    // get() call is actually a full-blown JNI method under the hood, meaning it's unbelievably slow. The caches
+    // below let us stay in the JIT-compiled Java world without expensive JNI transitions and make a 10x difference!
+<span class="nc" id="L57">    protected LinkedHashMap&lt;Integer, Sha256Hash&gt; blockCache = new LinkedHashMap&lt;Integer, Sha256Hash&gt;() {</span>
+        @Override
+        protected boolean removeEldestEntry(Map.Entry&lt;Integer, Sha256Hash&gt; entry) {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            return size() &gt; 2050;  // Slightly more than the difficulty transition period.</span>
+        }
+    };
+    BlockStore blockStore;
+
+    public HashStore(BlockStore blockStore)
+<span class="nc" id="L66">    {</span>
+<span class="nc" id="L67">        this.blockStore = blockStore;</span>
+<span class="nc" id="L68">    }</span>
+
+
+    public void put(StoredBlock block) throws BlockStoreException {
+<span class="nc" id="L72">        lock.lock();</span>
+        try {
+<span class="nc" id="L74">            blockCache.put(block.getHeight(), block.getHeader().getHash());</span>
+<span class="nc" id="L75">        } finally { lock.unlock(); }</span>
+<span class="nc" id="L76">    }</span>
+
+    @Nullable
+    public Sha256Hash get(int blockHeight) throws BlockStoreException {
+
+<span class="nc" id="L81">        lock.lock();</span>
+        try {
+<span class="nc" id="L83">            Sha256Hash cacheHit = blockCache.get(blockHeight);</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">            if (cacheHit != null)</span>
+<span class="nc" id="L85">                return cacheHit;</span>
+<span class="nc" id="L86">            return null;</span>
+<span class="nc" id="L87">        } catch (ProtocolException e) {</span>
+<span class="nc" id="L88">            throw new RuntimeException(e);  // Cannot happen.</span>
+<span class="nc" id="L89">        } finally { lock.unlock(); }</span>
+    }
+
+
+    public Sha256Hash getBlockHash(int blockHeight)
+    {
+        try {
+<span class="nc" id="L96">            StoredBlock head = blockStore.getChainHead();</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">            if (head == null)</span>
+<span class="nc" id="L98">                return null;</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">            if (blockHeight == 0)</span>
+<span class="nc" id="L100">                blockHeight = head.getHeight();</span>
+
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (blockCache.containsKey(blockHeight)) {</span>
+<span class="nc" id="L103">                return blockCache.get(blockHeight);</span>
+            }
+
+<span class="nc" id="L106">            StoredBlock cursor = head;</span>
+<span class="nc" id="L107">            StoredBlock last = head;</span>
+
+<span class="nc bnc" id="L109" title="All 6 branches missed.">            if(last == null || last.getHeight() == 0 || head.getHeight()+1 &lt; blockHeight)</span>
+<span class="nc" id="L110">                return null;</span>
+
+<span class="nc" id="L112">            int blocksAgo = 0;</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            if(blockHeight &gt; 0)</span>
+<span class="nc" id="L114">                blocksAgo = (head.getHeight() +1) - blockHeight;</span>
+
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            if(blocksAgo &lt; 0)</span>
+<span class="nc" id="L117">                return null;</span>
+
+<span class="nc" id="L119">            int n = 0;</span>
+<span class="nc bnc" id="L120" title="All 4 branches missed.">            for (int i = 1; cursor != null &amp;&amp; cursor.getHeight() &gt; 0; i++)</span>
+            {
+<span class="nc bnc" id="L122" title="All 2 branches missed.">                if(n &gt;= blocksAgo) {</span>
+<span class="nc" id="L123">                    Sha256Hash hash = cursor.getHeader().getHash();</span>
+<span class="nc" id="L124">                    blockCache.put(blockHeight, hash);</span>
+<span class="nc" id="L125">                    return hash;</span>
+                }
+<span class="nc" id="L127">                n++;</span>
+<span class="nc" id="L128">                StoredBlock prev = cursor.getPrev(blockStore);</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">                if(prev == null)</span>
+<span class="nc" id="L130">                    break;</span>
+<span class="nc" id="L131">                cursor = prev;</span>
+            }
+<span class="nc bnc" id="L133" title="All 4 branches missed.">            while (cursor != null &amp;&amp; cursor.getHeight() != (blockHeight-1)) {</span>
+<span class="nc" id="L134">                cursor = cursor.getPrev(blockStore);</span>
+            }
+
+<span class="nc" id="L137">        } catch (BlockStoreException x)</span>
+        {
+<span class="nc" id="L139">            return null;</span>
+<span class="nc" id="L140">        }</span>
+<span class="nc" id="L141">        return null;</span>
+
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

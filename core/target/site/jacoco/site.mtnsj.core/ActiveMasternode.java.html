@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>ActiveMasternode.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">ActiveMasternode.java</span></div><h1>ActiveMasternode.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+import site.mtnsj.utils.Threading;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.locks.ReentrantLock;
+
+/**
+ * Created by Hash Engineering on 2/22/2016.
+ *
+ * Translated from CActiveMasternode class (dash/src/activemasternode.cpp)
+ */
+public class ActiveMasternode {
+<span class="nc" id="L15">    private static final Logger log = LoggerFactory.getLogger(ActiveMasternode.class);</span>
+<span class="nc" id="L16">    ReentrantLock lock = Threading.lock(&quot;activemasternode&quot;);</span>
+    public static final int ACTIVE_MASTERNODE_INITIAL               =      0; // initial state
+    public static final int ACTIVE_MASTERNODE_SYNC_IN_PROCESS       =      1;
+    public static final int ACTIVE_MASTERNODE_INPUT_TOO_NEW         =      2;
+    public static final int ACTIVE_MASTERNODE_NOT_CAPABLE           =      3;
+    public static final int ACTIVE_MASTERNODE_STARTED               =      4;
+
+    Context context;
+
+    // Initialized by init.cpp
+    // Keys for the main Masternode
+<span class="nc" id="L27">    public PublicKey pubKeyMasternode = new PublicKey();</span>
+
+    // Initialized while registering Masternode
+    public TransactionInput vin;
+    public MasternodeAddress service;
+
+    public int status;
+    public String notCapableReason;
+
+    public ActiveMasternode(Context context)
+<span class="nc" id="L37">    {</span>
+<span class="nc" id="L38">        this.context = context;</span>
+
+<span class="nc" id="L40">        status = ACTIVE_MASTERNODE_NOT_CAPABLE;</span>
+<span class="nc" id="L41">    }</span>
+
+    // when starting a Masternode, this can enable to run as a hot wallet with no funds
+    boolean enableHotColdMasterNode(TransactionInput newVin, MasternodeAddress newService)
+    {
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        if(!DarkCoinSystem.fMasterNode) return false;</span>
+
+        //Since this is not for a masternode, we don't need to impliment
+
+<span class="nc" id="L50">        status = ACTIVE_MASTERNODE_STARTED;</span>
+
+        //The values below are needed for signing mnping messages going forward
+<span class="nc" id="L53">        vin = newVin;</span>
+<span class="nc" id="L54">        service = newService;</span>
+
+<span class="nc" id="L56">        log.info(&quot;CActiveMasternode::EnableHotColdMasterNode() - Enabled! You may shut down the cold daemon.\n&quot;);</span>
+
+<span class="nc" id="L58">        return true;</span>
+    }
+
+    public void manageStatus() {
+        //std::string errorMessage;
+
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (!DarkCoinSystem.fMasterNode) return;</span>
+<span class="nc" id="L65">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

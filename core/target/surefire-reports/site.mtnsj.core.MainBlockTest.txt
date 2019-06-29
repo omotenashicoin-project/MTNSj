@@ -1,0 +1,9 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.MainBlockTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.004 sec <<< FAILURE! - in site.mtnsj.core.MainBlockTest
+testBasicChaining(site.mtnsj.core.MainBlockTest)  Time elapsed: 0.003 sec  <<< FAILURE!
+org.junit.ComparisonFailure: expected:<[00000000018a62703f054b6741d370670a94da204ba794a475d9e60ed0cf1095]> but was:<[ca67046474a26378c7a9af39180841be17a8434f3eb41e742e92033db7559751]>
+	at site.mtnsj.core.MainBlockTest.getBlock1(MainBlockTest.java:129)
+	at site.mtnsj.core.MainBlockTest.testBasicChaining(MainBlockTest.java:77)
+

@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>StoredBlock.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">StoredBlock.java</span></div><h1>StoredBlock.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 2011 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package site.mtnsj.core;
+
+import site.mtnsj.store.BlockStore;
+import site.mtnsj.store.BlockStoreException;
+import com.google.common.base.Objects;
+
+import java.math.BigInteger;
+import java.nio.BufferOverflowException;
+import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
+import java.util.Locale;
+
+import static com.google.common.base.Preconditions.checkState;
+
+/**
+ * Wraps a {@link Block} object with extra data that can be derived from the block chain but is slow or inconvenient to
+ * calculate. By storing it alongside the block header we reduce the amount of work required significantly.
+ * Recalculation is slow because the fields are cumulative - to find the chainWork you have to iterate over every
+ * block in the chain back to the genesis block, which involves lots of seeking/loading etc. So we just keep a
+ * running total: it's a disk space vs cpu/io tradeoff.&lt;p&gt;
+ *
+ * StoredBlocks are put inside a {@link BlockStore} which saves them to memory or disk.
+ */
+public class StoredBlock {
+
+    // A BigInteger representing the total amount of work done so far on this chain. As of May 2011 it takes 8
+    // bytes to represent this field, so 12 bytes should be plenty for now.
+    public static final int CHAIN_WORK_BYTES = 12;
+<span class="fc" id="L45">    public static final byte[] EMPTY_BYTES = new byte[CHAIN_WORK_BYTES];</span>
+    public static final int COMPACT_SERIALIZED_SIZE = Block.HEADER_SIZE + CHAIN_WORK_BYTES + 4;  // for height
+    public static final int COMPACT_SERIALIZED_SIZE_ZEROCOIN = Block.ZEROCOIN_HEADER_SIZE + CHAIN_WORK_BYTES + 4;  // for height
+
+    /** Compact size (regular or zerocoin) */
+    private int compactHeaderSize;
+
+    private Block header;
+    private BigInteger chainWork;
+    private int height;
+
+<span class="fc" id="L56">    public StoredBlock(Block header, BigInteger chainWork, int height) {</span>
+<span class="fc" id="L57">        this.header = header;</span>
+<span class="fc" id="L58">        this.chainWork = chainWork;</span>
+<span class="fc" id="L59">        this.height = height;</span>
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">        this.compactHeaderSize = header.isZerocoin()?COMPACT_SERIALIZED_SIZE_ZEROCOIN:COMPACT_SERIALIZED_SIZE;</span>
+<span class="fc" id="L61">    }</span>
+
+    /**
+     * The block header this object wraps. The referenced block object must not have any transactions in it.
+     */
+    public Block getHeader() {
+<span class="fc" id="L67">        return header;</span>
+    }
+
+    /**
+     * The total sum of work done in this block, and all the blocks below it in the chain. Work is a measure of how
+     * many tries are needed to solve a block. If the target is set to cover 10% of the total hash value space,
+     * then the work represented by a block is 10.
+     */
+    public BigInteger getChainWork() {
+<span class="fc" id="L76">        return chainWork;</span>
+    }
+
+    /**
+     * Position in the chain for this block. The genesis block has a height of zero.
+     */
+    public int getHeight() {
+<span class="fc" id="L83">        return height;</span>
+    }
+
+    /** Returns true if this objects chainWork is higher than the others. */
+    public boolean moreWorkThan(StoredBlock other) {
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        return chainWork.compareTo(other.chainWork) &gt; 0;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (this == o) return true;</span>
+<span class="pc bpc" id="L94" title="2 of 4 branches missed.">        if (o == null || getClass() != o.getClass()) return false;</span>
+<span class="fc" id="L95">        StoredBlock other = (StoredBlock) o;</span>
+<span class="pc bpc" id="L96" title="2 of 6 branches missed.">        return header.equals(other.header) &amp;&amp; chainWork.equals(other.chainWork) &amp;&amp; height == other.height;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L101">        return Objects.hashCode(header, chainWork, height);</span>
+    }
+
+    /**
+     * Creates a new StoredBlock, calculating the additional fields by adding to the values in this block.
+     */
+    public StoredBlock build(Block block) throws VerificationException {
+        // Stored blocks track total work done in this chain, because the canonical chain is the one that represents
+        // the largest amount of work done not the tallest.
+<span class="fc" id="L110">        BigInteger chainWork = this.chainWork.add(block.getWork());</span>
+<span class="fc" id="L111">        int height = this.height + 1;</span>
+<span class="fc" id="L112">        return new StoredBlock(block, chainWork, height);</span>
+    }
+
+    /**
+     * Given a block store, looks up the previous block in this chain. Convenience method for doing
+     * &lt;tt&gt;store.get(this.getHeader().getPrevBlockHash())&lt;/tt&gt;.
+     *
+     * @return the previous block in the chain or null if it was not found in the store.
+     */
+    public StoredBlock getPrev(BlockStore store) throws BlockStoreException {
+<span class="fc" id="L122">        return store.get(getHeader().getPrevBlockHash());</span>
+    }
+
+    /** Serializes the stored block to a custom packed format. Used by {@link CheckpointManager}. */
+    public void serializeCompact(ByteBuffer buffer) {
+<span class="fc" id="L127">        byte[] chainWorkBytes = getChainWork().toByteArray();</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        checkState(chainWorkBytes.length &lt;= CHAIN_WORK_BYTES, &quot;Ran out of space to store chain work!&quot;);</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if (chainWorkBytes.length &lt; CHAIN_WORK_BYTES) {</span>
+            // Pad to the right size.
+<span class="fc" id="L131">            buffer.put(EMPTY_BYTES, 0, CHAIN_WORK_BYTES - chainWorkBytes.length);</span>
+        }
+<span class="fc" id="L133">        buffer.put(chainWorkBytes);</span>
+<span class="fc" id="L134">        int height = getHeight();</span>
+        //System.out.println(&quot;height: &quot;+height);
+<span class="fc" id="L136">        buffer.putInt(height);</span>
+        // Using unsafeBitcoinSerialize here can give us direct access to the same bytes we read off the wire,
+        // avoiding serialization round-trips.
+<span class="fc" id="L139">        byte[] bytes = getHeader().unsafeBitcoinSerialize();</span>
+        //System.out.println(&quot;serialize header compact: &quot;+Arrays.toString(bytes));
+        try {
+<span class="fc" id="L142">            buffer.put(bytes, 0, header.getHeaderSize());  // Trim the trailing 00 byte (zero transactions).</span>
+<span class="nc" id="L143">        }catch (BufferOverflowException e){</span>
+<span class="nc" id="L144">            System.out.println(&quot;BufferOverflowException, bytes: &quot;+bytes.length+&quot;, headerSize: &quot;+header.getHeaderSize()+&quot;, hash: &quot;+header.getHashAsString());</span>
+<span class="nc" id="L145">            throw e;</span>
+<span class="fc" id="L146">        }</span>
+<span class="fc" id="L147">    }</span>
+
+    /** De-serializes the stored block from a custom packed format. Used by {@link CheckpointManager}. */
+    public static StoredBlock deserializeCompact(NetworkParameters params, ByteBuffer buffer) throws ProtocolException {
+        try {
+<span class="fc" id="L152">            byte[] chainWorkBytes = new byte[StoredBlock.CHAIN_WORK_BYTES];</span>
+<span class="fc" id="L153">            buffer.get(chainWorkBytes);</span>
+<span class="fc" id="L154">            BigInteger chainWork = new BigInteger(1, chainWorkBytes);</span>
+<span class="fc" id="L155">            int height = buffer.getInt();  // +4 bytes</span>
+            //System.out.println(&quot;deserializeCompact height: &quot;+height);
+<span class="fc" id="L157">            int headerSize = Block.getHeaderSize(params, height);</span>
+<span class="fc" id="L158">            byte[] header = new byte[headerSize + 1];    // Extra byte for the 00 transactions length.</span>
+<span class="fc" id="L159">            buffer.get(header, 0, headerSize);</span>
+            //System.out.println(&quot;deserializeCompact header: &quot;+Arrays.toString(buffer.array()));
+<span class="fc" id="L161">            return new StoredBlock(params.getDefaultSerializer().makeBlock(header), chainWork, height);</span>
+<span class="nc" id="L162">        }catch (BufferUnderflowException e){</span>
+
+<span class="nc" id="L164">            throw e;</span>
+        }
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L170">        return String.format(Locale.US, &quot;Block %s at height %d: %s&quot;,</span>
+<span class="nc" id="L171">                getHeader().getHashAsString(), getHeight(), getHeader().toString());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

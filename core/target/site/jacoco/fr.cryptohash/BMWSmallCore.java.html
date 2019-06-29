@@ -1,0 +1,590 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>BMWSmallCore.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">BMWSmallCore.java</span></div><h1>BMWSmallCore.java</h1><pre class="source lang-java linenums">// $Id: BMWSmallCore.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * This class implements BMW-224 and BMW-256.
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+abstract class BMWSmallCore extends DigestEngine {
+
+	private int[] M, H, H2, Q;
+
+	/**
+	 * Create the object.
+	 */
+	BMWSmallCore()
+<span class="nc" id="L47">	{</span>
+<span class="nc" id="L48">	}</span>
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L53">		return 64;</span>
+	}
+
+	/** @see DigestEngine */
+	protected Digest copyState(BMWSmallCore dst)
+	{
+<span class="nc" id="L59">		System.arraycopy(H, 0, dst.H, 0, H.length);</span>
+<span class="nc" id="L60">		return super.copyState(dst);</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L66">		int[] iv = getInitVal();</span>
+<span class="nc" id="L67">		System.arraycopy(iv, 0, H, 0, iv.length);</span>
+<span class="nc" id="L68">	}</span>
+
+	abstract int[] getInitVal();
+
+<span class="nc" id="L72">	private static final int[] FINAL = {</span>
+		0xaaaaaaa0, 0xaaaaaaa1, 0xaaaaaaa2, 0xaaaaaaa3,
+		0xaaaaaaa4, 0xaaaaaaa5, 0xaaaaaaa6, 0xaaaaaaa7,
+		0xaaaaaaa8, 0xaaaaaaa9, 0xaaaaaaaa, 0xaaaaaaab,
+		0xaaaaaaac, 0xaaaaaaad, 0xaaaaaaae, 0xaaaaaaaf
+	};
+
+	private void compress(int[] m)
+	{
+<span class="nc" id="L81">		int[] h = H;</span>
+<span class="nc" id="L82">		int[] q = Q;</span>
+<span class="nc" id="L83">		q[0] = ((((m[5] ^ h[5]) - (m[7] ^ h[7]) + (m[10] ^ h[10])</span>
+			+ (m[13] ^ h[13]) + (m[14] ^ h[14])) &gt;&gt;&gt; 1)
+			^ (((m[5] ^ h[5]) - (m[7] ^ h[7]) + (m[10] ^ h[10])
+			+ (m[13] ^ h[13]) + (m[14] ^ h[14])) &lt;&lt; 3)
+<span class="nc" id="L87">			^ circularLeft(((m[5] ^ h[5]) - (m[7] ^ h[7])</span>
+				+ (m[10] ^ h[10]) + (m[13] ^ h[13])
+				+ (m[14] ^ h[14])), 4)
+<span class="nc" id="L90">			^ circularLeft(((m[5] ^ h[5]) - (m[7] ^ h[7])</span>
+				+ (m[10] ^ h[10]) + (m[13] ^ h[13])
+				+ (m[14] ^ h[14])), 19))
+			+ h[1];
+<span class="nc" id="L94">		q[1] = ((((m[6] ^ h[6]) - (m[8] ^ h[8]) + (m[11] ^ h[11])</span>
+			+ (m[14] ^ h[14]) - (m[15] ^ h[15])) &gt;&gt;&gt; 1)
+			^ (((m[6] ^ h[6]) - (m[8] ^ h[8]) + (m[11] ^ h[11])
+			+ (m[14] ^ h[14]) - (m[15] ^ h[15])) &lt;&lt; 2)
+<span class="nc" id="L98">			^ circularLeft(((m[6] ^ h[6]) - (m[8] ^ h[8])</span>
+				+ (m[11] ^ h[11]) + (m[14] ^ h[14])
+				- (m[15] ^ h[15])), 8)
+<span class="nc" id="L101">			^ circularLeft(((m[6] ^ h[6]) - (m[8] ^ h[8])</span>
+				+ (m[11] ^ h[11]) + (m[14] ^ h[14])
+				- (m[15] ^ h[15])), 23))
+			+ h[2];
+<span class="nc" id="L105">		q[2] = ((((m[0] ^ h[0]) + (m[7] ^ h[7]) + (m[9] ^ h[9])</span>
+			- (m[12] ^ h[12]) + (m[15] ^ h[15])) &gt;&gt;&gt; 2)
+			^ (((m[0] ^ h[0]) + (m[7] ^ h[7]) + (m[9] ^ h[9])
+			- (m[12] ^ h[12]) + (m[15] ^ h[15])) &lt;&lt; 1)
+<span class="nc" id="L109">			^ circularLeft(((m[0] ^ h[0]) + (m[7] ^ h[7])</span>
+				+ (m[9] ^ h[9]) - (m[12] ^ h[12])
+				+ (m[15] ^ h[15])), 12)
+<span class="nc" id="L112">			^ circularLeft(((m[0] ^ h[0]) + (m[7] ^ h[7])</span>
+				+ (m[9] ^ h[9]) - (m[12] ^ h[12])
+				+ (m[15] ^ h[15])), 25))
+			+ h[3];
+<span class="nc" id="L116">		q[3] = ((((m[0] ^ h[0]) - (m[1] ^ h[1]) + (m[8] ^ h[8])</span>
+			- (m[10] ^ h[10]) + (m[13] ^ h[13])) &gt;&gt;&gt; 2)
+			^ (((m[0] ^ h[0]) - (m[1] ^ h[1]) + (m[8] ^ h[8])
+			- (m[10] ^ h[10]) + (m[13] ^ h[13])) &lt;&lt; 2)
+<span class="nc" id="L120">			^ circularLeft(((m[0] ^ h[0]) - (m[1] ^ h[1])</span>
+				+ (m[8] ^ h[8]) - (m[10] ^ h[10])
+				+ (m[13] ^ h[13])), 15)
+<span class="nc" id="L123">			^ circularLeft(((m[0] ^ h[0]) - (m[1] ^ h[1])</span>
+				+ (m[8] ^ h[8]) - (m[10] ^ h[10])
+				+ (m[13] ^ h[13])), 29))
+			+ h[4];
+<span class="nc" id="L127">		q[4] = ((((m[1] ^ h[1]) + (m[2] ^ h[2]) + (m[9] ^ h[9])</span>
+			- (m[11] ^ h[11]) - (m[14] ^ h[14])) &gt;&gt;&gt; 1)
+			^ ((m[1] ^ h[1]) + (m[2] ^ h[2]) + (m[9] ^ h[9])
+			- (m[11] ^ h[11]) - (m[14] ^ h[14]))) + h[5];
+<span class="nc" id="L131">		q[5] = ((((m[3] ^ h[3]) - (m[2] ^ h[2]) + (m[10] ^ h[10])</span>
+			- (m[12] ^ h[12]) + (m[15] ^ h[15])) &gt;&gt;&gt; 1)
+			^ (((m[3] ^ h[3]) - (m[2] ^ h[2]) + (m[10] ^ h[10])
+			- (m[12] ^ h[12]) + (m[15] ^ h[15])) &lt;&lt; 3)
+<span class="nc" id="L135">			^ circularLeft(((m[3] ^ h[3]) - (m[2] ^ h[2])</span>
+				+ (m[10] ^ h[10]) - (m[12] ^ h[12])
+				+ (m[15] ^ h[15])), 4)
+<span class="nc" id="L138">			^ circularLeft(((m[3] ^ h[3]) - (m[2] ^ h[2])</span>
+				+ (m[10] ^ h[10]) - (m[12] ^ h[12])
+				+ (m[15] ^ h[15])), 19))
+			+ h[6];
+<span class="nc" id="L142">		q[6] = ((((m[4] ^ h[4]) - (m[0] ^ h[0]) - (m[3] ^ h[3])</span>
+			- (m[11] ^ h[11]) + (m[13] ^ h[13])) &gt;&gt;&gt; 1)
+			^ (((m[4] ^ h[4]) - (m[0] ^ h[0]) - (m[3] ^ h[3])
+			- (m[11] ^ h[11]) + (m[13] ^ h[13])) &lt;&lt; 2)
+<span class="nc" id="L146">			^ circularLeft(((m[4] ^ h[4]) - (m[0] ^ h[0])</span>
+				- (m[3] ^ h[3]) - (m[11] ^ h[11])
+				+ (m[13] ^ h[13])), 8)
+<span class="nc" id="L149">			^ circularLeft(((m[4] ^ h[4]) - (m[0] ^ h[0])</span>
+				- (m[3] ^ h[3]) - (m[11] ^ h[11])
+				+ (m[13] ^ h[13])), 23))
+			+ h[7];
+<span class="nc" id="L153">		q[7] = ((((m[1] ^ h[1]) - (m[4] ^ h[4]) - (m[5] ^ h[5])</span>
+			- (m[12] ^ h[12]) - (m[14] ^ h[14])) &gt;&gt;&gt; 2)
+			^ (((m[1] ^ h[1]) - (m[4] ^ h[4]) - (m[5] ^ h[5])
+			- (m[12] ^ h[12]) - (m[14] ^ h[14])) &lt;&lt; 1)
+<span class="nc" id="L157">			^ circularLeft(((m[1] ^ h[1]) - (m[4] ^ h[4])</span>
+				- (m[5] ^ h[5]) - (m[12] ^ h[12])
+				- (m[14] ^ h[14])), 12)
+<span class="nc" id="L160">			^ circularLeft(((m[1] ^ h[1]) - (m[4] ^ h[4])</span>
+				- (m[5] ^ h[5]) - (m[12] ^ h[12])
+				- (m[14] ^ h[14])), 25))
+			+ h[8];
+<span class="nc" id="L164">		q[8] = ((((m[2] ^ h[2]) - (m[5] ^ h[5]) - (m[6] ^ h[6])</span>
+			+ (m[13] ^ h[13]) - (m[15] ^ h[15])) &gt;&gt;&gt; 2)
+			^ (((m[2] ^ h[2]) - (m[5] ^ h[5]) - (m[6] ^ h[6])
+			+ (m[13] ^ h[13]) - (m[15] ^ h[15])) &lt;&lt; 2)
+<span class="nc" id="L168">			^ circularLeft(((m[2] ^ h[2]) - (m[5] ^ h[5])</span>
+				- (m[6] ^ h[6]) + (m[13] ^ h[13])
+				- (m[15] ^ h[15])), 15)
+<span class="nc" id="L171">			^ circularLeft(((m[2] ^ h[2]) - (m[5] ^ h[5])</span>
+				- (m[6] ^ h[6]) + (m[13] ^ h[13])
+				- (m[15] ^ h[15])), 29))
+			+ h[9];
+<span class="nc" id="L175">		q[9] = ((((m[0] ^ h[0]) - (m[3] ^ h[3]) + (m[6] ^ h[6])</span>
+			- (m[7] ^ h[7]) + (m[14] ^ h[14])) &gt;&gt;&gt; 1)
+			^ ((m[0] ^ h[0]) - (m[3] ^ h[3]) + (m[6] ^ h[6])
+			- (m[7] ^ h[7]) + (m[14] ^ h[14]))) + h[10];
+<span class="nc" id="L179">		q[10] = ((((m[8] ^ h[8]) - (m[1] ^ h[1]) - (m[4] ^ h[4])</span>
+			- (m[7] ^ h[7]) + (m[15] ^ h[15])) &gt;&gt;&gt; 1)
+			^ (((m[8] ^ h[8]) - (m[1] ^ h[1]) - (m[4] ^ h[4])
+			- (m[7] ^ h[7]) + (m[15] ^ h[15])) &lt;&lt; 3)
+<span class="nc" id="L183">			^ circularLeft(((m[8] ^ h[8]) - (m[1] ^ h[1])</span>
+				- (m[4] ^ h[4]) - (m[7] ^ h[7])
+				+ (m[15] ^ h[15])), 4)
+<span class="nc" id="L186">			^ circularLeft(((m[8] ^ h[8]) - (m[1] ^ h[1])</span>
+				- (m[4] ^ h[4]) - (m[7] ^ h[7])
+				+ (m[15] ^ h[15])), 19))
+			+ h[11];
+<span class="nc" id="L190">		q[11] = ((((m[8] ^ h[8]) - (m[0] ^ h[0]) - (m[2] ^ h[2])</span>
+			- (m[5] ^ h[5]) + (m[9] ^ h[9])) &gt;&gt;&gt; 1)
+			^ (((m[8] ^ h[8]) - (m[0] ^ h[0]) - (m[2] ^ h[2])
+			- (m[5] ^ h[5]) + (m[9] ^ h[9])) &lt;&lt; 2)
+<span class="nc" id="L194">			^ circularLeft(((m[8] ^ h[8]) - (m[0] ^ h[0])</span>
+				- (m[2] ^ h[2]) - (m[5] ^ h[5])
+				+ (m[9] ^ h[9])), 8)
+<span class="nc" id="L197">			^ circularLeft(((m[8] ^ h[8]) - (m[0] ^ h[0])</span>
+				- (m[2] ^ h[2]) - (m[5] ^ h[5])
+				+ (m[9] ^ h[9])), 23))
+			+ h[12];
+<span class="nc" id="L201">		q[12] = ((((m[1] ^ h[1]) + (m[3] ^ h[3]) - (m[6] ^ h[6])</span>
+			- (m[9] ^ h[9]) + (m[10] ^ h[10])) &gt;&gt;&gt; 2)
+			^ (((m[1] ^ h[1]) + (m[3] ^ h[3]) - (m[6] ^ h[6])
+			- (m[9] ^ h[9]) + (m[10] ^ h[10])) &lt;&lt; 1)
+<span class="nc" id="L205">			^ circularLeft(((m[1] ^ h[1]) + (m[3] ^ h[3])</span>
+				- (m[6] ^ h[6]) - (m[9] ^ h[9])
+				+ (m[10] ^ h[10])), 12)
+<span class="nc" id="L208">			^ circularLeft(((m[1] ^ h[1]) + (m[3] ^ h[3])</span>
+				- (m[6] ^ h[6]) - (m[9] ^ h[9])
+				+ (m[10] ^ h[10])), 25))
+			+ h[13];
+<span class="nc" id="L212">		q[13] = ((((m[2] ^ h[2]) + (m[4] ^ h[4]) + (m[7] ^ h[7])</span>
+			+ (m[10] ^ h[10]) + (m[11] ^ h[11])) &gt;&gt;&gt; 2)
+			^ (((m[2] ^ h[2]) + (m[4] ^ h[4]) + (m[7] ^ h[7])
+			+ (m[10] ^ h[10]) + (m[11] ^ h[11])) &lt;&lt; 2)
+<span class="nc" id="L216">			^ circularLeft(((m[2] ^ h[2]) + (m[4] ^ h[4])</span>
+				+ (m[7] ^ h[7]) + (m[10] ^ h[10])
+				+ (m[11] ^ h[11])), 15)
+<span class="nc" id="L219">			^ circularLeft(((m[2] ^ h[2]) + (m[4] ^ h[4])</span>
+				+ (m[7] ^ h[7]) + (m[10] ^ h[10])
+				+ (m[11] ^ h[11])), 29))
+			+ h[14];
+<span class="nc" id="L223">		q[14] = ((((m[3] ^ h[3]) - (m[5] ^ h[5]) + (m[8] ^ h[8])</span>
+			- (m[11] ^ h[11]) - (m[12] ^ h[12])) &gt;&gt;&gt; 1)
+			^ ((m[3] ^ h[3]) - (m[5] ^ h[5]) + (m[8] ^ h[8])
+			- (m[11] ^ h[11]) - (m[12] ^ h[12]))) + h[15];
+<span class="nc" id="L227">		q[15] = ((((m[12] ^ h[12]) - (m[4] ^ h[4]) - (m[6] ^ h[6])</span>
+			- (m[9] ^ h[9]) + (m[13] ^ h[13])) &gt;&gt;&gt; 1)
+			^ (((m[12] ^ h[12]) - (m[4] ^ h[4]) - (m[6] ^ h[6])
+			- (m[9] ^ h[9]) + (m[13] ^ h[13])) &lt;&lt; 3)
+<span class="nc" id="L231">			^ circularLeft(((m[12] ^ h[12]) - (m[4] ^ h[4])</span>
+				- (m[6] ^ h[6]) - (m[9] ^ h[9])
+				+ (m[13] ^ h[13])), 4)
+<span class="nc" id="L234">			^ circularLeft(((m[12] ^ h[12]) - (m[4] ^ h[4])</span>
+				- (m[6] ^ h[6]) - (m[9] ^ h[9])
+				+ (m[13] ^ h[13])), 19))
+			+ h[0];
+<span class="nc" id="L238">		q[16] = (((q[0] &gt;&gt;&gt; 1) ^ (q[0] &lt;&lt; 2)</span>
+<span class="nc" id="L239">			^ circularLeft(q[0], 8) ^ circularLeft(q[0], 23))</span>
+			+ ((q[1] &gt;&gt;&gt; 2) ^ (q[1] &lt;&lt; 1)
+<span class="nc" id="L241">			^ circularLeft(q[1], 12) ^ circularLeft(q[1], 25))</span>
+			+ ((q[2] &gt;&gt;&gt; 2) ^ (q[2] &lt;&lt; 2)
+<span class="nc" id="L243">			^ circularLeft(q[2], 15) ^ circularLeft(q[2], 29))</span>
+			+ ((q[3] &gt;&gt;&gt; 1) ^ (q[3] &lt;&lt; 3)
+<span class="nc" id="L245">			^ circularLeft(q[3], 4) ^ circularLeft(q[3], 19))</span>
+			+ ((q[4] &gt;&gt;&gt; 1) ^ (q[4] &lt;&lt; 2)
+<span class="nc" id="L247">			^ circularLeft(q[4], 8) ^ circularLeft(q[4], 23))</span>
+			+ ((q[5] &gt;&gt;&gt; 2) ^ (q[5] &lt;&lt; 1)
+<span class="nc" id="L249">			^ circularLeft(q[5], 12) ^ circularLeft(q[5], 25))</span>
+			+ ((q[6] &gt;&gt;&gt; 2) ^ (q[6] &lt;&lt; 2)
+<span class="nc" id="L251">			^ circularLeft(q[6], 15) ^ circularLeft(q[6], 29))</span>
+			+ ((q[7] &gt;&gt;&gt; 1) ^ (q[7] &lt;&lt; 3)
+<span class="nc" id="L253">			^ circularLeft(q[7], 4) ^ circularLeft(q[7], 19))</span>
+			+ ((q[8] &gt;&gt;&gt; 1) ^ (q[8] &lt;&lt; 2)
+<span class="nc" id="L255">			^ circularLeft(q[8], 8) ^ circularLeft(q[8], 23))</span>
+			+ ((q[9] &gt;&gt;&gt; 2) ^ (q[9] &lt;&lt; 1)
+<span class="nc" id="L257">			^ circularLeft(q[9], 12) ^ circularLeft(q[9], 25))</span>
+			+ ((q[10] &gt;&gt;&gt; 2) ^ (q[10] &lt;&lt; 2)
+<span class="nc" id="L259">			^ circularLeft(q[10], 15) ^ circularLeft(q[10], 29))</span>
+			+ ((q[11] &gt;&gt;&gt; 1) ^ (q[11] &lt;&lt; 3)
+<span class="nc" id="L261">			^ circularLeft(q[11], 4) ^ circularLeft(q[11], 19))</span>
+			+ ((q[12] &gt;&gt;&gt; 1) ^ (q[12] &lt;&lt; 2)
+<span class="nc" id="L263">			^ circularLeft(q[12], 8) ^ circularLeft(q[12], 23))</span>
+			+ ((q[13] &gt;&gt;&gt; 2) ^ (q[13] &lt;&lt; 1)
+<span class="nc" id="L265">			^ circularLeft(q[13], 12) ^ circularLeft(q[13], 25))</span>
+			+ ((q[14] &gt;&gt;&gt; 2) ^ (q[14] &lt;&lt; 2)
+<span class="nc" id="L267">			^ circularLeft(q[14], 15) ^ circularLeft(q[14], 29))</span>
+			+ ((q[15] &gt;&gt;&gt; 1) ^ (q[15] &lt;&lt; 3)
+<span class="nc" id="L269">			^ circularLeft(q[15], 4) ^ circularLeft(q[15], 19))</span>
+<span class="nc" id="L270">			+ ((circularLeft(m[0], 1) + circularLeft(m[3], 4)</span>
+<span class="nc" id="L271">			- circularLeft(m[10], 11) + (16 * 0x05555555)) ^ h[7]));</span>
+<span class="nc" id="L272">		q[17] = (((q[1] &gt;&gt;&gt; 1) ^ (q[1] &lt;&lt; 2)</span>
+<span class="nc" id="L273">			^ circularLeft(q[1], 8) ^ circularLeft(q[1], 23))</span>
+			+ ((q[2] &gt;&gt;&gt; 2) ^ (q[2] &lt;&lt; 1)
+<span class="nc" id="L275">			^ circularLeft(q[2], 12) ^ circularLeft(q[2], 25))</span>
+			+ ((q[3] &gt;&gt;&gt; 2) ^ (q[3] &lt;&lt; 2)
+<span class="nc" id="L277">			^ circularLeft(q[3], 15) ^ circularLeft(q[3], 29))</span>
+			+ ((q[4] &gt;&gt;&gt; 1) ^ (q[4] &lt;&lt; 3)
+<span class="nc" id="L279">			^ circularLeft(q[4], 4) ^ circularLeft(q[4], 19))</span>
+			+ ((q[5] &gt;&gt;&gt; 1) ^ (q[5] &lt;&lt; 2)
+<span class="nc" id="L281">			^ circularLeft(q[5], 8) ^ circularLeft(q[5], 23))</span>
+			+ ((q[6] &gt;&gt;&gt; 2) ^ (q[6] &lt;&lt; 1)
+<span class="nc" id="L283">			^ circularLeft(q[6], 12) ^ circularLeft(q[6], 25))</span>
+			+ ((q[7] &gt;&gt;&gt; 2) ^ (q[7] &lt;&lt; 2)
+<span class="nc" id="L285">			^ circularLeft(q[7], 15) ^ circularLeft(q[7], 29))</span>
+			+ ((q[8] &gt;&gt;&gt; 1) ^ (q[8] &lt;&lt; 3)
+<span class="nc" id="L287">			^ circularLeft(q[8], 4) ^ circularLeft(q[8], 19))</span>
+			+ ((q[9] &gt;&gt;&gt; 1) ^ (q[9] &lt;&lt; 2)
+<span class="nc" id="L289">			^ circularLeft(q[9], 8) ^ circularLeft(q[9], 23))</span>
+			+ ((q[10] &gt;&gt;&gt; 2) ^ (q[10] &lt;&lt; 1)
+<span class="nc" id="L291">			^ circularLeft(q[10], 12) ^ circularLeft(q[10], 25))</span>
+			+ ((q[11] &gt;&gt;&gt; 2) ^ (q[11] &lt;&lt; 2)
+<span class="nc" id="L293">			^ circularLeft(q[11], 15) ^ circularLeft(q[11], 29))</span>
+			+ ((q[12] &gt;&gt;&gt; 1) ^ (q[12] &lt;&lt; 3)
+<span class="nc" id="L295">			^ circularLeft(q[12], 4) ^ circularLeft(q[12], 19))</span>
+			+ ((q[13] &gt;&gt;&gt; 1) ^ (q[13] &lt;&lt; 2)
+<span class="nc" id="L297">			^ circularLeft(q[13], 8) ^ circularLeft(q[13], 23))</span>
+			+ ((q[14] &gt;&gt;&gt; 2) ^ (q[14] &lt;&lt; 1)
+<span class="nc" id="L299">			^ circularLeft(q[14], 12) ^ circularLeft(q[14], 25))</span>
+			+ ((q[15] &gt;&gt;&gt; 2) ^ (q[15] &lt;&lt; 2)
+<span class="nc" id="L301">			^ circularLeft(q[15], 15) ^ circularLeft(q[15], 29))</span>
+			+ ((q[16] &gt;&gt;&gt; 1) ^ (q[16] &lt;&lt; 3)
+<span class="nc" id="L303">			^ circularLeft(q[16], 4) ^ circularLeft(q[16], 19))</span>
+<span class="nc" id="L304">			+ ((circularLeft(m[1], 2) + circularLeft(m[4], 5)</span>
+<span class="nc" id="L305">			- circularLeft(m[11], 12) + (17 * 0x05555555)) ^ h[8]));</span>
+<span class="nc" id="L306">		q[18] = (q[2] + circularLeft(q[3], 3)</span>
+<span class="nc" id="L307">			+ q[4] + circularLeft(q[5], 7)</span>
+<span class="nc" id="L308">			+ q[6] + circularLeft(q[7], 13)</span>
+<span class="nc" id="L309">			+ q[8] + circularLeft(q[9], 16)</span>
+<span class="nc" id="L310">			+ q[10] + circularLeft(q[11], 19)</span>
+<span class="nc" id="L311">			+ q[12] + circularLeft(q[13], 23)</span>
+<span class="nc" id="L312">			+ q[14] + circularLeft(q[15], 27)</span>
+			+ ((q[16] &gt;&gt;&gt; 1) ^ q[16]) + ((q[17] &gt;&gt;&gt; 2) ^ q[17])
+<span class="nc" id="L314">			+ ((circularLeft(m[2], 3) + circularLeft(m[5], 6)</span>
+<span class="nc" id="L315">			- circularLeft(m[12], 13)</span>
+			+ (18 * 0x05555555)) ^ h[9]));
+<span class="nc" id="L317">		q[19] = (q[3] + circularLeft(q[4], 3)</span>
+<span class="nc" id="L318">			+ q[5] + circularLeft(q[6], 7)</span>
+<span class="nc" id="L319">			+ q[7] + circularLeft(q[8], 13)</span>
+<span class="nc" id="L320">			+ q[9] + circularLeft(q[10], 16)</span>
+<span class="nc" id="L321">			+ q[11] + circularLeft(q[12], 19)</span>
+<span class="nc" id="L322">			+ q[13] + circularLeft(q[14], 23)</span>
+<span class="nc" id="L323">			+ q[15] + circularLeft(q[16], 27)</span>
+			+ ((q[17] &gt;&gt;&gt; 1) ^ q[17]) + ((q[18] &gt;&gt;&gt; 2) ^ q[18])
+<span class="nc" id="L325">			+ ((circularLeft(m[3], 4) + circularLeft(m[6], 7)</span>
+<span class="nc" id="L326">			- circularLeft(m[13], 14)</span>
+			+ (19 * 0x05555555)) ^ h[10]));
+<span class="nc" id="L328">		q[20] = (q[4] + circularLeft(q[5], 3)</span>
+<span class="nc" id="L329">			+ q[6] + circularLeft(q[7], 7)</span>
+<span class="nc" id="L330">			+ q[8] + circularLeft(q[9], 13)</span>
+<span class="nc" id="L331">			+ q[10] + circularLeft(q[11], 16)</span>
+<span class="nc" id="L332">			+ q[12] + circularLeft(q[13], 19)</span>
+<span class="nc" id="L333">			+ q[14] + circularLeft(q[15], 23)</span>
+<span class="nc" id="L334">			+ q[16] + circularLeft(q[17], 27)</span>
+			+ ((q[18] &gt;&gt;&gt; 1) ^ q[18]) + ((q[19] &gt;&gt;&gt; 2) ^ q[19])
+<span class="nc" id="L336">			+ ((circularLeft(m[4], 5) + circularLeft(m[7], 8)</span>
+<span class="nc" id="L337">			- circularLeft(m[14], 15)</span>
+			+ (20 * 0x05555555)) ^ h[11]));
+<span class="nc" id="L339">		q[21] = (q[5] + circularLeft(q[6], 3)</span>
+<span class="nc" id="L340">			+ q[7] + circularLeft(q[8], 7)</span>
+<span class="nc" id="L341">			+ q[9] + circularLeft(q[10], 13)</span>
+<span class="nc" id="L342">			+ q[11] + circularLeft(q[12], 16)</span>
+<span class="nc" id="L343">			+ q[13] + circularLeft(q[14], 19)</span>
+<span class="nc" id="L344">			+ q[15] + circularLeft(q[16], 23)</span>
+<span class="nc" id="L345">			+ q[17] + circularLeft(q[18], 27)</span>
+			+ ((q[19] &gt;&gt;&gt; 1) ^ q[19]) + ((q[20] &gt;&gt;&gt; 2) ^ q[20])
+<span class="nc" id="L347">			+ ((circularLeft(m[5], 6) + circularLeft(m[8], 9)</span>
+<span class="nc" id="L348">			- circularLeft(m[15], 16)</span>
+			+ (21 * 0x05555555)) ^ h[12]));
+<span class="nc" id="L350">		q[22] = (q[6] + circularLeft(q[7], 3)</span>
+<span class="nc" id="L351">			+ q[8] + circularLeft(q[9], 7)</span>
+<span class="nc" id="L352">			+ q[10] + circularLeft(q[11], 13)</span>
+<span class="nc" id="L353">			+ q[12] + circularLeft(q[13], 16)</span>
+<span class="nc" id="L354">			+ q[14] + circularLeft(q[15], 19)</span>
+<span class="nc" id="L355">			+ q[16] + circularLeft(q[17], 23)</span>
+<span class="nc" id="L356">			+ q[18] + circularLeft(q[19], 27)</span>
+			+ ((q[20] &gt;&gt;&gt; 1) ^ q[20]) + ((q[21] &gt;&gt;&gt; 2) ^ q[21])
+<span class="nc" id="L358">			+ ((circularLeft(m[6], 7) + circularLeft(m[9], 10)</span>
+<span class="nc" id="L359">			- circularLeft(m[0], 1)</span>
+			+ (22 * 0x05555555)) ^ h[13]));
+<span class="nc" id="L361">		q[23] = (q[7] + circularLeft(q[8], 3)</span>
+<span class="nc" id="L362">			+ q[9] + circularLeft(q[10], 7)</span>
+<span class="nc" id="L363">			+ q[11] + circularLeft(q[12], 13)</span>
+<span class="nc" id="L364">			+ q[13] + circularLeft(q[14], 16)</span>
+<span class="nc" id="L365">			+ q[15] + circularLeft(q[16], 19)</span>
+<span class="nc" id="L366">			+ q[17] + circularLeft(q[18], 23)</span>
+<span class="nc" id="L367">			+ q[19] + circularLeft(q[20], 27)</span>
+			+ ((q[21] &gt;&gt;&gt; 1) ^ q[21]) + ((q[22] &gt;&gt;&gt; 2) ^ q[22])
+<span class="nc" id="L369">			+ ((circularLeft(m[7], 8) + circularLeft(m[10], 11)</span>
+<span class="nc" id="L370">			- circularLeft(m[1], 2)</span>
+			+ (23 * 0x05555555)) ^ h[14]));
+<span class="nc" id="L372">		q[24] = (q[8] + circularLeft(q[9], 3)</span>
+<span class="nc" id="L373">			+ q[10] + circularLeft(q[11], 7)</span>
+<span class="nc" id="L374">			+ q[12] + circularLeft(q[13], 13)</span>
+<span class="nc" id="L375">			+ q[14] + circularLeft(q[15], 16)</span>
+<span class="nc" id="L376">			+ q[16] + circularLeft(q[17], 19)</span>
+<span class="nc" id="L377">			+ q[18] + circularLeft(q[19], 23)</span>
+<span class="nc" id="L378">			+ q[20] + circularLeft(q[21], 27)</span>
+			+ ((q[22] &gt;&gt;&gt; 1) ^ q[22]) + ((q[23] &gt;&gt;&gt; 2) ^ q[23])
+<span class="nc" id="L380">			+ ((circularLeft(m[8], 9) + circularLeft(m[11], 12)</span>
+<span class="nc" id="L381">			- circularLeft(m[2], 3)</span>
+			+ (24 * 0x05555555)) ^ h[15]));
+<span class="nc" id="L383">		q[25] = (q[9] + circularLeft(q[10], 3)</span>
+<span class="nc" id="L384">			+ q[11] + circularLeft(q[12], 7)</span>
+<span class="nc" id="L385">			+ q[13] + circularLeft(q[14], 13)</span>
+<span class="nc" id="L386">			+ q[15] + circularLeft(q[16], 16)</span>
+<span class="nc" id="L387">			+ q[17] + circularLeft(q[18], 19)</span>
+<span class="nc" id="L388">			+ q[19] + circularLeft(q[20], 23)</span>
+<span class="nc" id="L389">			+ q[21] + circularLeft(q[22], 27)</span>
+			+ ((q[23] &gt;&gt;&gt; 1) ^ q[23]) + ((q[24] &gt;&gt;&gt; 2) ^ q[24])
+<span class="nc" id="L391">			+ ((circularLeft(m[9], 10) + circularLeft(m[12], 13)</span>
+<span class="nc" id="L392">			- circularLeft(m[3], 4)</span>
+			+ (25 * 0x05555555)) ^ h[0]));
+<span class="nc" id="L394">		q[26] = (q[10] + circularLeft(q[11], 3)</span>
+<span class="nc" id="L395">			+ q[12] + circularLeft(q[13], 7)</span>
+<span class="nc" id="L396">			+ q[14] + circularLeft(q[15], 13)</span>
+<span class="nc" id="L397">			+ q[16] + circularLeft(q[17], 16)</span>
+<span class="nc" id="L398">			+ q[18] + circularLeft(q[19], 19)</span>
+<span class="nc" id="L399">			+ q[20] + circularLeft(q[21], 23)</span>
+<span class="nc" id="L400">			+ q[22] + circularLeft(q[23], 27)</span>
+			+ ((q[24] &gt;&gt;&gt; 1) ^ q[24]) + ((q[25] &gt;&gt;&gt; 2) ^ q[25])
+<span class="nc" id="L402">			+ ((circularLeft(m[10], 11) + circularLeft(m[13], 14)</span>
+<span class="nc" id="L403">			- circularLeft(m[4], 5)</span>
+			+ (26 * 0x05555555)) ^ h[1]));
+<span class="nc" id="L405">		q[27] = (q[11] + circularLeft(q[12], 3)</span>
+<span class="nc" id="L406">			+ q[13] + circularLeft(q[14], 7)</span>
+<span class="nc" id="L407">			+ q[15] + circularLeft(q[16], 13)</span>
+<span class="nc" id="L408">			+ q[17] + circularLeft(q[18], 16)</span>
+<span class="nc" id="L409">			+ q[19] + circularLeft(q[20], 19)</span>
+<span class="nc" id="L410">			+ q[21] + circularLeft(q[22], 23)</span>
+<span class="nc" id="L411">			+ q[23] + circularLeft(q[24], 27)</span>
+			+ ((q[25] &gt;&gt;&gt; 1) ^ q[25]) + ((q[26] &gt;&gt;&gt; 2) ^ q[26])
+<span class="nc" id="L413">			+ ((circularLeft(m[11], 12) + circularLeft(m[14], 15)</span>
+<span class="nc" id="L414">			- circularLeft(m[5], 6)</span>
+			+ (27 * 0x05555555)) ^ h[2]));
+<span class="nc" id="L416">		q[28] = (q[12] + circularLeft(q[13], 3)</span>
+<span class="nc" id="L417">			+ q[14] + circularLeft(q[15], 7)</span>
+<span class="nc" id="L418">			+ q[16] + circularLeft(q[17], 13)</span>
+<span class="nc" id="L419">			+ q[18] + circularLeft(q[19], 16)</span>
+<span class="nc" id="L420">			+ q[20] + circularLeft(q[21], 19)</span>
+<span class="nc" id="L421">			+ q[22] + circularLeft(q[23], 23)</span>
+<span class="nc" id="L422">			+ q[24] + circularLeft(q[25], 27)</span>
+			+ ((q[26] &gt;&gt;&gt; 1) ^ q[26]) + ((q[27] &gt;&gt;&gt; 2) ^ q[27])
+<span class="nc" id="L424">			+ ((circularLeft(m[12], 13) + circularLeft(m[15], 16)</span>
+<span class="nc" id="L425">			- circularLeft(m[6], 7)</span>
+			+ (28 * 0x05555555)) ^ h[3]));
+<span class="nc" id="L427">		q[29] = (q[13] + circularLeft(q[14], 3)</span>
+<span class="nc" id="L428">			+ q[15] + circularLeft(q[16], 7)</span>
+<span class="nc" id="L429">			+ q[17] + circularLeft(q[18], 13)</span>
+<span class="nc" id="L430">			+ q[19] + circularLeft(q[20], 16)</span>
+<span class="nc" id="L431">			+ q[21] + circularLeft(q[22], 19)</span>
+<span class="nc" id="L432">			+ q[23] + circularLeft(q[24], 23)</span>
+<span class="nc" id="L433">			+ q[25] + circularLeft(q[26], 27)</span>
+			+ ((q[27] &gt;&gt;&gt; 1) ^ q[27]) + ((q[28] &gt;&gt;&gt; 2) ^ q[28])
+<span class="nc" id="L435">			+ ((circularLeft(m[13], 14) + circularLeft(m[0], 1)</span>
+<span class="nc" id="L436">			- circularLeft(m[7], 8)</span>
+			+ (29 * 0x05555555)) ^ h[4]));
+<span class="nc" id="L438">		q[30] = (q[14] + circularLeft(q[15], 3)</span>
+<span class="nc" id="L439">			+ q[16] + circularLeft(q[17], 7)</span>
+<span class="nc" id="L440">			+ q[18] + circularLeft(q[19], 13)</span>
+<span class="nc" id="L441">			+ q[20] + circularLeft(q[21], 16)</span>
+<span class="nc" id="L442">			+ q[22] + circularLeft(q[23], 19)</span>
+<span class="nc" id="L443">			+ q[24] + circularLeft(q[25], 23)</span>
+<span class="nc" id="L444">			+ q[26] + circularLeft(q[27], 27)</span>
+			+ ((q[28] &gt;&gt;&gt; 1) ^ q[28]) + ((q[29] &gt;&gt;&gt; 2) ^ q[29])
+<span class="nc" id="L446">			+ ((circularLeft(m[14], 15) + circularLeft(m[1], 2)</span>
+<span class="nc" id="L447">			- circularLeft(m[8], 9)</span>
+			+ (30 * 0x05555555)) ^ h[5]));
+<span class="nc" id="L449">		q[31] = (q[15] + circularLeft(q[16], 3)</span>
+<span class="nc" id="L450">			+ q[17] + circularLeft(q[18], 7)</span>
+<span class="nc" id="L451">			+ q[19] + circularLeft(q[20], 13)</span>
+<span class="nc" id="L452">			+ q[21] + circularLeft(q[22], 16)</span>
+<span class="nc" id="L453">			+ q[23] + circularLeft(q[24], 19)</span>
+<span class="nc" id="L454">			+ q[25] + circularLeft(q[26], 23)</span>
+<span class="nc" id="L455">			+ q[27] + circularLeft(q[28], 27)</span>
+			+ ((q[29] &gt;&gt;&gt; 1) ^ q[29]) + ((q[30] &gt;&gt;&gt; 2) ^ q[30])
+<span class="nc" id="L457">			+ ((circularLeft(m[15], 16) + circularLeft(m[2], 3)</span>
+<span class="nc" id="L458">			- circularLeft(m[9], 10)</span>
+			+ (31 * 0x05555555)) ^ h[6]));
+<span class="nc" id="L460">		int xl = q[16] ^ q[17] ^ q[18] ^ q[19]</span>
+			^ q[20] ^ q[21] ^ q[22] ^ q[23];
+<span class="nc" id="L462">		int xh = xl ^ q[24] ^ q[25] ^ q[26] ^ q[27]</span>
+			^ q[28] ^ q[29] ^ q[30] ^ q[31];
+<span class="nc" id="L464">		h[0] = ((xh &lt;&lt; 5) ^ (q[16] &gt;&gt;&gt; 5) ^ m[0]) + (xl ^ q[24] ^ q[0]);</span>
+<span class="nc" id="L465">		h[1] = ((xh &gt;&gt;&gt; 7) ^ (q[17] &lt;&lt; 8) ^ m[1]) + (xl ^ q[25] ^ q[1]);</span>
+<span class="nc" id="L466">		h[2] = ((xh &gt;&gt;&gt; 5) ^ (q[18] &lt;&lt; 5) ^ m[2]) + (xl ^ q[26] ^ q[2]);</span>
+<span class="nc" id="L467">		h[3] = ((xh &gt;&gt;&gt; 1) ^ (q[19] &lt;&lt; 5) ^ m[3]) + (xl ^ q[27] ^ q[3]);</span>
+<span class="nc" id="L468">		h[4] = ((xh &gt;&gt;&gt; 3) ^ (q[20] &lt;&lt; 0) ^ m[4]) + (xl ^ q[28] ^ q[4]);</span>
+<span class="nc" id="L469">		h[5] = ((xh &lt;&lt; 6) ^ (q[21] &gt;&gt;&gt; 6) ^ m[5]) + (xl ^ q[29] ^ q[5]);</span>
+<span class="nc" id="L470">		h[6] = ((xh &gt;&gt;&gt; 4) ^ (q[22] &lt;&lt; 6) ^ m[6]) + (xl ^ q[30] ^ q[6]);</span>
+<span class="nc" id="L471">		h[7] = ((xh &gt;&gt;&gt; 11) ^ (q[23] &lt;&lt; 2) ^ m[7])</span>
+			+ (xl ^ q[31] ^ q[7]);
+<span class="nc" id="L473">		h[8] = circularLeft(h[4], 9) + (xh ^ q[24] ^ m[8])</span>
+			+ ((xl &lt;&lt; 8) ^ q[23] ^ q[8]);
+<span class="nc" id="L475">		h[9] = circularLeft(h[5], 10) + (xh ^ q[25] ^ m[9])</span>
+			+ ((xl &gt;&gt;&gt; 6) ^ q[16] ^ q[9]);
+<span class="nc" id="L477">		h[10] = circularLeft(h[6], 11) + (xh ^ q[26] ^ m[10])</span>
+			+ ((xl &lt;&lt; 6) ^ q[17] ^ q[10]);
+<span class="nc" id="L479">		h[11] = circularLeft(h[7], 12) + (xh ^ q[27] ^ m[11])</span>
+			+ ((xl &lt;&lt; 4) ^ q[18] ^ q[11]);
+<span class="nc" id="L481">		h[12] = circularLeft(h[0], 13) + (xh ^ q[28] ^ m[12])</span>
+			+ ((xl &gt;&gt;&gt; 3) ^ q[19] ^ q[12]);
+<span class="nc" id="L483">		h[13] = circularLeft(h[1], 14) + (xh ^ q[29] ^ m[13])</span>
+			+ ((xl &gt;&gt;&gt; 4) ^ q[20] ^ q[13]);
+<span class="nc" id="L485">		h[14] = circularLeft(h[2], 15) + (xh ^ q[30] ^ m[14])</span>
+			+ ((xl &gt;&gt;&gt; 7) ^ q[21] ^ q[14]);
+<span class="nc" id="L487">		h[15] = circularLeft(h[3], 16) + (xh ^ q[31] ^ m[15])</span>
+			+ ((xl &gt;&gt;&gt; 2) ^ q[22] ^ q[15]);
+<span class="nc" id="L489">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L494">		byte[] buf = getBlockBuffer();</span>
+<span class="nc" id="L495">		int ptr = flush();</span>
+<span class="nc" id="L496">		long bitLen = (getBlockCount() &lt;&lt; 9) + (ptr &lt;&lt; 3);</span>
+<span class="nc" id="L497">		buf[ptr ++] = (byte)0x80;</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">		if (ptr &gt; 56) {</span>
+<span class="nc bnc" id="L499" title="All 2 branches missed.">			for (int i = ptr; i &lt; 64; i ++)</span>
+<span class="nc" id="L500">				buf[i] = 0;</span>
+<span class="nc" id="L501">			processBlock(buf);</span>
+<span class="nc" id="L502">			ptr = 0;</span>
+		}
+<span class="nc bnc" id="L504" title="All 2 branches missed.">		for (int i = ptr; i &lt; 56; i ++)</span>
+<span class="nc" id="L505">			buf[i] = 0;</span>
+<span class="nc" id="L506">		encodeLEInt((int)bitLen, buf, 56);</span>
+<span class="nc" id="L507">		encodeLEInt((int)(bitLen &gt;&gt;&gt; 32), buf, 60);</span>
+<span class="nc" id="L508">		processBlock(buf);</span>
+<span class="nc" id="L509">		int[] tmp = H;</span>
+<span class="nc" id="L510">		H = H2;</span>
+<span class="nc" id="L511">		H2 = tmp;</span>
+<span class="nc" id="L512">		System.arraycopy(FINAL, 0, H, 0, 16);</span>
+<span class="nc" id="L513">		compress(H2);</span>
+<span class="nc" id="L514">		int outLen = getDigestLength() &gt;&gt;&gt; 2;</span>
+<span class="nc bnc" id="L515" title="All 2 branches missed.">		for (int i = 0, j = 16 - outLen; i &lt; outLen; i ++, j ++)</span>
+<span class="nc" id="L516">			encodeLEInt(H[j], output, outputOffset + 4 * i);</span>
+<span class="nc" id="L517">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L522">		M = new int[16];</span>
+<span class="nc" id="L523">		H = new int[16];</span>
+<span class="nc" id="L524">		H2 = new int[16];</span>
+<span class="nc" id="L525">		Q = new int[32];</span>
+<span class="nc" id="L526">		engineReset();</span>
+<span class="nc" id="L527">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in little-endian
+	 * convention (least significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeLEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L540">		buf[off + 0] = (byte)val;</span>
+<span class="nc" id="L541">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L542">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L543">		buf[off + 3] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L544">	}</span>
+
+	/**
+	 * Decode a 32-bit little-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final int decodeLEInt(byte[] buf, int off)
+	{
+<span class="nc" id="L556">		return ((buf[off + 3] &amp; 0xFF) &lt;&lt; 24)</span>
+			| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 16)
+			| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 8)
+			| (buf[off + 0] &amp; 0xFF);
+	}
+
+	/**
+	 * Perform a circular rotation by {@code n} to the left
+	 * of the 32-bit word {@code x}. The {@code n} parameter
+	 * must lie between 1 and 31 (inclusive).
+	 *
+	 * @param x   the value to rotate
+	 * @param n   the rotation count (between 1 and 31)
+	 * @return  the rotated value
+	*/
+	private static final int circularLeft(int x, int n)
+	{
+<span class="nc" id="L573">		return (x &lt;&lt; n) | (x &gt;&gt;&gt; (32 - n));</span>
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc bnc" id="L579" title="All 2 branches missed.">		for (int i = 0; i &lt; 16; i ++)</span>
+<span class="nc" id="L580">			M[i] = decodeLEInt(data, i * 4);</span>
+<span class="nc" id="L581">		compress(M);</span>
+<span class="nc" id="L582">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L587">		return &quot;BMW-&quot; + (getDigestLength() &lt;&lt; 3);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

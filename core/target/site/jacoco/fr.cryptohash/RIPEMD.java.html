@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>RIPEMD.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">RIPEMD.java</span></div><h1>RIPEMD.java</h1><pre class="source lang-java linenums">// $Id: RIPEMD.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the RIPEMD digest algorithm under the {@link
+ * Digest} API. This is the original RIPEMD, &lt;strong&gt;not&lt;/strong&gt; the
+ * strengthened variants RIPEMD-128 or RIPEMD-160. A collision for this
+ * RIPEMD has been published in 2004.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class RIPEMD extends MDHelper {
+
+	/*
+	 * TODO: merge some of this code with that of RIPEMD128.
+	 */
+
+	/**
+	 * Build the object.
+	 */
+	public RIPEMD()
+	{
+<span class="nc" id="L53">		super(true, 8);</span>
+<span class="nc" id="L54">	}</span>
+
+	private int[] currentVal, X;
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L61">		RIPEMD d = new RIPEMD();</span>
+<span class="nc" id="L62">		System.arraycopy(currentVal, 0, d.currentVal, 0,</span>
+			currentVal.length);
+<span class="nc" id="L64">		return copyState(d);</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L70">		return 16;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L76">		return 64;</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L82">		currentVal[0] = (int)0x67452301;</span>
+<span class="nc" id="L83">		currentVal[1] = (int)0xEFCDAB89;</span>
+<span class="nc" id="L84">		currentVal[2] = (int)0x98BADCFE;</span>
+<span class="nc" id="L85">		currentVal[3] = (int)0x10325476;</span>
+<span class="nc" id="L86">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L91">		makeMDPadding();</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">		for (int i = 0; i &lt; 4; i ++)</span>
+<span class="nc" id="L93">			encodeLEInt(currentVal[i],</span>
+				output, outputOffset + 4 * i);
+<span class="nc" id="L95">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L100">		currentVal = new int[4];</span>
+<span class="nc" id="L101">		X = new int[16];</span>
+<span class="nc" id="L102">		engineReset();</span>
+<span class="nc" id="L103">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in little-endian
+	 * convention (least significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeLEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L116">		buf[off + 0] = (byte)val;</span>
+<span class="nc" id="L117">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L118">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L119">		buf[off + 3] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L120">	}</span>
+
+	/**
+	 * Decode a 32-bit little-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final int decodeLEInt(byte[] buf, int off)
+	{
+<span class="nc" id="L132">		return (buf[off + 0] &amp; 0xFF)</span>
+			| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 8)
+			| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 16)
+			| ((buf[off + 3] &amp; 0xFF) &lt;&lt; 24);
+	}
+
+	/**
+	 * Perform a circular rotation by {@code n} to the left
+	 * of the 32-bit word {@code x}. The {@code n} parameter
+	 * must lie between 1 and 31 (inclusive).
+	 *
+	 * @param x   the value to rotate
+	 * @param n   the rotation count (between 1 and 31)
+	 * @return  the rotated value
+	 */
+	static private final int circularLeft(int x, int n)
+	{
+<span class="nc" id="L149">		return (x &lt;&lt; n) | (x &gt;&gt;&gt; (32 - n));</span>
+	}
+
+<span class="nc" id="L152">	private static final int[] r1 = {</span>
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+		7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8,
+		3, 10, 14, 4, 9, 15, 8, 1, 2, 7, 0, 6, 13, 11, 5, 12,
+		1, 9, 11, 10, 0, 8, 12, 4, 13, 3, 7, 15, 14, 5, 6, 2
+	};
+
+<span class="nc" id="L159">	private static final int[] r2 = {</span>
+		5, 14, 7, 0, 9, 2, 11, 4, 13, 6, 15, 8, 1, 10, 3, 12,
+		6, 11, 3, 7, 0, 13, 5, 10, 14, 15, 8, 12, 4, 9, 1, 2,
+		15, 5, 1, 3, 7, 14, 6, 9, 11, 8, 12, 2, 10, 0, 4, 13,
+		8, 6, 4, 1, 3, 11, 15, 0, 5, 12, 2, 13, 9, 7, 10, 14
+	};
+
+<span class="nc" id="L166">	private static final int[] s1 = {</span>
+		11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8,
+		7, 6, 8, 13, 11, 9, 7, 15, 7, 12, 15, 9, 11, 7, 13, 12,
+		11, 13, 6, 7, 14, 9, 13, 15, 14, 8, 13, 6, 5, 12, 7, 5,
+		11, 12, 14, 15, 14, 15, 9, 8, 9, 14, 5, 6, 8, 6, 5, 12
+	};
+
+<span class="nc" id="L173">	private static final int[] s2 = {</span>
+		8, 9, 9, 11, 13, 15, 15, 5, 7, 7, 8, 11, 14, 14, 12, 6,
+		9, 13, 15, 7, 12, 8, 9, 11, 7, 7, 12, 7, 6, 15, 13, 11,
+		9, 7, 15, 11, 8, 6, 6, 14, 12, 13, 5, 14, 13, 13, 7, 5,
+		15, 5, 8, 11, 14, 14, 6, 14, 6, 9, 12, 9, 12, 5, 15, 8
+	};
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+		int H0, H1, H2, H3;
+		int A1, B1, C1, D1;
+		int A2, B2, C2, D2;
+		int tmp;
+
+<span class="nc" id="L188">		H0 = A1 = A2 = currentVal[0];</span>
+<span class="nc" id="L189">		H1 = B1 = B2 = currentVal[1];</span>
+<span class="nc" id="L190">		H2 = C1 = C2 = currentVal[2];</span>
+<span class="nc" id="L191">		H3 = D1 = D2 = currentVal[3];</span>
+
+<span class="nc bnc" id="L193" title="All 2 branches missed.">		for (int i = 0, j = 0; i &lt; 16; i ++, j += 4)</span>
+<span class="nc" id="L194">			X[i] = decodeLEInt(data, j);</span>
+
+<span class="nc" id="L196">		tmp = A1 + (((C1 ^ D1) &amp; B1) ^ D1) + X[0];</span>
+<span class="nc" id="L197">		A1 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L198">		tmp = D1 + (((B1 ^ C1) &amp; A1) ^ C1) + X[1];</span>
+<span class="nc" id="L199">		D1 = (tmp &lt;&lt; 14) | (tmp &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L200">		tmp = C1 + (((A1 ^ B1) &amp; D1) ^ B1) + X[2];</span>
+<span class="nc" id="L201">		C1 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L202">		tmp = B1 + (((D1 ^ A1) &amp; C1) ^ A1) + X[3];</span>
+<span class="nc" id="L203">		B1 = (tmp &lt;&lt; 12) | (tmp &gt;&gt;&gt; (32 - 12));</span>
+<span class="nc" id="L204">		tmp = A1 + (((C1 ^ D1) &amp; B1) ^ D1) + X[4];</span>
+<span class="nc" id="L205">		A1 = (tmp &lt;&lt; 5) | (tmp &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L206">		tmp = D1 + (((B1 ^ C1) &amp; A1) ^ C1) + X[5];</span>
+<span class="nc" id="L207">		D1 = (tmp &lt;&lt; 8) | (tmp &gt;&gt;&gt; (32 - 8));</span>
+<span class="nc" id="L208">		tmp = C1 + (((A1 ^ B1) &amp; D1) ^ B1) + X[6];</span>
+<span class="nc" id="L209">		C1 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L210">		tmp = B1 + (((D1 ^ A1) &amp; C1) ^ A1) + X[7];</span>
+<span class="nc" id="L211">		B1 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L212">		tmp = A1 + (((C1 ^ D1) &amp; B1) ^ D1) + X[8];</span>
+<span class="nc" id="L213">		A1 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L214">		tmp = D1 + (((B1 ^ C1) &amp; A1) ^ C1) + X[9];</span>
+<span class="nc" id="L215">		D1 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L216">		tmp = C1 + (((A1 ^ B1) &amp; D1) ^ B1) + X[10];</span>
+<span class="nc" id="L217">		C1 = (tmp &lt;&lt; 14) | (tmp &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L218">		tmp = B1 + (((D1 ^ A1) &amp; C1) ^ A1) + X[11];</span>
+<span class="nc" id="L219">		B1 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L220">		tmp = A1 + (((C1 ^ D1) &amp; B1) ^ D1) + X[12];</span>
+<span class="nc" id="L221">		A1 = (tmp &lt;&lt; 6) | (tmp &gt;&gt;&gt; (32 - 6));</span>
+<span class="nc" id="L222">		tmp = D1 + (((B1 ^ C1) &amp; A1) ^ C1) + X[13];</span>
+<span class="nc" id="L223">		D1 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L224">		tmp = C1 + (((A1 ^ B1) &amp; D1) ^ B1) + X[14];</span>
+<span class="nc" id="L225">		C1 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L226">		tmp = B1 + (((D1 ^ A1) &amp; C1) ^ A1) + X[15];</span>
+<span class="nc" id="L227">		B1 = (tmp &lt;&lt; 8) | (tmp &gt;&gt;&gt; (32 - 8));</span>
+
+<span class="nc" id="L229">		tmp = A1 + ((B1 &amp; C1) | ((B1 | C1) &amp; D1)) + X[7] + 0x5A827999;</span>
+<span class="nc" id="L230">		A1 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L231">		tmp = D1 + ((A1 &amp; B1) | ((A1 | B1) &amp; C1)) + X[4] + 0x5A827999;</span>
+<span class="nc" id="L232">		D1 = (tmp &lt;&lt; 6) | (tmp &gt;&gt;&gt; (32 - 6));</span>
+<span class="nc" id="L233">		tmp = C1 + ((D1 &amp; A1) | ((D1 | A1) &amp; B1)) + X[13] + 0x5A827999;</span>
+<span class="nc" id="L234">		C1 = (tmp &lt;&lt; 8) | (tmp &gt;&gt;&gt; (32 - 8));</span>
+<span class="nc" id="L235">		tmp = B1 + ((C1 &amp; D1) | ((C1 | D1) &amp; A1)) + X[1] + 0x5A827999;</span>
+<span class="nc" id="L236">		B1 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L237">		tmp = A1 + ((B1 &amp; C1) | ((B1 | C1) &amp; D1)) + X[10] + 0x5A827999;</span>
+<span class="nc" id="L238">		A1 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L239">		tmp = D1 + ((A1 &amp; B1) | ((A1 | B1) &amp; C1)) + X[6] + 0x5A827999;</span>
+<span class="nc" id="L240">		D1 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L241">		tmp = C1 + ((D1 &amp; A1) | ((D1 | A1) &amp; B1)) + X[15] + 0x5A827999;</span>
+<span class="nc" id="L242">		C1 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L243">		tmp = B1 + ((C1 &amp; D1) | ((C1 | D1) &amp; A1)) + X[3] + 0x5A827999;</span>
+<span class="nc" id="L244">		B1 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L245">		tmp = A1 + ((B1 &amp; C1) | ((B1 | C1) &amp; D1)) + X[12] + 0x5A827999;</span>
+<span class="nc" id="L246">		A1 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L247">		tmp = D1 + ((A1 &amp; B1) | ((A1 | B1) &amp; C1)) + X[0] + 0x5A827999;</span>
+<span class="nc" id="L248">		D1 = (tmp &lt;&lt; 12) | (tmp &gt;&gt;&gt; (32 - 12));</span>
+<span class="nc" id="L249">		tmp = C1 + ((D1 &amp; A1) | ((D1 | A1) &amp; B1)) + X[9] + 0x5A827999;</span>
+<span class="nc" id="L250">		C1 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L251">		tmp = B1 + ((C1 &amp; D1) | ((C1 | D1) &amp; A1)) + X[5] + 0x5A827999;</span>
+<span class="nc" id="L252">		B1 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L253">		tmp = A1 + ((B1 &amp; C1) | ((B1 | C1) &amp; D1)) + X[14] + 0x5A827999;</span>
+<span class="nc" id="L254">		A1 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L255">		tmp = D1 + ((A1 &amp; B1) | ((A1 | B1) &amp; C1)) + X[2] + 0x5A827999;</span>
+<span class="nc" id="L256">		D1 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L257">		tmp = C1 + ((D1 &amp; A1) | ((D1 | A1) &amp; B1)) + X[11] + 0x5A827999;</span>
+<span class="nc" id="L258">		C1 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L259">		tmp = B1 + ((C1 &amp; D1) | ((C1 | D1) &amp; A1)) + X[8] + 0x5A827999;</span>
+<span class="nc" id="L260">		B1 = (tmp &lt;&lt; 12) | (tmp &gt;&gt;&gt; (32 - 12));</span>
+
+<span class="nc" id="L262">		tmp = A1 + (B1 ^ C1 ^ D1) + X[3] + 0x6ED9EBA1;</span>
+<span class="nc" id="L263">		A1 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L264">		tmp = D1 + (A1 ^ B1 ^ C1) + X[10] + 0x6ED9EBA1;</span>
+<span class="nc" id="L265">		D1 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L266">		tmp = C1 + (D1 ^ A1 ^ B1) + X[2] + 0x6ED9EBA1;</span>
+<span class="nc" id="L267">		C1 = (tmp &lt;&lt; 14) | (tmp &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L268">		tmp = B1 + (C1 ^ D1 ^ A1) + X[4] + 0x6ED9EBA1;</span>
+<span class="nc" id="L269">		B1 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L270">		tmp = A1 + (B1 ^ C1 ^ D1) + X[9] + 0x6ED9EBA1;</span>
+<span class="nc" id="L271">		A1 = (tmp &lt;&lt; 14) | (tmp &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L272">		tmp = D1 + (A1 ^ B1 ^ C1) + X[15] + 0x6ED9EBA1;</span>
+<span class="nc" id="L273">		D1 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L274">		tmp = C1 + (D1 ^ A1 ^ B1) + X[8] + 0x6ED9EBA1;</span>
+<span class="nc" id="L275">		C1 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L276">		tmp = B1 + (C1 ^ D1 ^ A1) + X[1] + 0x6ED9EBA1;</span>
+<span class="nc" id="L277">		B1 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L278">		tmp = A1 + (B1 ^ C1 ^ D1) + X[14] + 0x6ED9EBA1;</span>
+<span class="nc" id="L279">		A1 = (tmp &lt;&lt; 6) | (tmp &gt;&gt;&gt; (32 - 6));</span>
+<span class="nc" id="L280">		tmp = D1 + (A1 ^ B1 ^ C1) + X[7] + 0x6ED9EBA1;</span>
+<span class="nc" id="L281">		D1 = (tmp &lt;&lt; 8) | (tmp &gt;&gt;&gt; (32 - 8));</span>
+<span class="nc" id="L282">		tmp = C1 + (D1 ^ A1 ^ B1) + X[0] + 0x6ED9EBA1;</span>
+<span class="nc" id="L283">		C1 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L284">		tmp = B1 + (C1 ^ D1 ^ A1) + X[6] + 0x6ED9EBA1;</span>
+<span class="nc" id="L285">		B1 = (tmp &lt;&lt; 6) | (tmp &gt;&gt;&gt; (32 - 6));</span>
+<span class="nc" id="L286">		tmp = A1 + (B1 ^ C1 ^ D1) + X[11] + 0x6ED9EBA1;</span>
+<span class="nc" id="L287">		A1 = (tmp &lt;&lt; 12) | (tmp &gt;&gt;&gt; (32 - 12));</span>
+<span class="nc" id="L288">		tmp = D1 + (A1 ^ B1 ^ C1) + X[13] + 0x6ED9EBA1;</span>
+<span class="nc" id="L289">		D1 = (tmp &lt;&lt; 5) | (tmp &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L290">		tmp = C1 + (D1 ^ A1 ^ B1) + X[5] + 0x6ED9EBA1;</span>
+<span class="nc" id="L291">		C1 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L292">		tmp = B1 + (C1 ^ D1 ^ A1) + X[12] + 0x6ED9EBA1;</span>
+<span class="nc" id="L293">		B1 = (tmp &lt;&lt; 5) | (tmp &gt;&gt;&gt; (32 - 5));</span>
+
+<span class="nc" id="L295">		tmp = A2 + (((C2 ^ D2) &amp; B2) ^ D2) + X[0] + 0x50A28BE6;</span>
+<span class="nc" id="L296">		A2 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L297">		tmp = D2 + (((B2 ^ C2) &amp; A2) ^ C2) + X[1] + 0x50A28BE6;</span>
+<span class="nc" id="L298">		D2 = (tmp &lt;&lt; 14) | (tmp &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L299">		tmp = C2 + (((A2 ^ B2) &amp; D2) ^ B2) + X[2] + 0x50A28BE6;</span>
+<span class="nc" id="L300">		C2 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L301">		tmp = B2 + (((D2 ^ A2) &amp; C2) ^ A2) + X[3] + 0x50A28BE6;</span>
+<span class="nc" id="L302">		B2 = (tmp &lt;&lt; 12) | (tmp &gt;&gt;&gt; (32 - 12));</span>
+<span class="nc" id="L303">		tmp = A2 + (((C2 ^ D2) &amp; B2) ^ D2) + X[4] + 0x50A28BE6;</span>
+<span class="nc" id="L304">		A2 = (tmp &lt;&lt; 5) | (tmp &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L305">		tmp = D2 + (((B2 ^ C2) &amp; A2) ^ C2) + X[5] + 0x50A28BE6;</span>
+<span class="nc" id="L306">		D2 = (tmp &lt;&lt; 8) | (tmp &gt;&gt;&gt; (32 - 8));</span>
+<span class="nc" id="L307">		tmp = C2 + (((A2 ^ B2) &amp; D2) ^ B2) + X[6] + 0x50A28BE6;</span>
+<span class="nc" id="L308">		C2 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L309">		tmp = B2 + (((D2 ^ A2) &amp; C2) ^ A2) + X[7] + 0x50A28BE6;</span>
+<span class="nc" id="L310">		B2 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L311">		tmp = A2 + (((C2 ^ D2) &amp; B2) ^ D2) + X[8] + 0x50A28BE6;</span>
+<span class="nc" id="L312">		A2 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L313">		tmp = D2 + (((B2 ^ C2) &amp; A2) ^ C2) + X[9] + 0x50A28BE6;</span>
+<span class="nc" id="L314">		D2 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L315">		tmp = C2 + (((A2 ^ B2) &amp; D2) ^ B2) + X[10] + 0x50A28BE6;</span>
+<span class="nc" id="L316">		C2 = (tmp &lt;&lt; 14) | (tmp &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L317">		tmp = B2 + (((D2 ^ A2) &amp; C2) ^ A2) + X[11] + 0x50A28BE6;</span>
+<span class="nc" id="L318">		B2 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L319">		tmp = A2 + (((C2 ^ D2) &amp; B2) ^ D2) + X[12] + 0x50A28BE6;</span>
+<span class="nc" id="L320">		A2 = (tmp &lt;&lt; 6) | (tmp &gt;&gt;&gt; (32 - 6));</span>
+<span class="nc" id="L321">		tmp = D2 + (((B2 ^ C2) &amp; A2) ^ C2) + X[13] + 0x50A28BE6;</span>
+<span class="nc" id="L322">		D2 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L323">		tmp = C2 + (((A2 ^ B2) &amp; D2) ^ B2) + X[14] + 0x50A28BE6;</span>
+<span class="nc" id="L324">		C2 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L325">		tmp = B2 + (((D2 ^ A2) &amp; C2) ^ A2) + X[15] + 0x50A28BE6;</span>
+<span class="nc" id="L326">		B2 = (tmp &lt;&lt; 8) | (tmp &gt;&gt;&gt; (32 - 8));</span>
+
+<span class="nc" id="L328">		tmp = A2 + ((B2 &amp; C2) | ((B2 | C2) &amp; D2)) + X[7];</span>
+<span class="nc" id="L329">		A2 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L330">		tmp = D2 + ((A2 &amp; B2) | ((A2 | B2) &amp; C2)) + X[4];</span>
+<span class="nc" id="L331">		D2 = (tmp &lt;&lt; 6) | (tmp &gt;&gt;&gt; (32 - 6));</span>
+<span class="nc" id="L332">		tmp = C2 + ((D2 &amp; A2) | ((D2 | A2) &amp; B2)) + X[13];</span>
+<span class="nc" id="L333">		C2 = (tmp &lt;&lt; 8) | (tmp &gt;&gt;&gt; (32 - 8));</span>
+<span class="nc" id="L334">		tmp = B2 + ((C2 &amp; D2) | ((C2 | D2) &amp; A2)) + X[1];</span>
+<span class="nc" id="L335">		B2 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L336">		tmp = A2 + ((B2 &amp; C2) | ((B2 | C2) &amp; D2)) + X[10];</span>
+<span class="nc" id="L337">		A2 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L338">		tmp = D2 + ((A2 &amp; B2) | ((A2 | B2) &amp; C2)) + X[6];</span>
+<span class="nc" id="L339">		D2 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L340">		tmp = C2 + ((D2 &amp; A2) | ((D2 | A2) &amp; B2)) + X[15];</span>
+<span class="nc" id="L341">		C2 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L342">		tmp = B2 + ((C2 &amp; D2) | ((C2 | D2) &amp; A2)) + X[3];</span>
+<span class="nc" id="L343">		B2 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L344">		tmp = A2 + ((B2 &amp; C2) | ((B2 | C2) &amp; D2)) + X[12];</span>
+<span class="nc" id="L345">		A2 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L346">		tmp = D2 + ((A2 &amp; B2) | ((A2 | B2) &amp; C2)) + X[0];</span>
+<span class="nc" id="L347">		D2 = (tmp &lt;&lt; 12) | (tmp &gt;&gt;&gt; (32 - 12));</span>
+<span class="nc" id="L348">		tmp = C2 + ((D2 &amp; A2) | ((D2 | A2) &amp; B2)) + X[9];</span>
+<span class="nc" id="L349">		C2 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L350">		tmp = B2 + ((C2 &amp; D2) | ((C2 | D2) &amp; A2)) + X[5];</span>
+<span class="nc" id="L351">		B2 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L352">		tmp = A2 + ((B2 &amp; C2) | ((B2 | C2) &amp; D2)) + X[14];</span>
+<span class="nc" id="L353">		A2 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L354">		tmp = D2 + ((A2 &amp; B2) | ((A2 | B2) &amp; C2)) + X[2];</span>
+<span class="nc" id="L355">		D2 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L356">		tmp = C2 + ((D2 &amp; A2) | ((D2 | A2) &amp; B2)) + X[11];</span>
+<span class="nc" id="L357">		C2 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L358">		tmp = B2 + ((C2 &amp; D2) | ((C2 | D2) &amp; A2)) + X[8];</span>
+<span class="nc" id="L359">		B2 = (tmp &lt;&lt; 12) | (tmp &gt;&gt;&gt; (32 - 12));</span>
+
+<span class="nc" id="L361">		tmp = A2 + (B2 ^ C2 ^ D2) + X[3] + 0x5C4DD124;</span>
+<span class="nc" id="L362">		A2 = (tmp &lt;&lt; 11) | (tmp &gt;&gt;&gt; (32 - 11));</span>
+<span class="nc" id="L363">		tmp = D2 + (A2 ^ B2 ^ C2) + X[10] + 0x5C4DD124;</span>
+<span class="nc" id="L364">		D2 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L365">		tmp = C2 + (D2 ^ A2 ^ B2) + X[2] + 0x5C4DD124;</span>
+<span class="nc" id="L366">		C2 = (tmp &lt;&lt; 14) | (tmp &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L367">		tmp = B2 + (C2 ^ D2 ^ A2) + X[4] + 0x5C4DD124;</span>
+<span class="nc" id="L368">		B2 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L369">		tmp = A2 + (B2 ^ C2 ^ D2) + X[9] + 0x5C4DD124;</span>
+<span class="nc" id="L370">		A2 = (tmp &lt;&lt; 14) | (tmp &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L371">		tmp = D2 + (A2 ^ B2 ^ C2) + X[15] + 0x5C4DD124;</span>
+<span class="nc" id="L372">		D2 = (tmp &lt;&lt; 9) | (tmp &gt;&gt;&gt; (32 - 9));</span>
+<span class="nc" id="L373">		tmp = C2 + (D2 ^ A2 ^ B2) + X[8] + 0x5C4DD124;</span>
+<span class="nc" id="L374">		C2 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L375">		tmp = B2 + (C2 ^ D2 ^ A2) + X[1] + 0x5C4DD124;</span>
+<span class="nc" id="L376">		B2 = (tmp &lt;&lt; 15) | (tmp &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L377">		tmp = A2 + (B2 ^ C2 ^ D2) + X[14] + 0x5C4DD124;</span>
+<span class="nc" id="L378">		A2 = (tmp &lt;&lt; 6) | (tmp &gt;&gt;&gt; (32 - 6));</span>
+<span class="nc" id="L379">		tmp = D2 + (A2 ^ B2 ^ C2) + X[7] + 0x5C4DD124;</span>
+<span class="nc" id="L380">		D2 = (tmp &lt;&lt; 8) | (tmp &gt;&gt;&gt; (32 - 8));</span>
+<span class="nc" id="L381">		tmp = C2 + (D2 ^ A2 ^ B2) + X[0] + 0x5C4DD124;</span>
+<span class="nc" id="L382">		C2 = (tmp &lt;&lt; 13) | (tmp &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L383">		tmp = B2 + (C2 ^ D2 ^ A2) + X[6] + 0x5C4DD124;</span>
+<span class="nc" id="L384">		B2 = (tmp &lt;&lt; 6) | (tmp &gt;&gt;&gt; (32 - 6));</span>
+<span class="nc" id="L385">		tmp = A2 + (B2 ^ C2 ^ D2) + X[11] + 0x5C4DD124;</span>
+<span class="nc" id="L386">		A2 = (tmp &lt;&lt; 12) | (tmp &gt;&gt;&gt; (32 - 12));</span>
+<span class="nc" id="L387">		tmp = D2 + (A2 ^ B2 ^ C2) + X[13] + 0x5C4DD124;</span>
+<span class="nc" id="L388">		D2 = (tmp &lt;&lt; 5) | (tmp &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L389">		tmp = C2 + (D2 ^ A2 ^ B2) + X[5] + 0x5C4DD124;</span>
+<span class="nc" id="L390">		C2 = (tmp &lt;&lt; 7) | (tmp &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L391">		tmp = B2 + (C2 ^ D2 ^ A2) + X[12] + 0x5C4DD124;</span>
+<span class="nc" id="L392">		B2 = (tmp &lt;&lt; 5) | (tmp &gt;&gt;&gt; (32 - 5));</span>
+
+<span class="nc" id="L394">		int T = H1 + C1 + D2;</span>
+<span class="nc" id="L395">		currentVal[1] = H2 + D1 + A2;</span>
+<span class="nc" id="L396">		currentVal[2] = H3 + A1 + B2;</span>
+<span class="nc" id="L397">		currentVal[3] = H0 + B1 + C2;</span>
+<span class="nc" id="L398">		currentVal[0] = T;</span>
+<span class="nc" id="L399">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L404">		return &quot;RIPEMD&quot;;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

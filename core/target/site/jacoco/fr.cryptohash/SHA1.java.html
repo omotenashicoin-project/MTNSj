@@ -1,0 +1,537 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>SHA1.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">SHA1.java</span></div><h1>SHA1.java</h1><pre class="source lang-java linenums">// $Id: SHA1.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the SHA-1 digest algorithm under the
+ * {@link Digest} API. SHA-1 is defined by FIPS 180-2.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class SHA1 extends MDHelper {
+
+	/**
+	 * Build the object.
+	 */
+	public SHA1()
+	{
+<span class="nc" id="L47">		super(false, 8);</span>
+<span class="nc" id="L48">	}</span>
+
+	private int[] currentVal;
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L55">		SHA1 d = new SHA1();</span>
+<span class="nc" id="L56">		System.arraycopy(currentVal, 0, d.currentVal, 0,</span>
+			currentVal.length);
+<span class="nc" id="L58">		return copyState(d);</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L64">		return 20;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L70">		return 64;</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L76">		currentVal[0] = (int)0x67452301;</span>
+<span class="nc" id="L77">		currentVal[1] = (int)0xEFCDAB89;</span>
+<span class="nc" id="L78">		currentVal[2] = (int)0x98BADCFE;</span>
+<span class="nc" id="L79">		currentVal[3] = (int)0x10325476;</span>
+<span class="nc" id="L80">		currentVal[4] = (int)0xC3D2E1F0;</span>
+<span class="nc" id="L81">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L86">		makeMDPadding();</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">		for (int i = 0; i &lt; 5; i ++)</span>
+<span class="nc" id="L88">			encodeBEInt(currentVal[i],</span>
+				output, outputOffset + 4 * i);
+<span class="nc" id="L90">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L95">		currentVal = new int[5];</span>
+<span class="nc" id="L96">		engineReset();</span>
+<span class="nc" id="L97">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in big-endian
+	 * convention (most significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeBEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L110">		buf[off + 0] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L111">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L112">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L113">		buf[off + 3] = (byte)val;</span>
+<span class="nc" id="L114">	}</span>
+
+	/**
+	 * Decode a 32-bit big-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final int decodeBEInt(byte[] buf, int off)
+	{
+<span class="nc" id="L126">		return ((buf[off] &amp; 0xFF) &lt;&lt; 24)</span>
+			| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+			| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+			| (buf[off + 3] &amp; 0xFF);
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc" id="L135">		int A = currentVal[0], B = currentVal[1];</span>
+<span class="nc" id="L136">		int C = currentVal[2], D = currentVal[3], E = currentVal[4];</span>
+		int U;
+
+<span class="nc" id="L139">		int W0 = decodeBEInt(data, 0);</span>
+<span class="nc" id="L140">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + ((B &amp; C) | (~B &amp; D))</span>
+			 + E + W0 + 0x5A827999;
+<span class="nc" id="L142">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L143">		int W1 = decodeBEInt(data, 4);</span>
+<span class="nc" id="L144">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + ((A &amp; B) | (~A &amp; C))</span>
+			 + D + W1 + 0x5A827999;
+<span class="nc" id="L146">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L147">		int W2 = decodeBEInt(data, 8);</span>
+<span class="nc" id="L148">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + ((E &amp; A) | (~E &amp; B))</span>
+			 + C + W2 + 0x5A827999;
+<span class="nc" id="L150">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L151">		int W3 = decodeBEInt(data, 12);</span>
+<span class="nc" id="L152">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + ((D &amp; E) | (~D &amp; A))</span>
+			 + B + W3 + 0x5A827999;
+<span class="nc" id="L154">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L155">		int W4 = decodeBEInt(data, 16);</span>
+<span class="nc" id="L156">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + ((C &amp; D) | (~C &amp; E))</span>
+			 + A + W4 + 0x5A827999;
+<span class="nc" id="L158">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L159">		int W5 = decodeBEInt(data, 20);</span>
+<span class="nc" id="L160">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + ((B &amp; C) | (~B &amp; D))</span>
+			 + E + W5 + 0x5A827999;
+<span class="nc" id="L162">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L163">		int W6 = decodeBEInt(data, 24);</span>
+<span class="nc" id="L164">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + ((A &amp; B) | (~A &amp; C))</span>
+			 + D + W6 + 0x5A827999;
+<span class="nc" id="L166">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L167">		int W7 = decodeBEInt(data, 28);</span>
+<span class="nc" id="L168">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + ((E &amp; A) | (~E &amp; B))</span>
+			 + C + W7 + 0x5A827999;
+<span class="nc" id="L170">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L171">		int W8 = decodeBEInt(data, 32);</span>
+<span class="nc" id="L172">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + ((D &amp; E) | (~D &amp; A))</span>
+			 + B + W8 + 0x5A827999;
+<span class="nc" id="L174">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L175">		int W9 = decodeBEInt(data, 36);</span>
+<span class="nc" id="L176">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + ((C &amp; D) | (~C &amp; E))</span>
+			 + A + W9 + 0x5A827999;
+<span class="nc" id="L178">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L179">		int Wa = decodeBEInt(data, 40);</span>
+<span class="nc" id="L180">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + ((B &amp; C) | (~B &amp; D))</span>
+			 + E + Wa + 0x5A827999;
+<span class="nc" id="L182">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L183">		int Wb = decodeBEInt(data, 44);</span>
+<span class="nc" id="L184">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + ((A &amp; B) | (~A &amp; C))</span>
+			 + D + Wb + 0x5A827999;
+<span class="nc" id="L186">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L187">		int Wc = decodeBEInt(data, 48);</span>
+<span class="nc" id="L188">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + ((E &amp; A) | (~E &amp; B))</span>
+			 + C + Wc + 0x5A827999;
+<span class="nc" id="L190">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L191">		int Wd = decodeBEInt(data, 52);</span>
+<span class="nc" id="L192">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + ((D &amp; E) | (~D &amp; A))</span>
+			 + B + Wd + 0x5A827999;
+<span class="nc" id="L194">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L195">		int We = decodeBEInt(data, 56);</span>
+<span class="nc" id="L196">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + ((C &amp; D) | (~C &amp; E))</span>
+			 + A + We + 0x5A827999;
+<span class="nc" id="L198">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L199">		int Wf = decodeBEInt(data, 60);</span>
+<span class="nc" id="L200">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + ((B &amp; C) | (~B &amp; D))</span>
+			 + E + Wf + 0x5A827999;
+<span class="nc" id="L202">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L203">		U = Wd ^ W8 ^ W2 ^ W0;</span>
+<span class="nc" id="L204">		W0 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L205">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + ((A &amp; B) | (~A &amp; C))</span>
+			 + D + W0 + 0x5A827999;
+<span class="nc" id="L207">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L208">		U = We ^ W9 ^ W3 ^ W1;</span>
+<span class="nc" id="L209">		W1 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L210">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + ((E &amp; A) | (~E &amp; B))</span>
+			 + C + W1 + 0x5A827999;
+<span class="nc" id="L212">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L213">		U = Wf ^ Wa ^ W4 ^ W2;</span>
+<span class="nc" id="L214">		W2 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L215">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + ((D &amp; E) | (~D &amp; A))</span>
+			 + B + W2 + 0x5A827999;
+<span class="nc" id="L217">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L218">		U = W0 ^ Wb ^ W5 ^ W3;</span>
+<span class="nc" id="L219">		W3 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L220">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + ((C &amp; D) | (~C &amp; E))</span>
+			 + A + W3 + 0x5A827999;
+<span class="nc" id="L222">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L223">		U = W1 ^ Wc ^ W6 ^ W4;</span>
+<span class="nc" id="L224">		W4 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L225">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + (B ^ C ^ D)</span>
+			 + E + W4 + 0x6ED9EBA1;
+<span class="nc" id="L227">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L228">		U = W2 ^ Wd ^ W7 ^ W5;</span>
+<span class="nc" id="L229">		W5 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L230">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + (A ^ B ^ C)</span>
+			 + D + W5 + 0x6ED9EBA1;
+<span class="nc" id="L232">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L233">		U = W3 ^ We ^ W8 ^ W6;</span>
+<span class="nc" id="L234">		W6 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L235">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + (E ^ A ^ B)</span>
+			 + C + W6 + 0x6ED9EBA1;
+<span class="nc" id="L237">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L238">		U = W4 ^ Wf ^ W9 ^ W7;</span>
+<span class="nc" id="L239">		W7 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L240">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + (D ^ E ^ A)</span>
+			 + B + W7 + 0x6ED9EBA1;
+<span class="nc" id="L242">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L243">		U = W5 ^ W0 ^ Wa ^ W8;</span>
+<span class="nc" id="L244">		W8 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L245">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + (C ^ D ^ E)</span>
+			 + A + W8 + 0x6ED9EBA1;
+<span class="nc" id="L247">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L248">		U = W6 ^ W1 ^ Wb ^ W9;</span>
+<span class="nc" id="L249">		W9 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L250">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + (B ^ C ^ D)</span>
+			 + E + W9 + 0x6ED9EBA1;
+<span class="nc" id="L252">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L253">		U = W7 ^ W2 ^ Wc ^ Wa;</span>
+<span class="nc" id="L254">		Wa = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L255">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + (A ^ B ^ C)</span>
+			 + D + Wa + 0x6ED9EBA1;
+<span class="nc" id="L257">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L258">		U = W8 ^ W3 ^ Wd ^ Wb;</span>
+<span class="nc" id="L259">		Wb = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L260">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + (E ^ A ^ B)</span>
+			 + C + Wb + 0x6ED9EBA1;
+<span class="nc" id="L262">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L263">		U = W9 ^ W4 ^ We ^ Wc;</span>
+<span class="nc" id="L264">		Wc = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L265">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + (D ^ E ^ A)</span>
+			 + B + Wc + 0x6ED9EBA1;
+<span class="nc" id="L267">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L268">		U = Wa ^ W5 ^ Wf ^ Wd;</span>
+<span class="nc" id="L269">		Wd = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L270">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + (C ^ D ^ E)</span>
+			 + A + Wd + 0x6ED9EBA1;
+<span class="nc" id="L272">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L273">		U = Wb ^ W6 ^ W0 ^ We;</span>
+<span class="nc" id="L274">		We = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L275">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + (B ^ C ^ D)</span>
+			 + E + We + 0x6ED9EBA1;
+<span class="nc" id="L277">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L278">		U = Wc ^ W7 ^ W1 ^ Wf;</span>
+<span class="nc" id="L279">		Wf = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L280">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + (A ^ B ^ C)</span>
+			 + D + Wf + 0x6ED9EBA1;
+<span class="nc" id="L282">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L283">		U = Wd ^ W8 ^ W2 ^ W0;</span>
+<span class="nc" id="L284">		W0 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L285">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + (E ^ A ^ B)</span>
+			 + C + W0 + 0x6ED9EBA1;
+<span class="nc" id="L287">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L288">		U = We ^ W9 ^ W3 ^ W1;</span>
+<span class="nc" id="L289">		W1 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L290">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + (D ^ E ^ A)</span>
+			 + B + W1 + 0x6ED9EBA1;
+<span class="nc" id="L292">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L293">		U = Wf ^ Wa ^ W4 ^ W2;</span>
+<span class="nc" id="L294">		W2 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L295">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + (C ^ D ^ E)</span>
+			 + A + W2 + 0x6ED9EBA1;
+<span class="nc" id="L297">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L298">		U = W0 ^ Wb ^ W5 ^ W3;</span>
+<span class="nc" id="L299">		W3 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L300">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + (B ^ C ^ D)</span>
+			 + E + W3 + 0x6ED9EBA1;
+<span class="nc" id="L302">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L303">		U = W1 ^ Wc ^ W6 ^ W4;</span>
+<span class="nc" id="L304">		W4 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L305">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + (A ^ B ^ C)</span>
+			 + D + W4 + 0x6ED9EBA1;
+<span class="nc" id="L307">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L308">		U = W2 ^ Wd ^ W7 ^ W5;</span>
+<span class="nc" id="L309">		W5 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L310">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + (E ^ A ^ B)</span>
+			 + C + W5 + 0x6ED9EBA1;
+<span class="nc" id="L312">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L313">		U = W3 ^ We ^ W8 ^ W6;</span>
+<span class="nc" id="L314">		W6 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L315">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + (D ^ E ^ A)</span>
+			 + B + W6 + 0x6ED9EBA1;
+<span class="nc" id="L317">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L318">		U = W4 ^ Wf ^ W9 ^ W7;</span>
+<span class="nc" id="L319">		W7 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L320">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + (C ^ D ^ E)</span>
+			 + A + W7 + 0x6ED9EBA1;
+<span class="nc" id="L322">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L323">		U = W5 ^ W0 ^ Wa ^ W8;</span>
+<span class="nc" id="L324">		W8 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L325">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + ((B &amp; C) | (B &amp; D) | (C &amp; D))</span>
+			 + E + W8 + 0x8F1BBCDC;
+<span class="nc" id="L327">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L328">		U = W6 ^ W1 ^ Wb ^ W9;</span>
+<span class="nc" id="L329">		W9 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L330">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + ((A &amp; B) | (A &amp; C) | (B &amp; C))</span>
+			 + D + W9 + 0x8F1BBCDC;
+<span class="nc" id="L332">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L333">		U = W7 ^ W2 ^ Wc ^ Wa;</span>
+<span class="nc" id="L334">		Wa = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L335">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + ((E &amp; A) | (E &amp; B) | (A &amp; B))</span>
+			 + C + Wa + 0x8F1BBCDC;
+<span class="nc" id="L337">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L338">		U = W8 ^ W3 ^ Wd ^ Wb;</span>
+<span class="nc" id="L339">		Wb = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L340">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + ((D &amp; E) | (D &amp; A) | (E &amp; A))</span>
+			 + B + Wb + 0x8F1BBCDC;
+<span class="nc" id="L342">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L343">		U = W9 ^ W4 ^ We ^ Wc;</span>
+<span class="nc" id="L344">		Wc = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L345">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + ((C &amp; D) | (C &amp; E) | (D &amp; E))</span>
+			 + A + Wc + 0x8F1BBCDC;
+<span class="nc" id="L347">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L348">		U = Wa ^ W5 ^ Wf ^ Wd;</span>
+<span class="nc" id="L349">		Wd = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L350">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + ((B &amp; C) | (B &amp; D) | (C &amp; D))</span>
+			 + E + Wd + 0x8F1BBCDC;
+<span class="nc" id="L352">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L353">		U = Wb ^ W6 ^ W0 ^ We;</span>
+<span class="nc" id="L354">		We = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L355">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + ((A &amp; B) | (A &amp; C) | (B &amp; C))</span>
+			 + D + We + 0x8F1BBCDC;
+<span class="nc" id="L357">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L358">		U = Wc ^ W7 ^ W1 ^ Wf;</span>
+<span class="nc" id="L359">		Wf = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L360">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + ((E &amp; A) | (E &amp; B) | (A &amp; B))</span>
+			 + C + Wf + 0x8F1BBCDC;
+<span class="nc" id="L362">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L363">		U = Wd ^ W8 ^ W2 ^ W0;</span>
+<span class="nc" id="L364">		W0 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L365">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + ((D &amp; E) | (D &amp; A) | (E &amp; A))</span>
+			 + B + W0 + 0x8F1BBCDC;
+<span class="nc" id="L367">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L368">		U = We ^ W9 ^ W3 ^ W1;</span>
+<span class="nc" id="L369">		W1 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L370">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + ((C &amp; D) | (C &amp; E) | (D &amp; E))</span>
+			 + A + W1 + 0x8F1BBCDC;
+<span class="nc" id="L372">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L373">		U = Wf ^ Wa ^ W4 ^ W2;</span>
+<span class="nc" id="L374">		W2 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L375">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + ((B &amp; C) | (B &amp; D) | (C &amp; D))</span>
+			 + E + W2 + 0x8F1BBCDC;
+<span class="nc" id="L377">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L378">		U = W0 ^ Wb ^ W5 ^ W3;</span>
+<span class="nc" id="L379">		W3 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L380">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + ((A &amp; B) | (A &amp; C) | (B &amp; C))</span>
+			 + D + W3 + 0x8F1BBCDC;
+<span class="nc" id="L382">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L383">		U = W1 ^ Wc ^ W6 ^ W4;</span>
+<span class="nc" id="L384">		W4 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L385">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + ((E &amp; A) | (E &amp; B) | (A &amp; B))</span>
+			 + C + W4 + 0x8F1BBCDC;
+<span class="nc" id="L387">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L388">		U = W2 ^ Wd ^ W7 ^ W5;</span>
+<span class="nc" id="L389">		W5 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L390">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + ((D &amp; E) | (D &amp; A) | (E &amp; A))</span>
+			 + B + W5 + 0x8F1BBCDC;
+<span class="nc" id="L392">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L393">		U = W3 ^ We ^ W8 ^ W6;</span>
+<span class="nc" id="L394">		W6 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L395">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + ((C &amp; D) | (C &amp; E) | (D &amp; E))</span>
+			 + A + W6 + 0x8F1BBCDC;
+<span class="nc" id="L397">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L398">		U = W4 ^ Wf ^ W9 ^ W7;</span>
+<span class="nc" id="L399">		W7 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L400">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + ((B &amp; C) | (B &amp; D) | (C &amp; D))</span>
+			 + E + W7 + 0x8F1BBCDC;
+<span class="nc" id="L402">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L403">		U = W5 ^ W0 ^ Wa ^ W8;</span>
+<span class="nc" id="L404">		W8 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L405">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + ((A &amp; B) | (A &amp; C) | (B &amp; C))</span>
+			 + D + W8 + 0x8F1BBCDC;
+<span class="nc" id="L407">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L408">		U = W6 ^ W1 ^ Wb ^ W9;</span>
+<span class="nc" id="L409">		W9 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L410">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + ((E &amp; A) | (E &amp; B) | (A &amp; B))</span>
+			 + C + W9 + 0x8F1BBCDC;
+<span class="nc" id="L412">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L413">		U = W7 ^ W2 ^ Wc ^ Wa;</span>
+<span class="nc" id="L414">		Wa = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L415">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + ((D &amp; E) | (D &amp; A) | (E &amp; A))</span>
+			 + B + Wa + 0x8F1BBCDC;
+<span class="nc" id="L417">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L418">		U = W8 ^ W3 ^ Wd ^ Wb;</span>
+<span class="nc" id="L419">		Wb = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L420">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + ((C &amp; D) | (C &amp; E) | (D &amp; E))</span>
+			 + A + Wb + 0x8F1BBCDC;
+<span class="nc" id="L422">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L423">		U = W9 ^ W4 ^ We ^ Wc;</span>
+<span class="nc" id="L424">		Wc = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L425">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + (B ^ C ^ D)</span>
+			 + E + Wc + 0xCA62C1D6;
+<span class="nc" id="L427">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L428">		U = Wa ^ W5 ^ Wf ^ Wd;</span>
+<span class="nc" id="L429">		Wd = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L430">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + (A ^ B ^ C)</span>
+			 + D + Wd + 0xCA62C1D6;
+<span class="nc" id="L432">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L433">		U = Wb ^ W6 ^ W0 ^ We;</span>
+<span class="nc" id="L434">		We = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L435">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + (E ^ A ^ B)</span>
+			 + C + We + 0xCA62C1D6;
+<span class="nc" id="L437">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L438">		U = Wc ^ W7 ^ W1 ^ Wf;</span>
+<span class="nc" id="L439">		Wf = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L440">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + (D ^ E ^ A)</span>
+			 + B + Wf + 0xCA62C1D6;
+<span class="nc" id="L442">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L443">		U = Wd ^ W8 ^ W2 ^ W0;</span>
+<span class="nc" id="L444">		W0 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L445">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + (C ^ D ^ E)</span>
+			 + A + W0 + 0xCA62C1D6;
+<span class="nc" id="L447">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L448">		U = We ^ W9 ^ W3 ^ W1;</span>
+<span class="nc" id="L449">		W1 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L450">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + (B ^ C ^ D)</span>
+			 + E + W1 + 0xCA62C1D6;
+<span class="nc" id="L452">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L453">		U = Wf ^ Wa ^ W4 ^ W2;</span>
+<span class="nc" id="L454">		W2 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L455">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + (A ^ B ^ C)</span>
+			 + D + W2 + 0xCA62C1D6;
+<span class="nc" id="L457">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L458">		U = W0 ^ Wb ^ W5 ^ W3;</span>
+<span class="nc" id="L459">		W3 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L460">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + (E ^ A ^ B)</span>
+			 + C + W3 + 0xCA62C1D6;
+<span class="nc" id="L462">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L463">		U = W1 ^ Wc ^ W6 ^ W4;</span>
+<span class="nc" id="L464">		W4 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L465">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + (D ^ E ^ A)</span>
+			 + B + W4 + 0xCA62C1D6;
+<span class="nc" id="L467">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L468">		U = W2 ^ Wd ^ W7 ^ W5;</span>
+<span class="nc" id="L469">		W5 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L470">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + (C ^ D ^ E)</span>
+			 + A + W5 + 0xCA62C1D6;
+<span class="nc" id="L472">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L473">		U = W3 ^ We ^ W8 ^ W6;</span>
+<span class="nc" id="L474">		W6 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L475">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + (B ^ C ^ D)</span>
+			 + E + W6 + 0xCA62C1D6;
+<span class="nc" id="L477">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L478">		U = W4 ^ Wf ^ W9 ^ W7;</span>
+<span class="nc" id="L479">		W7 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L480">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + (A ^ B ^ C)</span>
+			 + D + W7 + 0xCA62C1D6;
+<span class="nc" id="L482">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L483">		U = W5 ^ W0 ^ Wa ^ W8;</span>
+<span class="nc" id="L484">		W8 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L485">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + (E ^ A ^ B)</span>
+			 + C + W8 + 0xCA62C1D6;
+<span class="nc" id="L487">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L488">		U = W6 ^ W1 ^ Wb ^ W9;</span>
+<span class="nc" id="L489">		W9 = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L490">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + (D ^ E ^ A)</span>
+			 + B + W9 + 0xCA62C1D6;
+<span class="nc" id="L492">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L493">		U = W7 ^ W2 ^ Wc ^ Wa;</span>
+<span class="nc" id="L494">		Wa = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L495">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + (C ^ D ^ E)</span>
+			 + A + Wa + 0xCA62C1D6;
+<span class="nc" id="L497">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L498">		U = W8 ^ W3 ^ Wd ^ Wb;</span>
+<span class="nc" id="L499">		Wb = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L500">		E = ((A &lt;&lt; 5) | (A &gt;&gt;&gt; 27)) + (B ^ C ^ D)</span>
+			 + E + Wb + 0xCA62C1D6;
+<span class="nc" id="L502">		B = (B &lt;&lt; 30) | (B &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L503">		U = W9 ^ W4 ^ We ^ Wc;</span>
+<span class="nc" id="L504">		Wc = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L505">		D = ((E &lt;&lt; 5) | (E &gt;&gt;&gt; 27)) + (A ^ B ^ C)</span>
+			 + D + Wc + 0xCA62C1D6;
+<span class="nc" id="L507">		A = (A &lt;&lt; 30) | (A &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L508">		U = Wa ^ W5 ^ Wf ^ Wd;</span>
+<span class="nc" id="L509">		Wd = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L510">		C = ((D &lt;&lt; 5) | (D &gt;&gt;&gt; 27)) + (E ^ A ^ B)</span>
+			 + C + Wd + 0xCA62C1D6;
+<span class="nc" id="L512">		E = (E &lt;&lt; 30) | (E &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L513">		U = Wb ^ W6 ^ W0 ^ We;</span>
+<span class="nc" id="L514">		We = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L515">		B = ((C &lt;&lt; 5) | (C &gt;&gt;&gt; 27)) + (D ^ E ^ A)</span>
+			 + B + We + 0xCA62C1D6;
+<span class="nc" id="L517">		D = (D &lt;&lt; 30) | (D &gt;&gt;&gt; 2);</span>
+<span class="nc" id="L518">		U = Wc ^ W7 ^ W1 ^ Wf;</span>
+<span class="nc" id="L519">		Wf = (U &lt;&lt; 1) | (U &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L520">		A = ((B &lt;&lt; 5) | (B &gt;&gt;&gt; 27)) + (C ^ D ^ E)</span>
+			 + A + Wf + 0xCA62C1D6;
+<span class="nc" id="L522">		C = (C &lt;&lt; 30) | (C &gt;&gt;&gt; 2);</span>
+
+<span class="nc" id="L524">		currentVal[0] += A;</span>
+<span class="nc" id="L525">		currentVal[1] += B;</span>
+<span class="nc" id="L526">		currentVal[2] += C;</span>
+<span class="nc" id="L527">		currentVal[3] += D;</span>
+<span class="nc" id="L528">		currentVal[4] += E;</span>
+<span class="nc" id="L529">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L534">		return &quot;SHA-1&quot;;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

@@ -1,0 +1,8 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.DumpedPrivateKeyTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 0.058 sec <<< FAILURE! - in site.mtnsj.core.DumpedPrivateKeyTest
+checkNetwork(site.mtnsj.core.DumpedPrivateKeyTest)  Time elapsed: 0 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 128 not in [191]
+	at site.mtnsj.core.DumpedPrivateKeyTest.checkNetwork(DumpedPrivateKeyTest.java:38)
+

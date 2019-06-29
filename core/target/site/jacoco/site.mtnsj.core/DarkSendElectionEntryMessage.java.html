@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>DarkSendElectionEntryMessage.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">DarkSendElectionEntryMessage.java</span></div><h1>DarkSendElectionEntryMessage.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.OutputStream;
+
+/**
+ * Created by Hash Engineering on 2/10/2015.
+ */
+public class DarkSendElectionEntryMessage extends Message {
+<span class="nc" id="L13">    private static final Logger log = LoggerFactory.getLogger(DarkSendElectionEntryMessage.class);</span>
+
+    TransactionInput vin;
+    PeerAddress addr;
+    PublicKey pubkey;
+    PublicKey pubkey2;
+    byte [] vchSig;
+    long sigTime;
+    int count;
+    int current;
+    long lastUpdated;
+    int protocolVersion;
+
+    private transient int optimalEncodingMessageSize;
+
+
+    DarkSendElectionEntryMessage()
+    {
+<span class="nc" id="L31">        super();</span>
+<span class="nc" id="L32">    }</span>
+
+    DarkSendElectionEntryMessage(NetworkParameters params, byte[] payloadBytes)
+    {
+<span class="nc" id="L36">        super(params, payloadBytes, 0);</span>
+<span class="nc" id="L37">    }</span>
+
+    DarkSendElectionEntryMessage(NetworkParameters params, TransactionInput vin, PeerAddress addr, byte [] vchSig,  long sigTime, PublicKey pubkey, PublicKey pubkey2, int count, int current, long lastTimeSeen, int protocolVersion)
+    {
+<span class="nc" id="L41">        super(params);</span>
+<span class="nc" id="L42">        this.vin = vin;</span>
+<span class="nc" id="L43">        this.addr = addr;</span>
+<span class="nc" id="L44">        this.vchSig = vchSig;</span>
+<span class="nc" id="L45">        this.sigTime = sigTime;</span>
+<span class="nc" id="L46">        this.pubkey = pubkey;</span>
+<span class="nc" id="L47">        this.pubkey2 = pubkey2;</span>
+<span class="nc" id="L48">        this.count = count;</span>
+<span class="nc" id="L49">        this.current = current;</span>
+<span class="nc" id="L50">        this.protocolVersion = protocolVersion;</span>
+
+<span class="nc" id="L52">    }</span>
+
+
+
+    protected static int calcLength(byte[] buf, int offset) {
+        VarInt varint;
+        // jump past version (uint32)
+<span class="nc" id="L59">        int cursor = offset;// + 4;</span>
+        //vin TransactionInput
+<span class="nc" id="L61">        cursor += 36;</span>
+<span class="nc" id="L62">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L63">        long scriptLen = varint.value;</span>
+        // 4 = length of sequence field (unint32)
+<span class="nc" id="L65">        cursor += scriptLen + 4 + varint.getOriginalSizeInBytes();</span>
+
+<span class="nc" id="L67">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L68">        cursor += varint.getOriginalSizeInBytes() + varint.value;</span>
+
+<span class="nc" id="L70">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L71">        cursor += varint.getOriginalSizeInBytes() + varint.value;</span>
+
+<span class="nc" id="L73">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L74">        cursor += varint.getOriginalSizeInBytes() + varint.value;</span>
+
+<span class="nc" id="L76">        cursor += 8 + 4 + 4 + 8 + 4;</span>
+
+<span class="nc" id="L78">        return cursor - offset;</span>
+    }
+    @Override
+    protected void parse() throws ProtocolException {
+
+<span class="nc" id="L83">        cursor = offset;</span>
+
+<span class="nc" id="L85">        optimalEncodingMessageSize = 0;</span>
+
+<span class="nc" id="L87">        TransactionOutPoint outpoint = new TransactionOutPoint(params, payload, cursor);</span>
+<span class="nc" id="L88">        cursor += outpoint.getMessageSize();</span>
+<span class="nc" id="L89">        int scriptLen = (int) readVarInt();</span>
+<span class="nc" id="L90">        byte [] scriptBytes = readBytes(scriptLen);</span>
+<span class="nc" id="L91">        long sequence = readUint32();</span>
+<span class="nc" id="L92">        vin = new TransactionInput(params, null, scriptBytes, outpoint);</span>
+
+<span class="nc" id="L94">        optimalEncodingMessageSize += outpoint.getMessageSize() + scriptLen + VarInt.sizeOf(scriptLen) +4;</span>
+
+<span class="nc" id="L96">        pubkey = new PublicKey(params, payload, cursor);</span>
+<span class="nc" id="L97">        cursor += pubkey.getMessageSize();</span>
+
+<span class="nc" id="L99">        pubkey2 = new PublicKey(params, payload, cursor);</span>
+<span class="nc" id="L100">        cursor += pubkey.getMessageSize();</span>
+
+<span class="nc" id="L102">        vchSig = readByteArray();</span>
+
+<span class="nc" id="L104">        sigTime = readInt64();</span>
+
+<span class="nc" id="L106">        count = (int)readUint32();</span>
+
+<span class="nc" id="L108">        current = (int)readUint32();</span>
+
+<span class="nc" id="L110">        lastUpdated = readInt64();</span>
+
+<span class="nc" id="L112">        protocolVersion = (int)readUint32();</span>
+
+<span class="nc" id="L114">        length = cursor - offset;</span>
+
+
+<span class="nc" id="L117">    }</span>
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+
+<span class="nc" id="L121">        vin.bitcoinSerialize(stream);</span>
+<span class="nc" id="L122">        pubkey.bitcoinSerialize(stream);</span>
+<span class="nc" id="L123">        pubkey2.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L125">        stream.write(new VarInt(vchSig.length).encode());</span>
+<span class="nc" id="L126">        stream.write(vchSig);</span>
+
+<span class="nc" id="L128">        Utils.int64ToByteStreamLE(sigTime, stream);</span>
+<span class="nc" id="L129">        Utils.uint32ToByteStreamLE(count, stream);</span>
+<span class="nc" id="L130">        Utils.uint32ToByteStreamLE(current, stream);</span>
+<span class="nc" id="L131">        Utils.int64ToByteStreamLE(lastUpdated, stream);</span>
+<span class="nc" id="L132">        Utils.uint32ToByteStreamLE(protocolVersion, stream);</span>
+<span class="nc" id="L133">    }</span>
+
+    long getOptimalEncodingMessageSize()
+    {
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (optimalEncodingMessageSize != 0)</span>
+<span class="nc" id="L138">            return optimalEncodingMessageSize;</span>
+
+<span class="nc bnc" id="L140" title="All 2 branches missed.">        if (optimalEncodingMessageSize != 0)</span>
+<span class="nc" id="L141">            return optimalEncodingMessageSize;</span>
+<span class="nc" id="L142">        optimalEncodingMessageSize = getMessageSize();</span>
+<span class="nc" id="L143">        return optimalEncodingMessageSize;</span>
+    }
+
+    public String toString()
+    {
+<span class="nc" id="L148">        return &quot;dsee Message:  &quot; +</span>
+<span class="nc" id="L149">                &quot;vin: &quot; + vin.toString() + &quot; - &quot; + addr.toString();</span>
+
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

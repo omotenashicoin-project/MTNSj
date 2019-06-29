@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>PANAMA.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">PANAMA.java</span></div><h1>PANAMA.java</h1><pre class="source lang-java linenums">// $Id: PANAMA.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * This class implements the PANAMA digest algorithm under the
+ * {@link Digest} API.
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class PANAMA extends DigestEngine {
+
+	/**
+	 * Create the object.
+	 */
+	public PANAMA()
+<span class="nc" id="L46">	{</span>
+<span class="nc" id="L47">	}</span>
+
+	private int[] buffer;
+	private int bufferPtr;
+	private int state0, state1, state2, state3, state4, state5;
+	private int state6, state7, state8, state9, state10, state11;
+	private int state12, state13, state14, state15, state16;
+	private int inData0, inData1, inData2, inData3;
+	private int inData4, inData5, inData6, inData7;
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L60">		PANAMA d = new PANAMA();</span>
+<span class="nc" id="L61">		System.arraycopy(buffer, 0, d.buffer, 0, buffer.length);</span>
+<span class="nc" id="L62">		d.bufferPtr = bufferPtr;</span>
+<span class="nc" id="L63">		d.state0  = state0 ;</span>
+<span class="nc" id="L64">		d.state1  = state1 ;</span>
+<span class="nc" id="L65">		d.state2  = state2 ;</span>
+<span class="nc" id="L66">		d.state3  = state3 ;</span>
+<span class="nc" id="L67">		d.state4  = state4 ;</span>
+<span class="nc" id="L68">		d.state5  = state5 ;</span>
+<span class="nc" id="L69">		d.state6  = state6 ;</span>
+<span class="nc" id="L70">		d.state7  = state7 ;</span>
+<span class="nc" id="L71">		d.state8  = state8 ;</span>
+<span class="nc" id="L72">		d.state9  = state9 ;</span>
+<span class="nc" id="L73">		d.state10 = state10;</span>
+<span class="nc" id="L74">		d.state11 = state11;</span>
+<span class="nc" id="L75">		d.state12 = state12;</span>
+<span class="nc" id="L76">		d.state13 = state13;</span>
+<span class="nc" id="L77">		d.state14 = state14;</span>
+<span class="nc" id="L78">		d.state15 = state15;</span>
+<span class="nc" id="L79">		d.state16 = state16;</span>
+<span class="nc" id="L80">		return copyState(d);</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L86">		return 32;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L92">		return 32;</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc bnc" id="L98" title="All 2 branches missed.">		for (int i = 0; i &lt; buffer.length; i ++)</span>
+<span class="nc" id="L99">			buffer[i] = 0;</span>
+<span class="nc" id="L100">		bufferPtr = 0;</span>
+<span class="nc" id="L101">		state0  = 0;</span>
+<span class="nc" id="L102">		state1  = 0;</span>
+<span class="nc" id="L103">		state2  = 0;</span>
+<span class="nc" id="L104">		state3  = 0;</span>
+<span class="nc" id="L105">		state4  = 0;</span>
+<span class="nc" id="L106">		state5  = 0;</span>
+<span class="nc" id="L107">		state6  = 0;</span>
+<span class="nc" id="L108">		state7  = 0;</span>
+<span class="nc" id="L109">		state8  = 0;</span>
+<span class="nc" id="L110">		state9  = 0;</span>
+<span class="nc" id="L111">		state10 = 0;</span>
+<span class="nc" id="L112">		state11 = 0;</span>
+<span class="nc" id="L113">		state12 = 0;</span>
+<span class="nc" id="L114">		state13 = 0;</span>
+<span class="nc" id="L115">		state14 = 0;</span>
+<span class="nc" id="L116">		state15 = 0;</span>
+<span class="nc" id="L117">		state16 = 0;</span>
+<span class="nc" id="L118">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L123">		int pending = flush();</span>
+<span class="nc" id="L124">		update((byte)0x01);</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">		for (int i = pending + 1; i &lt; 32; i ++)</span>
+<span class="nc" id="L126">			update((byte)0x00);</span>
+<span class="nc" id="L127">		flush();</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i ++)</span>
+<span class="nc" id="L129">			oneStep(false);</span>
+<span class="nc" id="L130">		encodeLEInt(state9,  output, outputOffset + 0);</span>
+<span class="nc" id="L131">		encodeLEInt(state10, output, outputOffset + 4);</span>
+<span class="nc" id="L132">		encodeLEInt(state11, output, outputOffset + 8);</span>
+<span class="nc" id="L133">		encodeLEInt(state12, output, outputOffset + 12);</span>
+<span class="nc" id="L134">		encodeLEInt(state13, output, outputOffset + 16);</span>
+<span class="nc" id="L135">		encodeLEInt(state14, output, outputOffset + 20);</span>
+<span class="nc" id="L136">		encodeLEInt(state15, output, outputOffset + 24);</span>
+<span class="nc" id="L137">		encodeLEInt(state16, output, outputOffset + 28);</span>
+<span class="nc" id="L138">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L143">		buffer = new int[256];</span>
+		/*
+		 * engineReset() is not needed because in Java, &quot;int&quot;
+		 * variables and arrays of &quot;int&quot; are initialized upon
+		 * creation to the correct value (full of zeroes).
+		 */
+<span class="nc" id="L149">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in little-endian
+	 * convention (least significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	static private final void encodeLEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L162">		buf[off + 3] = (byte)((val &gt;&gt; 24) &amp; 0xff);</span>
+<span class="nc" id="L163">		buf[off + 2] = (byte)((val &gt;&gt; 16) &amp; 0xff);</span>
+<span class="nc" id="L164">		buf[off + 1] = (byte)((val &gt;&gt; 8) &amp; 0xff);</span>
+<span class="nc" id="L165">		buf[off + 0] = (byte)(val &amp; 0xff);</span>
+<span class="nc" id="L166">	}</span>
+
+	/**
+	 * Decode a 32-bit little-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	static private final int decodeLEInt(byte[] buf, int off)
+	{
+<span class="nc" id="L178">		return (buf[off] &amp; 0xFF)</span>
+			| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 8)
+			| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 16)
+			| ((buf[off + 3] &amp; 0xFF) &lt;&lt; 24);
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc" id="L187">		inData0 = decodeLEInt(data, 0);</span>
+<span class="nc" id="L188">		inData1 = decodeLEInt(data, 4);</span>
+<span class="nc" id="L189">		inData2 = decodeLEInt(data, 8);</span>
+<span class="nc" id="L190">		inData3 = decodeLEInt(data, 12);</span>
+<span class="nc" id="L191">		inData4 = decodeLEInt(data, 16);</span>
+<span class="nc" id="L192">		inData5 = decodeLEInt(data, 20);</span>
+<span class="nc" id="L193">		inData6 = decodeLEInt(data, 24);</span>
+<span class="nc" id="L194">		inData7 = decodeLEInt(data, 28);</span>
+<span class="nc" id="L195">		oneStep(true);</span>
+<span class="nc" id="L196">	}</span>
+
+	private final void oneStep(boolean push)
+	{
+		/*
+		 * Buffer update.
+		 */
+<span class="nc" id="L203">		int ptr0 = bufferPtr;</span>
+<span class="nc" id="L204">		int ptr24 = (ptr0 - 64) &amp; 248;</span>
+<span class="nc" id="L205">		int ptr31 = (ptr0 - 8) &amp; 248;</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">		if (push) {</span>
+<span class="nc" id="L207">			buffer[ptr24 + 0] ^= buffer[ptr31 + 2];</span>
+<span class="nc" id="L208">			buffer[ptr31 + 2] ^= inData2;</span>
+<span class="nc" id="L209">			buffer[ptr24 + 1] ^= buffer[ptr31 + 3];</span>
+<span class="nc" id="L210">			buffer[ptr31 + 3] ^= inData3;</span>
+<span class="nc" id="L211">			buffer[ptr24 + 2] ^= buffer[ptr31 + 4];</span>
+<span class="nc" id="L212">			buffer[ptr31 + 4] ^= inData4;</span>
+<span class="nc" id="L213">			buffer[ptr24 + 3] ^= buffer[ptr31 + 5];</span>
+<span class="nc" id="L214">			buffer[ptr31 + 5] ^= inData5;</span>
+<span class="nc" id="L215">			buffer[ptr24 + 4] ^= buffer[ptr31 + 6];</span>
+<span class="nc" id="L216">			buffer[ptr31 + 6] ^= inData6;</span>
+<span class="nc" id="L217">			buffer[ptr24 + 5] ^= buffer[ptr31 + 7];</span>
+<span class="nc" id="L218">			buffer[ptr31 + 7] ^= inData7;</span>
+<span class="nc" id="L219">			buffer[ptr24 + 6] ^= buffer[ptr31 + 0];</span>
+<span class="nc" id="L220">			buffer[ptr31 + 0] ^= inData0;</span>
+<span class="nc" id="L221">			buffer[ptr24 + 7] ^= buffer[ptr31 + 1];</span>
+<span class="nc" id="L222">			buffer[ptr31 + 1] ^= inData1;</span>
+		} else {
+<span class="nc" id="L224">			buffer[ptr24 + 0] ^= buffer[ptr31 + 2];</span>
+<span class="nc" id="L225">			buffer[ptr31 + 2] ^= state3;</span>
+<span class="nc" id="L226">			buffer[ptr24 + 1] ^= buffer[ptr31 + 3];</span>
+<span class="nc" id="L227">			buffer[ptr31 + 3] ^= state4;</span>
+<span class="nc" id="L228">			buffer[ptr24 + 2] ^= buffer[ptr31 + 4];</span>
+<span class="nc" id="L229">			buffer[ptr31 + 4] ^= state5;</span>
+<span class="nc" id="L230">			buffer[ptr24 + 3] ^= buffer[ptr31 + 5];</span>
+<span class="nc" id="L231">			buffer[ptr31 + 5] ^= state6;</span>
+<span class="nc" id="L232">			buffer[ptr24 + 4] ^= buffer[ptr31 + 6];</span>
+<span class="nc" id="L233">			buffer[ptr31 + 6] ^= state7;</span>
+<span class="nc" id="L234">			buffer[ptr24 + 5] ^= buffer[ptr31 + 7];</span>
+<span class="nc" id="L235">			buffer[ptr31 + 7] ^= state8;</span>
+<span class="nc" id="L236">			buffer[ptr24 + 6] ^= buffer[ptr31 + 0];</span>
+<span class="nc" id="L237">			buffer[ptr31 + 0] ^= state1;</span>
+<span class="nc" id="L238">			buffer[ptr24 + 7] ^= buffer[ptr31 + 1];</span>
+<span class="nc" id="L239">			buffer[ptr31 + 1] ^= state2;</span>
+		}
+<span class="nc" id="L241">		bufferPtr = ptr31;</span>
+
+		/*
+		 * Gamma transform.
+		 */
+		int g0, g1, g2, g3, g4, g5, g6, g7, g8, g9;
+		int g10, g11, g12, g13, g14, g15, g16;
+<span class="nc" id="L248">		g0  = state0  ^ (state1  | ~state2 );</span>
+<span class="nc" id="L249">		g1  = state1  ^ (state2  | ~state3 );</span>
+<span class="nc" id="L250">		g2  = state2  ^ (state3  | ~state4 );</span>
+<span class="nc" id="L251">		g3  = state3  ^ (state4  | ~state5 );</span>
+<span class="nc" id="L252">		g4  = state4  ^ (state5  | ~state6 );</span>
+<span class="nc" id="L253">		g5  = state5  ^ (state6  | ~state7 );</span>
+<span class="nc" id="L254">		g6  = state6  ^ (state7  | ~state8 );</span>
+<span class="nc" id="L255">		g7  = state7  ^ (state8  | ~state9 );</span>
+<span class="nc" id="L256">		g8  = state8  ^ (state9  | ~state10);</span>
+<span class="nc" id="L257">		g9  = state9  ^ (state10 | ~state11);</span>
+<span class="nc" id="L258">		g10 = state10 ^ (state11 | ~state12);</span>
+<span class="nc" id="L259">		g11 = state11 ^ (state12 | ~state13);</span>
+<span class="nc" id="L260">		g12 = state12 ^ (state13 | ~state14);</span>
+<span class="nc" id="L261">		g13 = state13 ^ (state14 | ~state15);</span>
+<span class="nc" id="L262">		g14 = state14 ^ (state15 | ~state16);</span>
+<span class="nc" id="L263">		g15 = state15 ^ (state16 | ~state0 );</span>
+<span class="nc" id="L264">		g16 = state16 ^ (state0  | ~state1 );</span>
+
+		/*
+		 * Pi transform.
+		 */
+		int p0, p1, p2, p3, p4, p5, p6, p7, p8, p9;
+		int p10, p11, p12, p13, p14, p15, p16;
+<span class="nc" id="L271">		p0  = g0;</span>
+<span class="nc" id="L272">		p1  = ( g7 &lt;&lt;  1) | ( g7 &gt;&gt;&gt; (32 -  1));</span>
+<span class="nc" id="L273">		p2  = (g14 &lt;&lt;  3) | (g14 &gt;&gt;&gt; (32 -  3));</span>
+<span class="nc" id="L274">		p3  = ( g4 &lt;&lt;  6) | ( g4 &gt;&gt;&gt; (32 -  6));</span>
+<span class="nc" id="L275">		p4  = (g11 &lt;&lt; 10) | (g11 &gt;&gt;&gt; (32 - 10));</span>
+<span class="nc" id="L276">		p5  = ( g1 &lt;&lt; 15) | ( g1 &gt;&gt;&gt; (32 - 15));</span>
+<span class="nc" id="L277">		p6  = ( g8 &lt;&lt; 21) | ( g8 &gt;&gt;&gt; (32 - 21));</span>
+<span class="nc" id="L278">		p7  = (g15 &lt;&lt; 28) | (g15 &gt;&gt;&gt; (32 - 28));</span>
+<span class="nc" id="L279">		p8  = ( g5 &lt;&lt;  4) | ( g5 &gt;&gt;&gt; (32 -  4));</span>
+<span class="nc" id="L280">		p9  = (g12 &lt;&lt; 13) | (g12 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L281">		p10 = ( g2 &lt;&lt; 23) | ( g2 &gt;&gt;&gt; (32 - 23));</span>
+<span class="nc" id="L282">		p11 = ( g9 &lt;&lt;  2) | ( g9 &gt;&gt;&gt; (32 -  2));</span>
+<span class="nc" id="L283">		p12 = (g16 &lt;&lt; 14) | (g16 &gt;&gt;&gt; (32 - 14));</span>
+<span class="nc" id="L284">		p13 = ( g6 &lt;&lt; 27) | ( g6 &gt;&gt;&gt; (32 - 27));</span>
+<span class="nc" id="L285">		p14 = (g13 &lt;&lt;  9) | (g13 &gt;&gt;&gt; (32 -  9));</span>
+<span class="nc" id="L286">		p15 = ( g3 &lt;&lt; 24) | ( g3 &gt;&gt;&gt; (32 - 24));</span>
+<span class="nc" id="L287">		p16 = (g10 &lt;&lt;  8) | (g10 &gt;&gt;&gt; (32 -  8));</span>
+
+		/*
+		 * Theta transform.
+		 */
+		int t0, t1, t2, t3, t4, t5, t6, t7, t8, t9;
+		int t10, t11, t12, t13, t14, t15, t16;
+<span class="nc" id="L294">		t0  = p0  ^ p1  ^ p4 ;</span>
+<span class="nc" id="L295">		t1  = p1  ^ p2  ^ p5 ;</span>
+<span class="nc" id="L296">		t2  = p2  ^ p3  ^ p6 ;</span>
+<span class="nc" id="L297">		t3  = p3  ^ p4  ^ p7 ;</span>
+<span class="nc" id="L298">		t4  = p4  ^ p5  ^ p8 ;</span>
+<span class="nc" id="L299">		t5  = p5  ^ p6  ^ p9 ;</span>
+<span class="nc" id="L300">		t6  = p6  ^ p7  ^ p10;</span>
+<span class="nc" id="L301">		t7  = p7  ^ p8  ^ p11;</span>
+<span class="nc" id="L302">		t8  = p8  ^ p9  ^ p12;</span>
+<span class="nc" id="L303">		t9  = p9  ^ p10 ^ p13;</span>
+<span class="nc" id="L304">		t10 = p10 ^ p11 ^ p14;</span>
+<span class="nc" id="L305">		t11 = p11 ^ p12 ^ p15;</span>
+<span class="nc" id="L306">		t12 = p12 ^ p13 ^ p16;</span>
+<span class="nc" id="L307">		t13 = p13 ^ p14 ^ p0 ;</span>
+<span class="nc" id="L308">		t14 = p14 ^ p15 ^ p1 ;</span>
+<span class="nc" id="L309">		t15 = p15 ^ p16 ^ p2 ;</span>
+<span class="nc" id="L310">		t16 = p16 ^ p0  ^ p3 ;</span>
+
+		/*
+		 * Sigma transform.
+		 */
+<span class="nc" id="L315">		int ptr16 = ptr0 ^ 128;</span>
+<span class="nc" id="L316">		state0 = t0 ^ 1;</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">		if (push) {</span>
+<span class="nc" id="L318">			state1 = t1 ^ inData0;</span>
+<span class="nc" id="L319">			state2 = t2 ^ inData1;</span>
+<span class="nc" id="L320">			state3 = t3 ^ inData2;</span>
+<span class="nc" id="L321">			state4 = t4 ^ inData3;</span>
+<span class="nc" id="L322">			state5 = t5 ^ inData4;</span>
+<span class="nc" id="L323">			state6 = t6 ^ inData5;</span>
+<span class="nc" id="L324">			state7 = t7 ^ inData6;</span>
+<span class="nc" id="L325">			state8 = t8 ^ inData7;</span>
+		} else {
+<span class="nc" id="L327">			int ptr4 = (ptr0 + 32) &amp; 248;</span>
+<span class="nc" id="L328">			state1 = t1 ^ buffer[ptr4 + 0];</span>
+<span class="nc" id="L329">			state2 = t2 ^ buffer[ptr4 + 1];</span>
+<span class="nc" id="L330">			state3 = t3 ^ buffer[ptr4 + 2];</span>
+<span class="nc" id="L331">			state4 = t4 ^ buffer[ptr4 + 3];</span>
+<span class="nc" id="L332">			state5 = t5 ^ buffer[ptr4 + 4];</span>
+<span class="nc" id="L333">			state6 = t6 ^ buffer[ptr4 + 5];</span>
+<span class="nc" id="L334">			state7 = t7 ^ buffer[ptr4 + 6];</span>
+<span class="nc" id="L335">			state8 = t8 ^ buffer[ptr4 + 7];</span>
+		}
+<span class="nc" id="L337">		state9  = t9  ^ buffer[ptr16 + 0];</span>
+<span class="nc" id="L338">		state10 = t10 ^ buffer[ptr16 + 1];</span>
+<span class="nc" id="L339">		state11 = t11 ^ buffer[ptr16 + 2];</span>
+<span class="nc" id="L340">		state12 = t12 ^ buffer[ptr16 + 3];</span>
+<span class="nc" id="L341">		state13 = t13 ^ buffer[ptr16 + 4];</span>
+<span class="nc" id="L342">		state14 = t14 ^ buffer[ptr16 + 5];</span>
+<span class="nc" id="L343">		state15 = t15 ^ buffer[ptr16 + 6];</span>
+<span class="nc" id="L344">		state16 = t16 ^ buffer[ptr16 + 7];</span>
+<span class="nc" id="L345">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L350">		return &quot;PANAMA&quot;;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

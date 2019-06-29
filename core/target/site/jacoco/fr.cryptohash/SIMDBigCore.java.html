@@ -1,0 +1,1578 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>SIMDBigCore.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">SIMDBigCore.java</span></div><h1>SIMDBigCore.java</h1><pre class="source lang-java linenums">// $Id: SIMDBigCore.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * This class implements SIMD-384 and SIMD-512.
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+abstract class SIMDBigCore extends DigestEngine {
+
+	private int[] state;
+	private int[] q, w, tmpState, tA;
+
+	/**
+	 * Create the object.
+	 */
+	SIMDBigCore()
+<span class="nc" id="L48">	{</span>
+<span class="nc" id="L49">	}</span>
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L54">		return 128;</span>
+	}
+
+	/** @see DigestEngine */
+	protected Digest copyState(SIMDBigCore dst)
+	{
+<span class="nc" id="L60">		System.arraycopy(state, 0, dst.state, 0, 32);</span>
+<span class="nc" id="L61">		return super.copyState(dst);</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L67">		int[] iv = getInitVal();</span>
+<span class="nc" id="L68">		System.arraycopy(iv, 0, state, 0, 32);</span>
+<span class="nc" id="L69">	}</span>
+
+	/**
+	 * Get the initial value for this algorithm.
+	 *
+	 * @return  the initial value
+	 */
+	abstract int[] getInitVal();
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L81">		int ptr = flush();</span>
+<span class="nc" id="L82">		byte[] buf = getBlockBuffer();</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">		if (ptr != 0) {</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">			for (int i = ptr; i &lt; 128; i ++)</span>
+<span class="nc" id="L85">				buf[i] = 0x00;</span>
+<span class="nc" id="L86">			compress(buf, false);</span>
+		}
+<span class="nc" id="L88">		long count = (getBlockCount() &lt;&lt; 10) + (long)(ptr &lt;&lt; 3);</span>
+<span class="nc" id="L89">		encodeLEInt((int)count, buf, 0);</span>
+<span class="nc" id="L90">		encodeLEInt((int)(count &gt;&gt; 32), buf, 4);</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">		for (int i = 8; i &lt; 128; i ++)</span>
+<span class="nc" id="L92">			buf[i] = 0x00;</span>
+<span class="nc" id="L93">		compress(buf, true);</span>
+<span class="nc" id="L94">		int n = getDigestLength() &gt;&gt;&gt; 2;</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">		for (int i = 0; i &lt; n; i ++)</span>
+<span class="nc" id="L96">			encodeLEInt(state[i], output, outputOffset + (i &lt;&lt; 2));</span>
+<span class="nc" id="L97">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L102">		state = new int[32];</span>
+<span class="nc" id="L103">		q = new int[256];</span>
+<span class="nc" id="L104">		w = new int[64];</span>
+<span class="nc" id="L105">		tmpState = new int[32];</span>
+<span class="nc" id="L106">		tA = new int[8];</span>
+<span class="nc" id="L107">		engineReset();</span>
+<span class="nc" id="L108">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in little-endian
+	 * convention (least significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeLEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L121">		buf[off + 0] = (byte)val;</span>
+<span class="nc" id="L122">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L123">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L124">		buf[off + 3] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L125">	}</span>
+
+	/**
+	 * Decode a 32-bit little-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final int decodeLEInt(byte[] buf, int off)
+	{
+<span class="nc" id="L137">		return ((buf[off + 3] &amp; 0xFF) &lt;&lt; 24)</span>
+			| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 16)
+			| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 8)
+			| (buf[off] &amp; 0xFF);
+	}
+
+	/**
+	 * Perform a circular rotation by {@code n} to the left
+	 * of the 32-bit word {@code x}. The {@code n} parameter
+	 * must lie between 1 and 31 (inclusive).
+	 *
+	 * @param x   the value to rotate
+	 * @param n   the rotation count (between 1 and 31)
+	 * @return  the rotated value
+	*/
+	static private int circularLeft(int x, int n)
+	{
+<span class="nc" id="L154">		return (x &gt;&gt;&gt; (32 - n)) | (x &lt;&lt; n);</span>
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc" id="L160">		compress(data, false);</span>
+<span class="nc" id="L161">	}</span>
+
+<span class="nc" id="L163">	private static final int[] alphaTab = {</span>
+		  1,  41, 139,  45,  46,  87, 226,  14,  60, 147, 116, 130,
+		190,  80, 196,  69,   2,  82,  21,  90,  92, 174, 195,  28,
+		120,  37, 232,   3, 123, 160, 135, 138,   4, 164,  42, 180,
+		184,  91, 133,  56, 240,  74, 207,   6, 246,  63,  13,  19,
+		  8,  71,  84, 103, 111, 182,   9, 112, 223, 148, 157,  12,
+		235, 126,  26,  38,  16, 142, 168, 206, 222, 107,  18, 224,
+		189,  39,  57,  24, 213, 252,  52,  76,  32,  27,  79, 155,
+		187, 214,  36, 191, 121,  78, 114,  48, 169, 247, 104, 152,
+		 64,  54, 158,  53, 117, 171,  72, 125, 242, 156, 228,  96,
+		 81, 237, 208,  47, 128, 108,  59, 106, 234,  85, 144, 250,
+		227,  55, 199, 192, 162, 217, 159,  94, 256, 216, 118, 212,
+		211, 170,  31, 243, 197, 110, 141, 127,  67, 177,  61, 188,
+		255, 175, 236, 167, 165,  83,  62, 229, 137, 220,  25, 254,
+		134,  97, 122, 119, 253,  93, 215,  77,  73, 166, 124, 201,
+		 17, 183,  50, 251,  11, 194, 244, 238, 249, 186, 173, 154,
+		146,  75, 248, 145,  34, 109, 100, 245,  22, 131, 231, 219,
+		241, 115,  89,  51,  35, 150, 239,  33,  68, 218, 200, 233,
+		 44,   5, 205, 181, 225, 230, 178, 102,  70,  43, 221,  66,
+		136, 179, 143, 209,  88,  10, 153, 105, 193, 203,  99, 204,
+		140,  86, 185, 132,  15, 101,  29, 161, 176,  20,  49, 210,
+		129, 149, 198, 151,  23, 172, 113,   7,  30, 202,  58,  65,
+		 95,  40,  98, 163
+	};
+
+<span class="nc" id="L188">	private static final int[] yoffN = {</span>
+		  1, 163,  98,  40,  95,  65,  58, 202,  30,   7, 113, 172,
+		 23, 151, 198, 149, 129, 210,  49,  20, 176, 161,  29, 101,
+		 15, 132, 185,  86, 140, 204,  99, 203, 193, 105, 153,  10,
+		 88, 209, 143, 179, 136,  66, 221,  43,  70, 102, 178, 230,
+		225, 181, 205,   5,  44, 233, 200, 218,  68,  33, 239, 150,
+		 35,  51,  89, 115, 241, 219, 231, 131,  22, 245, 100, 109,
+		 34, 145, 248,  75, 146, 154, 173, 186, 249, 238, 244, 194,
+		 11, 251,  50, 183,  17, 201, 124, 166,  73,  77, 215,  93,
+		253, 119, 122,  97, 134, 254,  25, 220, 137, 229,  62,  83,
+		165, 167, 236, 175, 255, 188,  61, 177,  67, 127, 141, 110,
+		197, 243,  31, 170, 211, 212, 118, 216, 256,  94, 159, 217,
+		162, 192, 199,  55, 227, 250, 144,  85, 234, 106,  59, 108,
+		128,  47, 208, 237,  81,  96, 228, 156, 242, 125,  72, 171,
+		117,  53, 158,  54,  64, 152, 104, 247, 169,  48, 114,  78,
+		121, 191,  36, 214, 187, 155,  79,  27,  32,  76,  52, 252,
+		213,  24,  57,  39, 189, 224,  18, 107, 222, 206, 168, 142,
+		 16,  38,  26, 126, 235,  12, 157, 148, 223, 112,   9, 182,
+		111, 103,  84,  71,   8,  19,  13,  63, 246,   6, 207,  74,
+		240,  56, 133,  91, 184, 180,  42, 164,   4, 138, 135, 160,
+		123,   3, 232,  37, 120,  28, 195, 174,  92,  90,  21,  82,
+		  2,  69, 196,  80, 190, 130, 116, 147,  60,  14, 226,  87,
+		 46,  45, 139,  41
+	};
+
+<span class="nc" id="L213">	private static final int[] yoffF = {</span>
+		  2, 203, 156,  47, 118, 214, 107, 106,  45,  93, 212,  20,
+		111,  73, 162, 251,  97, 215, 249,  53, 211,  19,   3,  89,
+		 49, 207, 101,  67, 151, 130, 223,  23, 189, 202, 178, 239,
+		253, 127, 204,  49,  76, 236,  82, 137, 232, 157,  65,  79,
+		 96, 161, 176, 130, 161,  30,  47,   9, 189, 247,  61, 226,
+		248,  90, 107,  64,   0,  88, 131, 243, 133,  59, 113, 115,
+		 17, 236,  33, 213,  12, 191, 111,  19, 251,  61, 103, 208,
+		 57,  35, 148, 248,  47, 116,  65, 119, 249, 178, 143,  40,
+		189, 129,   8, 163, 204, 227, 230, 196, 205, 122, 151,  45,
+		187,  19, 227,  72, 247, 125, 111, 121, 140, 220,   6, 107,
+		 77,  69,  10, 101,  21,  65, 149, 171, 255,  54, 101, 210,
+		139,  43, 150, 151, 212, 164,  45, 237, 146, 184,  95,   6,
+		160,  42,   8, 204,  46, 238, 254, 168, 208,  50, 156, 190,
+		106, 127,  34, 234,  68,  55,  79,  18,   4, 130,  53, 208,
+		181,  21, 175, 120,  25, 100, 192, 178, 161,  96,  81, 127,
+		 96, 227, 210, 248,  68,  10, 196,  31,   9, 167, 150, 193,
+		  0, 169, 126,  14, 124, 198, 144, 142, 240,  21, 224,  44,
+		245,  66, 146, 238,   6, 196, 154,  49, 200, 222, 109,   9,
+		210, 141, 192, 138,   8,  79, 114, 217,  68, 128, 249,  94,
+		 53,  30,  27,  61,  52, 135, 106, 212,  70, 238,  30, 185,
+		 10, 132, 146, 136, 117,  37, 251, 150, 180, 188, 247, 156,
+		236, 192, 108,  86
+	};
+
+	private final void fft64(byte[] x, int xb, int xs, int qoff)
+	{
+<span class="nc" id="L240">		int xd = xs &lt;&lt; 1;</span>
+		{
+			int d1_0, d1_1, d1_2, d1_3, d1_4, d1_5, d1_6, d1_7;
+			int d2_0, d2_1, d2_2, d2_3, d2_4, d2_5, d2_6, d2_7;
+			{
+<span class="nc" id="L245">				int x0 = x[xb +  0 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L246">				int x1 = x[xb +  4 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L247">				int x2 = x[xb +  8 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L248">				int x3 = x[xb + 12 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L249">				int a0 = x0 + x2;</span>
+<span class="nc" id="L250">				int a1 = x0 + (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L251">				int a2 = x0 - x2;</span>
+<span class="nc" id="L252">				int a3 = x0 - (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L253">				int b0 = x1 + x3;</span>
+<span class="nc" id="L254">				int b1 = ((((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &gt;&gt; 8));
+<span class="nc" id="L256">				int b2 = (x1 &lt;&lt; 4) - (x3 &lt;&lt; 4);</span>
+<span class="nc" id="L257">				int b3 = ((((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &gt;&gt; 8));
+<span class="nc" id="L259">				d1_0 = a0 + b0;</span>
+<span class="nc" id="L260">				d1_1 = a1 + b1;</span>
+<span class="nc" id="L261">				d1_2 = a2 + b2;</span>
+<span class="nc" id="L262">				d1_3 = a3 + b3;</span>
+<span class="nc" id="L263">				d1_4 = a0 - b0;</span>
+<span class="nc" id="L264">				d1_5 = a1 - b1;</span>
+<span class="nc" id="L265">				d1_6 = a2 - b2;</span>
+<span class="nc" id="L266">				d1_7 = a3 - b3;</span>
+			}
+			{
+<span class="nc" id="L269">				int x0 = x[xb +  2 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L270">				int x1 = x[xb +  6 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L271">				int x2 = x[xb + 10 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L272">				int x3 = x[xb + 14 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L273">				int a0 = x0 + x2;</span>
+<span class="nc" id="L274">				int a1 = x0 + (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L275">				int a2 = x0 - x2;</span>
+<span class="nc" id="L276">				int a3 = x0 - (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L277">				int b0 = x1 + x3;</span>
+<span class="nc" id="L278">				int b1 = ((((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &gt;&gt; 8));
+<span class="nc" id="L280">				int b2 = (x1 &lt;&lt; 4) - (x3 &lt;&lt; 4);</span>
+<span class="nc" id="L281">				int b3 = ((((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &gt;&gt; 8));
+<span class="nc" id="L283">				d2_0 = a0 + b0;</span>
+<span class="nc" id="L284">				d2_1 = a1 + b1;</span>
+<span class="nc" id="L285">				d2_2 = a2 + b2;</span>
+<span class="nc" id="L286">				d2_3 = a3 + b3;</span>
+<span class="nc" id="L287">				d2_4 = a0 - b0;</span>
+<span class="nc" id="L288">				d2_5 = a1 - b1;</span>
+<span class="nc" id="L289">				d2_6 = a2 - b2;</span>
+<span class="nc" id="L290">				d2_7 = a3 - b3;</span>
+			}
+<span class="nc" id="L292">			q[qoff +  0] = d1_0 + d2_0;</span>
+<span class="nc" id="L293">			q[qoff +  1] = d1_1 + (d2_1 &lt;&lt; 1);</span>
+<span class="nc" id="L294">			q[qoff +  2] = d1_2 + (d2_2 &lt;&lt; 2);</span>
+<span class="nc" id="L295">			q[qoff +  3] = d1_3 + (d2_3 &lt;&lt; 3);</span>
+<span class="nc" id="L296">			q[qoff +  4] = d1_4 + (d2_4 &lt;&lt; 4);</span>
+<span class="nc" id="L297">			q[qoff +  5] = d1_5 + (d2_5 &lt;&lt; 5);</span>
+<span class="nc" id="L298">			q[qoff +  6] = d1_6 + (d2_6 &lt;&lt; 6);</span>
+<span class="nc" id="L299">			q[qoff +  7] = d1_7 + (d2_7 &lt;&lt; 7);</span>
+<span class="nc" id="L300">			q[qoff +  8] = d1_0 - d2_0;</span>
+<span class="nc" id="L301">			q[qoff +  9] = d1_1 - (d2_1 &lt;&lt; 1);</span>
+<span class="nc" id="L302">			q[qoff + 10] = d1_2 - (d2_2 &lt;&lt; 2);</span>
+<span class="nc" id="L303">			q[qoff + 11] = d1_3 - (d2_3 &lt;&lt; 3);</span>
+<span class="nc" id="L304">			q[qoff + 12] = d1_4 - (d2_4 &lt;&lt; 4);</span>
+<span class="nc" id="L305">			q[qoff + 13] = d1_5 - (d2_5 &lt;&lt; 5);</span>
+<span class="nc" id="L306">			q[qoff + 14] = d1_6 - (d2_6 &lt;&lt; 6);</span>
+<span class="nc" id="L307">			q[qoff + 15] = d1_7 - (d2_7 &lt;&lt; 7);</span>
+		}
+		{
+			int d1_0, d1_1, d1_2, d1_3, d1_4, d1_5, d1_6, d1_7;
+			int d2_0, d2_1, d2_2, d2_3, d2_4, d2_5, d2_6, d2_7;
+			{
+<span class="nc" id="L313">				int x0 = x[xb +  1 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L314">				int x1 = x[xb +  5 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L315">				int x2 = x[xb +  9 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L316">				int x3 = x[xb + 13 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L317">				int a0 = x0 + x2;</span>
+<span class="nc" id="L318">				int a1 = x0 + (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L319">				int a2 = x0 - x2;</span>
+<span class="nc" id="L320">				int a3 = x0 - (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L321">				int b0 = x1 + x3;</span>
+<span class="nc" id="L322">				int b1 = ((((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &gt;&gt; 8));
+<span class="nc" id="L324">				int b2 = (x1 &lt;&lt; 4) - (x3 &lt;&lt; 4);</span>
+<span class="nc" id="L325">				int b3 = ((((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &gt;&gt; 8));
+<span class="nc" id="L327">				d1_0 = a0 + b0;</span>
+<span class="nc" id="L328">				d1_1 = a1 + b1;</span>
+<span class="nc" id="L329">				d1_2 = a2 + b2;</span>
+<span class="nc" id="L330">				d1_3 = a3 + b3;</span>
+<span class="nc" id="L331">				d1_4 = a0 - b0;</span>
+<span class="nc" id="L332">				d1_5 = a1 - b1;</span>
+<span class="nc" id="L333">				d1_6 = a2 - b2;</span>
+<span class="nc" id="L334">				d1_7 = a3 - b3;</span>
+			}
+			{
+<span class="nc" id="L337">				int x0 = x[xb +  3 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L338">				int x1 = x[xb +  7 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L339">				int x2 = x[xb + 11 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L340">				int x3 = x[xb + 15 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L341">				int a0 = x0 + x2;</span>
+<span class="nc" id="L342">				int a1 = x0 + (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L343">				int a2 = x0 - x2;</span>
+<span class="nc" id="L344">				int a3 = x0 - (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L345">				int b0 = x1 + x3;</span>
+<span class="nc" id="L346">				int b1 = ((((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &gt;&gt; 8));
+<span class="nc" id="L348">				int b2 = (x1 &lt;&lt; 4) - (x3 &lt;&lt; 4);</span>
+<span class="nc" id="L349">				int b3 = ((((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &gt;&gt; 8));
+<span class="nc" id="L351">				d2_0 = a0 + b0;</span>
+<span class="nc" id="L352">				d2_1 = a1 + b1;</span>
+<span class="nc" id="L353">				d2_2 = a2 + b2;</span>
+<span class="nc" id="L354">				d2_3 = a3 + b3;</span>
+<span class="nc" id="L355">				d2_4 = a0 - b0;</span>
+<span class="nc" id="L356">				d2_5 = a1 - b1;</span>
+<span class="nc" id="L357">				d2_6 = a2 - b2;</span>
+<span class="nc" id="L358">				d2_7 = a3 - b3;</span>
+			}
+<span class="nc" id="L360">			q[qoff + 16 +  0] = d1_0 + d2_0;</span>
+<span class="nc" id="L361">			q[qoff + 16 +  1] = d1_1 + (d2_1 &lt;&lt; 1);</span>
+<span class="nc" id="L362">			q[qoff + 16 +  2] = d1_2 + (d2_2 &lt;&lt; 2);</span>
+<span class="nc" id="L363">			q[qoff + 16 +  3] = d1_3 + (d2_3 &lt;&lt; 3);</span>
+<span class="nc" id="L364">			q[qoff + 16 +  4] = d1_4 + (d2_4 &lt;&lt; 4);</span>
+<span class="nc" id="L365">			q[qoff + 16 +  5] = d1_5 + (d2_5 &lt;&lt; 5);</span>
+<span class="nc" id="L366">			q[qoff + 16 +  6] = d1_6 + (d2_6 &lt;&lt; 6);</span>
+<span class="nc" id="L367">			q[qoff + 16 +  7] = d1_7 + (d2_7 &lt;&lt; 7);</span>
+<span class="nc" id="L368">			q[qoff + 16 +  8] = d1_0 - d2_0;</span>
+<span class="nc" id="L369">			q[qoff + 16 +  9] = d1_1 - (d2_1 &lt;&lt; 1);</span>
+<span class="nc" id="L370">			q[qoff + 16 + 10] = d1_2 - (d2_2 &lt;&lt; 2);</span>
+<span class="nc" id="L371">			q[qoff + 16 + 11] = d1_3 - (d2_3 &lt;&lt; 3);</span>
+<span class="nc" id="L372">			q[qoff + 16 + 12] = d1_4 - (d2_4 &lt;&lt; 4);</span>
+<span class="nc" id="L373">			q[qoff + 16 + 13] = d1_5 - (d2_5 &lt;&lt; 5);</span>
+<span class="nc" id="L374">			q[qoff + 16 + 14] = d1_6 - (d2_6 &lt;&lt; 6);</span>
+<span class="nc" id="L375">			q[qoff + 16 + 15] = d1_7 - (d2_7 &lt;&lt; 7);</span>
+		}
+<span class="nc" id="L377">		int m = q[qoff];</span>
+<span class="nc" id="L378">		int n = q[qoff + 16];</span>
+<span class="nc" id="L379">		q[qoff] = m + n;</span>
+<span class="nc" id="L380">		q[qoff + 16] = m - n;</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">		for (int u = 0, v = 0; u &lt; 16; u += 4, v += 4 * 8) {</span>
+			int t;
+<span class="nc bnc" id="L383" title="All 2 branches missed.">			if (u != 0) {</span>
+<span class="nc" id="L384">				m = q[qoff + u + 0];</span>
+<span class="nc" id="L385">				n = q[qoff + u + 0 + 16];</span>
+<span class="nc" id="L386">				t = ((n * alphaTab[v + 0 * 8]) &amp; 0xFFFF)</span>
+					+ ((n * alphaTab[v + 0 * 8]) &gt;&gt; 16);
+<span class="nc" id="L388">				q[qoff + u + 0] = m + t;</span>
+<span class="nc" id="L389">				q[qoff + u + 0 + 16] = m - t;</span>
+			}
+<span class="nc" id="L391">			m = q[qoff + u + 1];</span>
+<span class="nc" id="L392">			n = q[qoff + u + 1 + 16];</span>
+<span class="nc" id="L393">			t = ((n * alphaTab[v + 1 * 8]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 1 * 8]) &gt;&gt; 16);
+<span class="nc" id="L395">			q[qoff + u + 1] = m + t;</span>
+<span class="nc" id="L396">			q[qoff + u + 1 + 16] = m - t;</span>
+<span class="nc" id="L397">			m = q[qoff + u + 2];</span>
+<span class="nc" id="L398">			n = q[qoff + u + 2 + 16];</span>
+<span class="nc" id="L399">			t = ((n * alphaTab[v + 2 * 8]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 2 * 8]) &gt;&gt; 16);
+<span class="nc" id="L401">			q[qoff + u + 2] = m + t;</span>
+<span class="nc" id="L402">			q[qoff + u + 2 + 16] = m - t;</span>
+<span class="nc" id="L403">			m = q[qoff + u + 3];</span>
+<span class="nc" id="L404">			n = q[qoff + u + 3 + 16];</span>
+<span class="nc" id="L405">			t = ((n * alphaTab[v + 3 * 8]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 3 * 8]) &gt;&gt; 16);
+<span class="nc" id="L407">			q[qoff + u + 3] = m + t;</span>
+<span class="nc" id="L408">			q[qoff + u + 3 + 16] = m - t;</span>
+		}
+		{
+			int d1_0, d1_1, d1_2, d1_3, d1_4, d1_5, d1_6, d1_7;
+			int d2_0, d2_1, d2_2, d2_3, d2_4, d2_5, d2_6, d2_7;
+			{
+<span class="nc" id="L414">				int x0 = x[xb + xs +  0 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L415">				int x1 = x[xb + xs +  4 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L416">				int x2 = x[xb + xs +  8 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L417">				int x3 = x[xb + xs + 12 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L418">				int a0 = x0 + x2;</span>
+<span class="nc" id="L419">				int a1 = x0 + (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L420">				int a2 = x0 - x2;</span>
+<span class="nc" id="L421">				int a3 = x0 - (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L422">				int b0 = x1 + x3;</span>
+<span class="nc" id="L423">				int b1 = ((((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &gt;&gt; 8));
+<span class="nc" id="L425">				int b2 = (x1 &lt;&lt; 4) - (x3 &lt;&lt; 4);</span>
+<span class="nc" id="L426">				int b3 = ((((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &gt;&gt; 8));
+<span class="nc" id="L428">				d1_0 = a0 + b0;</span>
+<span class="nc" id="L429">				d1_1 = a1 + b1;</span>
+<span class="nc" id="L430">				d1_2 = a2 + b2;</span>
+<span class="nc" id="L431">				d1_3 = a3 + b3;</span>
+<span class="nc" id="L432">				d1_4 = a0 - b0;</span>
+<span class="nc" id="L433">				d1_5 = a1 - b1;</span>
+<span class="nc" id="L434">				d1_6 = a2 - b2;</span>
+<span class="nc" id="L435">				d1_7 = a3 - b3;</span>
+			}
+			{
+<span class="nc" id="L438">				int x0 = x[xb + xs +  2 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L439">				int x1 = x[xb + xs +  6 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L440">				int x2 = x[xb + xs + 10 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L441">				int x3 = x[xb + xs + 14 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L442">				int a0 = x0 + x2;</span>
+<span class="nc" id="L443">				int a1 = x0 + (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L444">				int a2 = x0 - x2;</span>
+<span class="nc" id="L445">				int a3 = x0 - (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L446">				int b0 = x1 + x3;</span>
+<span class="nc" id="L447">				int b1 = ((((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &gt;&gt; 8));
+<span class="nc" id="L449">				int b2 = (x1 &lt;&lt; 4) - (x3 &lt;&lt; 4);</span>
+<span class="nc" id="L450">				int b3 = ((((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &gt;&gt; 8));
+<span class="nc" id="L452">				d2_0 = a0 + b0;</span>
+<span class="nc" id="L453">				d2_1 = a1 + b1;</span>
+<span class="nc" id="L454">				d2_2 = a2 + b2;</span>
+<span class="nc" id="L455">				d2_3 = a3 + b3;</span>
+<span class="nc" id="L456">				d2_4 = a0 - b0;</span>
+<span class="nc" id="L457">				d2_5 = a1 - b1;</span>
+<span class="nc" id="L458">				d2_6 = a2 - b2;</span>
+<span class="nc" id="L459">				d2_7 = a3 - b3;</span>
+			}
+<span class="nc" id="L461">			q[qoff + 32 +  0] = d1_0 + d2_0;</span>
+<span class="nc" id="L462">			q[qoff + 32 +  1] = d1_1 + (d2_1 &lt;&lt; 1);</span>
+<span class="nc" id="L463">			q[qoff + 32 +  2] = d1_2 + (d2_2 &lt;&lt; 2);</span>
+<span class="nc" id="L464">			q[qoff + 32 +  3] = d1_3 + (d2_3 &lt;&lt; 3);</span>
+<span class="nc" id="L465">			q[qoff + 32 +  4] = d1_4 + (d2_4 &lt;&lt; 4);</span>
+<span class="nc" id="L466">			q[qoff + 32 +  5] = d1_5 + (d2_5 &lt;&lt; 5);</span>
+<span class="nc" id="L467">			q[qoff + 32 +  6] = d1_6 + (d2_6 &lt;&lt; 6);</span>
+<span class="nc" id="L468">			q[qoff + 32 +  7] = d1_7 + (d2_7 &lt;&lt; 7);</span>
+<span class="nc" id="L469">			q[qoff + 32 +  8] = d1_0 - d2_0;</span>
+<span class="nc" id="L470">			q[qoff + 32 +  9] = d1_1 - (d2_1 &lt;&lt; 1);</span>
+<span class="nc" id="L471">			q[qoff + 32 + 10] = d1_2 - (d2_2 &lt;&lt; 2);</span>
+<span class="nc" id="L472">			q[qoff + 32 + 11] = d1_3 - (d2_3 &lt;&lt; 3);</span>
+<span class="nc" id="L473">			q[qoff + 32 + 12] = d1_4 - (d2_4 &lt;&lt; 4);</span>
+<span class="nc" id="L474">			q[qoff + 32 + 13] = d1_5 - (d2_5 &lt;&lt; 5);</span>
+<span class="nc" id="L475">			q[qoff + 32 + 14] = d1_6 - (d2_6 &lt;&lt; 6);</span>
+<span class="nc" id="L476">			q[qoff + 32 + 15] = d1_7 - (d2_7 &lt;&lt; 7);</span>
+		}
+		{
+			int d1_0, d1_1, d1_2, d1_3, d1_4, d1_5, d1_6, d1_7;
+			int d2_0, d2_1, d2_2, d2_3, d2_4, d2_5, d2_6, d2_7;
+			{
+<span class="nc" id="L482">				int x0 = x[xb + xs +  1 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L483">				int x1 = x[xb + xs +  5 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L484">				int x2 = x[xb + xs +  9 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L485">				int x3 = x[xb + xs + 13 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L486">				int a0 = x0 + x2;</span>
+<span class="nc" id="L487">				int a1 = x0 + (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L488">				int a2 = x0 - x2;</span>
+<span class="nc" id="L489">				int a3 = x0 - (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L490">				int b0 = x1 + x3;</span>
+<span class="nc" id="L491">				int b1 = ((((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &gt;&gt; 8));
+<span class="nc" id="L493">				int b2 = (x1 &lt;&lt; 4) - (x3 &lt;&lt; 4);</span>
+<span class="nc" id="L494">				int b3 = ((((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &gt;&gt; 8));
+<span class="nc" id="L496">				d1_0 = a0 + b0;</span>
+<span class="nc" id="L497">				d1_1 = a1 + b1;</span>
+<span class="nc" id="L498">				d1_2 = a2 + b2;</span>
+<span class="nc" id="L499">				d1_3 = a3 + b3;</span>
+<span class="nc" id="L500">				d1_4 = a0 - b0;</span>
+<span class="nc" id="L501">				d1_5 = a1 - b1;</span>
+<span class="nc" id="L502">				d1_6 = a2 - b2;</span>
+<span class="nc" id="L503">				d1_7 = a3 - b3;</span>
+			}
+			{
+<span class="nc" id="L506">				int x0 = x[xb + xs +  3 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L507">				int x1 = x[xb + xs +  7 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L508">				int x2 = x[xb + xs + 11 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L509">				int x3 = x[xb + xs + 15 * xd] &amp; 0xFF;</span>
+<span class="nc" id="L510">				int a0 = x0 + x2;</span>
+<span class="nc" id="L511">				int a1 = x0 + (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L512">				int a2 = x0 - x2;</span>
+<span class="nc" id="L513">				int a3 = x0 - (x2 &lt;&lt; 4);</span>
+<span class="nc" id="L514">				int b0 = x1 + x3;</span>
+<span class="nc" id="L515">				int b1 = ((((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 2) + (x3 &lt;&lt; 6)) &gt;&gt; 8));
+<span class="nc" id="L517">				int b2 = (x1 &lt;&lt; 4) - (x3 &lt;&lt; 4);</span>
+<span class="nc" id="L518">				int b3 = ((((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &amp; 0xFF)</span>
+					- (((x1 &lt;&lt; 6) + (x3 &lt;&lt; 2)) &gt;&gt; 8));
+<span class="nc" id="L520">				d2_0 = a0 + b0;</span>
+<span class="nc" id="L521">				d2_1 = a1 + b1;</span>
+<span class="nc" id="L522">				d2_2 = a2 + b2;</span>
+<span class="nc" id="L523">				d2_3 = a3 + b3;</span>
+<span class="nc" id="L524">				d2_4 = a0 - b0;</span>
+<span class="nc" id="L525">				d2_5 = a1 - b1;</span>
+<span class="nc" id="L526">				d2_6 = a2 - b2;</span>
+<span class="nc" id="L527">				d2_7 = a3 - b3;</span>
+			}
+<span class="nc" id="L529">			q[qoff + 32 + 16 +  0] = d1_0 + d2_0;</span>
+<span class="nc" id="L530">			q[qoff + 32 + 16 +  1] = d1_1 + (d2_1 &lt;&lt; 1);</span>
+<span class="nc" id="L531">			q[qoff + 32 + 16 +  2] = d1_2 + (d2_2 &lt;&lt; 2);</span>
+<span class="nc" id="L532">			q[qoff + 32 + 16 +  3] = d1_3 + (d2_3 &lt;&lt; 3);</span>
+<span class="nc" id="L533">			q[qoff + 32 + 16 +  4] = d1_4 + (d2_4 &lt;&lt; 4);</span>
+<span class="nc" id="L534">			q[qoff + 32 + 16 +  5] = d1_5 + (d2_5 &lt;&lt; 5);</span>
+<span class="nc" id="L535">			q[qoff + 32 + 16 +  6] = d1_6 + (d2_6 &lt;&lt; 6);</span>
+<span class="nc" id="L536">			q[qoff + 32 + 16 +  7] = d1_7 + (d2_7 &lt;&lt; 7);</span>
+<span class="nc" id="L537">			q[qoff + 32 + 16 +  8] = d1_0 - d2_0;</span>
+<span class="nc" id="L538">			q[qoff + 32 + 16 +  9] = d1_1 - (d2_1 &lt;&lt; 1);</span>
+<span class="nc" id="L539">			q[qoff + 32 + 16 + 10] = d1_2 - (d2_2 &lt;&lt; 2);</span>
+<span class="nc" id="L540">			q[qoff + 32 + 16 + 11] = d1_3 - (d2_3 &lt;&lt; 3);</span>
+<span class="nc" id="L541">			q[qoff + 32 + 16 + 12] = d1_4 - (d2_4 &lt;&lt; 4);</span>
+<span class="nc" id="L542">			q[qoff + 32 + 16 + 13] = d1_5 - (d2_5 &lt;&lt; 5);</span>
+<span class="nc" id="L543">			q[qoff + 32 + 16 + 14] = d1_6 - (d2_6 &lt;&lt; 6);</span>
+<span class="nc" id="L544">			q[qoff + 32 + 16 + 15] = d1_7 - (d2_7 &lt;&lt; 7);</span>
+		}
+<span class="nc" id="L546">		m = q[qoff + 32];</span>
+<span class="nc" id="L547">		n = q[qoff + 32 + 16];</span>
+<span class="nc" id="L548">		q[qoff + 32] = m + n;</span>
+<span class="nc" id="L549">		q[qoff + 32 + 16] = m - n;</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">		for (int u = 0, v = 0; u &lt; 16; u += 4, v += 4 * 8) {</span>
+			int t;
+<span class="nc bnc" id="L552" title="All 2 branches missed.">			if (u != 0) {</span>
+<span class="nc" id="L553">				m = q[(qoff + 32) + u + 0];</span>
+<span class="nc" id="L554">				n = q[(qoff + 32) + u + 0 + 16];</span>
+<span class="nc" id="L555">				t = ((n * alphaTab[v + 0 * 8]) &amp; 0xFFFF)</span>
+					+ ((n * alphaTab[v + 0 * 8]) &gt;&gt; 16);
+<span class="nc" id="L557">				q[(qoff + 32) + u + 0] = m + t;</span>
+<span class="nc" id="L558">				q[(qoff + 32) + u + 0 + 16] = m - t;</span>
+			}
+<span class="nc" id="L560">			m = q[(qoff + 32) + u + 1];</span>
+<span class="nc" id="L561">			n = q[(qoff + 32) + u + 1 + 16];</span>
+<span class="nc" id="L562">			t = ((n * alphaTab[v + 1 * 8]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 1 * 8]) &gt;&gt; 16);
+<span class="nc" id="L564">			q[(qoff + 32) + u + 1] = m + t;</span>
+<span class="nc" id="L565">			q[(qoff + 32) + u + 1 + 16] = m - t;</span>
+<span class="nc" id="L566">			m = q[(qoff + 32) + u + 2];</span>
+<span class="nc" id="L567">			n = q[(qoff + 32) + u + 2 + 16];</span>
+<span class="nc" id="L568">			t = ((n * alphaTab[v + 2 * 8]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 2 * 8]) &gt;&gt; 16);
+<span class="nc" id="L570">			q[(qoff + 32) + u + 2] = m + t;</span>
+<span class="nc" id="L571">			q[(qoff + 32) + u + 2 + 16] = m - t;</span>
+<span class="nc" id="L572">			m = q[(qoff + 32) + u + 3];</span>
+<span class="nc" id="L573">			n = q[(qoff + 32) + u + 3 + 16];</span>
+<span class="nc" id="L574">			t = ((n * alphaTab[v + 3 * 8]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 3 * 8]) &gt;&gt; 16);
+<span class="nc" id="L576">			q[(qoff + 32) + u + 3] = m + t;</span>
+<span class="nc" id="L577">			q[(qoff + 32) + u + 3 + 16] = m - t;</span>
+		}
+<span class="nc" id="L579">		m = q[qoff];</span>
+<span class="nc" id="L580">		n = q[qoff + 32];</span>
+<span class="nc" id="L581">		q[qoff] = m + n;</span>
+<span class="nc" id="L582">		q[qoff + 32] = m - n;</span>
+<span class="nc bnc" id="L583" title="All 2 branches missed.">		for (int u = 0, v = 0; u &lt; 32; u += 4, v += 4 * 4) {</span>
+			int t;
+<span class="nc bnc" id="L585" title="All 2 branches missed.">			if (u != 0) {</span>
+<span class="nc" id="L586">				m = q[qoff + u + 0];</span>
+<span class="nc" id="L587">				n = q[qoff + u + 0 + 32];</span>
+<span class="nc" id="L588">				t = ((n * alphaTab[v + 0 * 4]) &amp; 0xFFFF)</span>
+					+ ((n * alphaTab[v + 0 * 4]) &gt;&gt; 16);
+<span class="nc" id="L590">				q[qoff + u + 0] = m + t;</span>
+<span class="nc" id="L591">				q[qoff + u + 0 + 32] = m - t;</span>
+			}
+<span class="nc" id="L593">			m = q[qoff + u + 1];</span>
+<span class="nc" id="L594">			n = q[qoff + u + 1 + 32];</span>
+<span class="nc" id="L595">			t = ((n * alphaTab[v + 1 * 4]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 1 * 4]) &gt;&gt; 16);
+<span class="nc" id="L597">			q[qoff + u + 1] = m + t;</span>
+<span class="nc" id="L598">			q[qoff + u + 1 + 32] = m - t;</span>
+<span class="nc" id="L599">			m = q[qoff + u + 2];</span>
+<span class="nc" id="L600">			n = q[qoff + u + 2 + 32];</span>
+<span class="nc" id="L601">			t = ((n * alphaTab[v + 2 * 4]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 2 * 4]) &gt;&gt; 16);
+<span class="nc" id="L603">			q[qoff + u + 2] = m + t;</span>
+<span class="nc" id="L604">			q[qoff + u + 2 + 32] = m - t;</span>
+<span class="nc" id="L605">			m = q[qoff + u + 3];</span>
+<span class="nc" id="L606">			n = q[qoff + u + 3 + 32];</span>
+<span class="nc" id="L607">			t = ((n * alphaTab[v + 3 * 4]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 3 * 4]) &gt;&gt; 16);
+<span class="nc" id="L609">			q[qoff + u + 3] = m + t;</span>
+<span class="nc" id="L610">			q[qoff + u + 3 + 32] = m - t;</span>
+		}
+<span class="nc" id="L612">	}</span>
+
+<span class="nc" id="L614">	private static final int[] pp8k = {</span>
+		1, 6, 2, 3, 5, 7, 4, 1, 6, 2, 3
+	};
+
+<span class="nc" id="L618">	private static final int[] wbp = {</span>
+		 4 &lt;&lt; 4,  6 &lt;&lt; 4,  0 &lt;&lt; 4,  2 &lt;&lt; 4,
+		 7 &lt;&lt; 4,  5 &lt;&lt; 4,  3 &lt;&lt; 4,  1 &lt;&lt; 4,
+		15 &lt;&lt; 4, 11 &lt;&lt; 4, 12 &lt;&lt; 4,  8 &lt;&lt; 4,
+		 9 &lt;&lt; 4, 13 &lt;&lt; 4, 10 &lt;&lt; 4, 14 &lt;&lt; 4,
+		17 &lt;&lt; 4, 18 &lt;&lt; 4, 23 &lt;&lt; 4, 20 &lt;&lt; 4,
+		22 &lt;&lt; 4, 21 &lt;&lt; 4, 16 &lt;&lt; 4, 19 &lt;&lt; 4,
+		30 &lt;&lt; 4, 24 &lt;&lt; 4, 25 &lt;&lt; 4, 31 &lt;&lt; 4,
+		27 &lt;&lt; 4, 29 &lt;&lt; 4, 28 &lt;&lt; 4, 26 &lt;&lt; 4
+	};
+
+	private final void oneRound(int isp, int p0, int p1, int p2, int p3)
+	{
+		int tmp;
+<span class="nc" id="L632">		tA[0] = circularLeft(state[0], p0);</span>
+<span class="nc" id="L633">		tA[1] = circularLeft(state[1], p0);</span>
+<span class="nc" id="L634">		tA[2] = circularLeft(state[2], p0);</span>
+<span class="nc" id="L635">		tA[3] = circularLeft(state[3], p0);</span>
+<span class="nc" id="L636">		tA[4] = circularLeft(state[4], p0);</span>
+<span class="nc" id="L637">		tA[5] = circularLeft(state[5], p0);</span>
+<span class="nc" id="L638">		tA[6] = circularLeft(state[6], p0);</span>
+<span class="nc" id="L639">		tA[7] = circularLeft(state[7], p0);</span>
+<span class="nc" id="L640">		tmp = state[24] + (w[0])</span>
+			+ (((state[8] ^ state[16]) &amp; state[0]) ^ state[16]);
+<span class="nc" id="L642">		state[0] = circularLeft(tmp, p1) + tA[(pp8k[isp + 0]) ^ 0];</span>
+<span class="nc" id="L643">		state[24] = state[16];</span>
+<span class="nc" id="L644">		state[16] = state[8];</span>
+<span class="nc" id="L645">		state[8] = tA[0];</span>
+<span class="nc" id="L646">		tmp = state[25] + (w[1])</span>
+			+ (((state[9] ^ state[17]) &amp; state[1]) ^ state[17]);
+<span class="nc" id="L648">		state[1] = circularLeft(tmp, p1) + tA[(pp8k[isp + 0]) ^ 1];</span>
+<span class="nc" id="L649">		state[25] = state[17];</span>
+<span class="nc" id="L650">		state[17] = state[9];</span>
+<span class="nc" id="L651">		state[9] = tA[1];</span>
+<span class="nc" id="L652">		tmp = state[26] + (w[2])</span>
+			+ (((state[10] ^ state[18]) &amp; state[2]) ^ state[18]);
+<span class="nc" id="L654">		state[2] = circularLeft(tmp, p1) + tA[(pp8k[isp + 0]) ^ 2];</span>
+<span class="nc" id="L655">		state[26] = state[18];</span>
+<span class="nc" id="L656">		state[18] = state[10];</span>
+<span class="nc" id="L657">		state[10] = tA[2];</span>
+<span class="nc" id="L658">		tmp = state[27] + (w[3])</span>
+			+ (((state[11] ^ state[19]) &amp; state[3]) ^ state[19]);
+<span class="nc" id="L660">		state[3] = circularLeft(tmp, p1) + tA[(pp8k[isp + 0]) ^ 3];</span>
+<span class="nc" id="L661">		state[27] = state[19];</span>
+<span class="nc" id="L662">		state[19] = state[11];</span>
+<span class="nc" id="L663">		state[11] = tA[3];</span>
+<span class="nc" id="L664">		tmp = state[28] + (w[4])</span>
+			+ (((state[12] ^ state[20]) &amp; state[4]) ^ state[20]);
+<span class="nc" id="L666">		state[4] = circularLeft(tmp, p1) + tA[(pp8k[isp + 0]) ^ 4];</span>
+<span class="nc" id="L667">		state[28] = state[20];</span>
+<span class="nc" id="L668">		state[20] = state[12];</span>
+<span class="nc" id="L669">		state[12] = tA[4];</span>
+<span class="nc" id="L670">		tmp = state[29] + (w[5])</span>
+			+ (((state[13] ^ state[21]) &amp; state[5]) ^ state[21]);
+<span class="nc" id="L672">		state[5] = circularLeft(tmp, p1) + tA[(pp8k[isp + 0]) ^ 5];</span>
+<span class="nc" id="L673">		state[29] = state[21];</span>
+<span class="nc" id="L674">		state[21] = state[13];</span>
+<span class="nc" id="L675">		state[13] = tA[5];</span>
+<span class="nc" id="L676">		tmp = state[30] + (w[6])</span>
+			+ (((state[14] ^ state[22]) &amp; state[6]) ^ state[22]);
+<span class="nc" id="L678">		state[6] = circularLeft(tmp, p1) + tA[(pp8k[isp + 0]) ^ 6];</span>
+<span class="nc" id="L679">		state[30] = state[22];</span>
+<span class="nc" id="L680">		state[22] = state[14];</span>
+<span class="nc" id="L681">		state[14] = tA[6];</span>
+<span class="nc" id="L682">		tmp = state[31] + (w[7])</span>
+			+ (((state[15] ^ state[23]) &amp; state[7]) ^ state[23]);
+<span class="nc" id="L684">		state[7] = circularLeft(tmp, p1) + tA[(pp8k[isp + 0]) ^ 7];</span>
+<span class="nc" id="L685">		state[31] = state[23];</span>
+<span class="nc" id="L686">		state[23] = state[15];</span>
+<span class="nc" id="L687">		state[15] = tA[7];</span>
+
+<span class="nc" id="L689">		tA[0] = circularLeft(state[0], p1);</span>
+<span class="nc" id="L690">		tA[1] = circularLeft(state[1], p1);</span>
+<span class="nc" id="L691">		tA[2] = circularLeft(state[2], p1);</span>
+<span class="nc" id="L692">		tA[3] = circularLeft(state[3], p1);</span>
+<span class="nc" id="L693">		tA[4] = circularLeft(state[4], p1);</span>
+<span class="nc" id="L694">		tA[5] = circularLeft(state[5], p1);</span>
+<span class="nc" id="L695">		tA[6] = circularLeft(state[6], p1);</span>
+<span class="nc" id="L696">		tA[7] = circularLeft(state[7], p1);</span>
+<span class="nc" id="L697">		tmp = state[24] + (w[8])</span>
+			+ (((state[8] ^ state[16]) &amp; state[0]) ^ state[16]);
+<span class="nc" id="L699">		state[0] = circularLeft(tmp, p2) + tA[(pp8k[isp + 1]) ^ 0];</span>
+<span class="nc" id="L700">		state[24] = state[16];</span>
+<span class="nc" id="L701">		state[16] = state[8];</span>
+<span class="nc" id="L702">		state[8] = tA[0];</span>
+<span class="nc" id="L703">		tmp = state[25] + (w[9])</span>
+			+ (((state[9] ^ state[17]) &amp; state[1]) ^ state[17]);
+<span class="nc" id="L705">		state[1] = circularLeft(tmp, p2) + tA[(pp8k[isp + 1]) ^ 1];</span>
+<span class="nc" id="L706">		state[25] = state[17];</span>
+<span class="nc" id="L707">		state[17] = state[9];</span>
+<span class="nc" id="L708">		state[9] = tA[1];</span>
+<span class="nc" id="L709">		tmp = state[26] + (w[10])</span>
+			+ (((state[10] ^ state[18]) &amp; state[2]) ^ state[18]);
+<span class="nc" id="L711">		state[2] = circularLeft(tmp, p2) + tA[(pp8k[isp + 1]) ^ 2];</span>
+<span class="nc" id="L712">		state[26] = state[18];</span>
+<span class="nc" id="L713">		state[18] = state[10];</span>
+<span class="nc" id="L714">		state[10] = tA[2];</span>
+<span class="nc" id="L715">		tmp = state[27] + (w[11])</span>
+			+ (((state[11] ^ state[19]) &amp; state[3]) ^ state[19]);
+<span class="nc" id="L717">		state[3] = circularLeft(tmp, p2) + tA[(pp8k[isp + 1]) ^ 3];</span>
+<span class="nc" id="L718">		state[27] = state[19];</span>
+<span class="nc" id="L719">		state[19] = state[11];</span>
+<span class="nc" id="L720">		state[11] = tA[3];</span>
+<span class="nc" id="L721">		tmp = state[28] + (w[12])</span>
+			+ (((state[12] ^ state[20]) &amp; state[4]) ^ state[20]);
+<span class="nc" id="L723">		state[4] = circularLeft(tmp, p2) + tA[(pp8k[isp + 1]) ^ 4];</span>
+<span class="nc" id="L724">		state[28] = state[20];</span>
+<span class="nc" id="L725">		state[20] = state[12];</span>
+<span class="nc" id="L726">		state[12] = tA[4];</span>
+<span class="nc" id="L727">		tmp = state[29] + (w[13])</span>
+			+ (((state[13] ^ state[21]) &amp; state[5]) ^ state[21]);
+<span class="nc" id="L729">		state[5] = circularLeft(tmp, p2) + tA[(pp8k[isp + 1]) ^ 5];</span>
+<span class="nc" id="L730">		state[29] = state[21];</span>
+<span class="nc" id="L731">		state[21] = state[13];</span>
+<span class="nc" id="L732">		state[13] = tA[5];</span>
+<span class="nc" id="L733">		tmp = state[30] + (w[14])</span>
+			+ (((state[14] ^ state[22]) &amp; state[6]) ^ state[22]);
+<span class="nc" id="L735">		state[6] = circularLeft(tmp, p2) + tA[(pp8k[isp + 1]) ^ 6];</span>
+<span class="nc" id="L736">		state[30] = state[22];</span>
+<span class="nc" id="L737">		state[22] = state[14];</span>
+<span class="nc" id="L738">		state[14] = tA[6];</span>
+<span class="nc" id="L739">		tmp = state[31] + (w[15])</span>
+			+ (((state[15] ^ state[23]) &amp; state[7]) ^ state[23]);
+<span class="nc" id="L741">		state[7] = circularLeft(tmp, p2) + tA[(pp8k[isp + 1]) ^ 7];</span>
+<span class="nc" id="L742">		state[31] = state[23];</span>
+<span class="nc" id="L743">		state[23] = state[15];</span>
+<span class="nc" id="L744">		state[15] = tA[7];</span>
+
+<span class="nc" id="L746">		tA[0] = circularLeft(state[0], p2);</span>
+<span class="nc" id="L747">		tA[1] = circularLeft(state[1], p2);</span>
+<span class="nc" id="L748">		tA[2] = circularLeft(state[2], p2);</span>
+<span class="nc" id="L749">		tA[3] = circularLeft(state[3], p2);</span>
+<span class="nc" id="L750">		tA[4] = circularLeft(state[4], p2);</span>
+<span class="nc" id="L751">		tA[5] = circularLeft(state[5], p2);</span>
+<span class="nc" id="L752">		tA[6] = circularLeft(state[6], p2);</span>
+<span class="nc" id="L753">		tA[7] = circularLeft(state[7], p2);</span>
+<span class="nc" id="L754">		tmp = state[24] + (w[16])</span>
+			+ (((state[8] ^ state[16]) &amp; state[0]) ^ state[16]);
+<span class="nc" id="L756">		state[0] = circularLeft(tmp, p3) + tA[(pp8k[isp + 2]) ^ 0];</span>
+<span class="nc" id="L757">		state[24] = state[16];</span>
+<span class="nc" id="L758">		state[16] = state[8];</span>
+<span class="nc" id="L759">		state[8] = tA[0];</span>
+<span class="nc" id="L760">		tmp = state[25] + (w[17])</span>
+			+ (((state[9] ^ state[17]) &amp; state[1]) ^ state[17]);
+<span class="nc" id="L762">		state[1] = circularLeft(tmp, p3) + tA[(pp8k[isp + 2]) ^ 1];</span>
+<span class="nc" id="L763">		state[25] = state[17];</span>
+<span class="nc" id="L764">		state[17] = state[9];</span>
+<span class="nc" id="L765">		state[9] = tA[1];</span>
+<span class="nc" id="L766">		tmp = state[26] + (w[18])</span>
+			+ (((state[10] ^ state[18]) &amp; state[2]) ^ state[18]);
+<span class="nc" id="L768">		state[2] = circularLeft(tmp, p3) + tA[(pp8k[isp + 2]) ^ 2];</span>
+<span class="nc" id="L769">		state[26] = state[18];</span>
+<span class="nc" id="L770">		state[18] = state[10];</span>
+<span class="nc" id="L771">		state[10] = tA[2];</span>
+<span class="nc" id="L772">		tmp = state[27] + (w[19])</span>
+			+ (((state[11] ^ state[19]) &amp; state[3]) ^ state[19]);
+<span class="nc" id="L774">		state[3] = circularLeft(tmp, p3) + tA[(pp8k[isp + 2]) ^ 3];</span>
+<span class="nc" id="L775">		state[27] = state[19];</span>
+<span class="nc" id="L776">		state[19] = state[11];</span>
+<span class="nc" id="L777">		state[11] = tA[3];</span>
+<span class="nc" id="L778">		tmp = state[28] + (w[20])</span>
+			+ (((state[12] ^ state[20]) &amp; state[4]) ^ state[20]);
+<span class="nc" id="L780">		state[4] = circularLeft(tmp, p3) + tA[(pp8k[isp + 2]) ^ 4];</span>
+<span class="nc" id="L781">		state[28] = state[20];</span>
+<span class="nc" id="L782">		state[20] = state[12];</span>
+<span class="nc" id="L783">		state[12] = tA[4];</span>
+<span class="nc" id="L784">		tmp = state[29] + (w[21])</span>
+			+ (((state[13] ^ state[21]) &amp; state[5]) ^ state[21]);
+<span class="nc" id="L786">		state[5] = circularLeft(tmp, p3) + tA[(pp8k[isp + 2]) ^ 5];</span>
+<span class="nc" id="L787">		state[29] = state[21];</span>
+<span class="nc" id="L788">		state[21] = state[13];</span>
+<span class="nc" id="L789">		state[13] = tA[5];</span>
+<span class="nc" id="L790">		tmp = state[30] + (w[22])</span>
+			+ (((state[14] ^ state[22]) &amp; state[6]) ^ state[22]);
+<span class="nc" id="L792">		state[6] = circularLeft(tmp, p3) + tA[(pp8k[isp + 2]) ^ 6];</span>
+<span class="nc" id="L793">		state[30] = state[22];</span>
+<span class="nc" id="L794">		state[22] = state[14];</span>
+<span class="nc" id="L795">		state[14] = tA[6];</span>
+<span class="nc" id="L796">		tmp = state[31] + (w[23])</span>
+			+ (((state[15] ^ state[23]) &amp; state[7]) ^ state[23]);
+<span class="nc" id="L798">		state[7] = circularLeft(tmp, p3) + tA[(pp8k[isp + 2]) ^ 7];</span>
+<span class="nc" id="L799">		state[31] = state[23];</span>
+<span class="nc" id="L800">		state[23] = state[15];</span>
+<span class="nc" id="L801">		state[15] = tA[7];</span>
+
+<span class="nc" id="L803">		tA[0] = circularLeft(state[0], p3);</span>
+<span class="nc" id="L804">		tA[1] = circularLeft(state[1], p3);</span>
+<span class="nc" id="L805">		tA[2] = circularLeft(state[2], p3);</span>
+<span class="nc" id="L806">		tA[3] = circularLeft(state[3], p3);</span>
+<span class="nc" id="L807">		tA[4] = circularLeft(state[4], p3);</span>
+<span class="nc" id="L808">		tA[5] = circularLeft(state[5], p3);</span>
+<span class="nc" id="L809">		tA[6] = circularLeft(state[6], p3);</span>
+<span class="nc" id="L810">		tA[7] = circularLeft(state[7], p3);</span>
+<span class="nc" id="L811">		tmp = state[24] + (w[24])</span>
+			+ (((state[8] ^ state[16]) &amp; state[0]) ^ state[16]);
+<span class="nc" id="L813">		state[0] = circularLeft(tmp, p0) + tA[(pp8k[isp + 3]) ^ 0];</span>
+<span class="nc" id="L814">		state[24] = state[16];</span>
+<span class="nc" id="L815">		state[16] = state[8];</span>
+<span class="nc" id="L816">		state[8] = tA[0];</span>
+<span class="nc" id="L817">		tmp = state[25] + (w[25])</span>
+			+ (((state[9] ^ state[17]) &amp; state[1]) ^ state[17]);
+<span class="nc" id="L819">		state[1] = circularLeft(tmp, p0) + tA[(pp8k[isp + 3]) ^ 1];</span>
+<span class="nc" id="L820">		state[25] = state[17];</span>
+<span class="nc" id="L821">		state[17] = state[9];</span>
+<span class="nc" id="L822">		state[9] = tA[1];</span>
+<span class="nc" id="L823">		tmp = state[26] + (w[26])</span>
+			+ (((state[10] ^ state[18]) &amp; state[2]) ^ state[18]);
+<span class="nc" id="L825">		state[2] = circularLeft(tmp, p0) + tA[(pp8k[isp + 3]) ^ 2];</span>
+<span class="nc" id="L826">		state[26] = state[18];</span>
+<span class="nc" id="L827">		state[18] = state[10];</span>
+<span class="nc" id="L828">		state[10] = tA[2];</span>
+<span class="nc" id="L829">		tmp = state[27] + (w[27])</span>
+			+ (((state[11] ^ state[19]) &amp; state[3]) ^ state[19]);
+<span class="nc" id="L831">		state[3] = circularLeft(tmp, p0) + tA[(pp8k[isp + 3]) ^ 3];</span>
+<span class="nc" id="L832">		state[27] = state[19];</span>
+<span class="nc" id="L833">		state[19] = state[11];</span>
+<span class="nc" id="L834">		state[11] = tA[3];</span>
+<span class="nc" id="L835">		tmp = state[28] + (w[28])</span>
+			+ (((state[12] ^ state[20]) &amp; state[4]) ^ state[20]);
+<span class="nc" id="L837">		state[4] = circularLeft(tmp, p0) + tA[(pp8k[isp + 3]) ^ 4];</span>
+<span class="nc" id="L838">		state[28] = state[20];</span>
+<span class="nc" id="L839">		state[20] = state[12];</span>
+<span class="nc" id="L840">		state[12] = tA[4];</span>
+<span class="nc" id="L841">		tmp = state[29] + (w[29])</span>
+			+ (((state[13] ^ state[21]) &amp; state[5]) ^ state[21]);
+<span class="nc" id="L843">		state[5] = circularLeft(tmp, p0) + tA[(pp8k[isp + 3]) ^ 5];</span>
+<span class="nc" id="L844">		state[29] = state[21];</span>
+<span class="nc" id="L845">		state[21] = state[13];</span>
+<span class="nc" id="L846">		state[13] = tA[5];</span>
+<span class="nc" id="L847">		tmp = state[30] + (w[30])</span>
+			+ (((state[14] ^ state[22]) &amp; state[6]) ^ state[22]);
+<span class="nc" id="L849">		state[6] = circularLeft(tmp, p0) + tA[(pp8k[isp + 3]) ^ 6];</span>
+<span class="nc" id="L850">		state[30] = state[22];</span>
+<span class="nc" id="L851">		state[22] = state[14];</span>
+<span class="nc" id="L852">		state[14] = tA[6];</span>
+<span class="nc" id="L853">		tmp = state[31] + (w[31])</span>
+			+ (((state[15] ^ state[23]) &amp; state[7]) ^ state[23]);
+<span class="nc" id="L855">		state[7] = circularLeft(tmp, p0) + tA[(pp8k[isp + 3]) ^ 7];</span>
+<span class="nc" id="L856">		state[31] = state[23];</span>
+<span class="nc" id="L857">		state[23] = state[15];</span>
+<span class="nc" id="L858">		state[15] = tA[7];</span>
+
+<span class="nc" id="L860">		tA[0] = circularLeft(state[0], p0);</span>
+<span class="nc" id="L861">		tA[1] = circularLeft(state[1], p0);</span>
+<span class="nc" id="L862">		tA[2] = circularLeft(state[2], p0);</span>
+<span class="nc" id="L863">		tA[3] = circularLeft(state[3], p0);</span>
+<span class="nc" id="L864">		tA[4] = circularLeft(state[4], p0);</span>
+<span class="nc" id="L865">		tA[5] = circularLeft(state[5], p0);</span>
+<span class="nc" id="L866">		tA[6] = circularLeft(state[6], p0);</span>
+<span class="nc" id="L867">		tA[7] = circularLeft(state[7], p0);</span>
+<span class="nc" id="L868">		tmp = state[24] + (w[32])</span>
+			+ ((state[0] &amp; state[8])
+			| ((state[0] | state[8]) &amp; state[16]));
+<span class="nc" id="L871">		state[0] = circularLeft(tmp, p1) + tA[(pp8k[isp + 4]) ^ 0];</span>
+<span class="nc" id="L872">		state[24] = state[16];</span>
+<span class="nc" id="L873">		state[16] = state[8];</span>
+<span class="nc" id="L874">		state[8] = tA[0];</span>
+<span class="nc" id="L875">		tmp = state[25] + (w[33])</span>
+			+ ((state[1] &amp; state[9])
+			| ((state[1] | state[9]) &amp; state[17]));
+<span class="nc" id="L878">		state[1] = circularLeft(tmp, p1) + tA[(pp8k[isp + 4]) ^ 1];</span>
+<span class="nc" id="L879">		state[25] = state[17];</span>
+<span class="nc" id="L880">		state[17] = state[9];</span>
+<span class="nc" id="L881">		state[9] = tA[1];</span>
+<span class="nc" id="L882">		tmp = state[26] + (w[34])</span>
+			+ ((state[2] &amp; state[10])
+			| ((state[2] | state[10]) &amp; state[18]));
+<span class="nc" id="L885">		state[2] = circularLeft(tmp, p1) + tA[(pp8k[isp + 4]) ^ 2];</span>
+<span class="nc" id="L886">		state[26] = state[18];</span>
+<span class="nc" id="L887">		state[18] = state[10];</span>
+<span class="nc" id="L888">		state[10] = tA[2];</span>
+<span class="nc" id="L889">		tmp = state[27] + (w[35])</span>
+			+ ((state[3] &amp; state[11])
+			| ((state[3] | state[11]) &amp; state[19]));
+<span class="nc" id="L892">		state[3] = circularLeft(tmp, p1) + tA[(pp8k[isp + 4]) ^ 3];</span>
+<span class="nc" id="L893">		state[27] = state[19];</span>
+<span class="nc" id="L894">		state[19] = state[11];</span>
+<span class="nc" id="L895">		state[11] = tA[3];</span>
+<span class="nc" id="L896">		tmp = state[28] + (w[36])</span>
+			+ ((state[4] &amp; state[12])
+			| ((state[4] | state[12]) &amp; state[20]));
+<span class="nc" id="L899">		state[4] = circularLeft(tmp, p1) + tA[(pp8k[isp + 4]) ^ 4];</span>
+<span class="nc" id="L900">		state[28] = state[20];</span>
+<span class="nc" id="L901">		state[20] = state[12];</span>
+<span class="nc" id="L902">		state[12] = tA[4];</span>
+<span class="nc" id="L903">		tmp = state[29] + (w[37])</span>
+			+ ((state[5] &amp; state[13])
+			| ((state[5] | state[13]) &amp; state[21]));
+<span class="nc" id="L906">		state[5] = circularLeft(tmp, p1) + tA[(pp8k[isp + 4]) ^ 5];</span>
+<span class="nc" id="L907">		state[29] = state[21];</span>
+<span class="nc" id="L908">		state[21] = state[13];</span>
+<span class="nc" id="L909">		state[13] = tA[5];</span>
+<span class="nc" id="L910">		tmp = state[30] + (w[38])</span>
+			+ ((state[6] &amp; state[14])
+			| ((state[6] | state[14]) &amp; state[22]));
+<span class="nc" id="L913">		state[6] = circularLeft(tmp, p1) + tA[(pp8k[isp + 4]) ^ 6];</span>
+<span class="nc" id="L914">		state[30] = state[22];</span>
+<span class="nc" id="L915">		state[22] = state[14];</span>
+<span class="nc" id="L916">		state[14] = tA[6];</span>
+<span class="nc" id="L917">		tmp = state[31] + (w[39])</span>
+			+ ((state[7] &amp; state[15])
+			| ((state[7] | state[15]) &amp; state[23]));
+<span class="nc" id="L920">		state[7] = circularLeft(tmp, p1) + tA[(pp8k[isp + 4]) ^ 7];</span>
+<span class="nc" id="L921">		state[31] = state[23];</span>
+<span class="nc" id="L922">		state[23] = state[15];</span>
+<span class="nc" id="L923">		state[15] = tA[7];</span>
+
+<span class="nc" id="L925">		tA[0] = circularLeft(state[0], p1);</span>
+<span class="nc" id="L926">		tA[1] = circularLeft(state[1], p1);</span>
+<span class="nc" id="L927">		tA[2] = circularLeft(state[2], p1);</span>
+<span class="nc" id="L928">		tA[3] = circularLeft(state[3], p1);</span>
+<span class="nc" id="L929">		tA[4] = circularLeft(state[4], p1);</span>
+<span class="nc" id="L930">		tA[5] = circularLeft(state[5], p1);</span>
+<span class="nc" id="L931">		tA[6] = circularLeft(state[6], p1);</span>
+<span class="nc" id="L932">		tA[7] = circularLeft(state[7], p1);</span>
+<span class="nc" id="L933">		tmp = state[24] + (w[40])</span>
+			+ ((state[0] &amp; state[8])
+			| ((state[0] | state[8]) &amp; state[16]));
+<span class="nc" id="L936">		state[0] = circularLeft(tmp, p2) + tA[(pp8k[isp + 5]) ^ 0];</span>
+<span class="nc" id="L937">		state[24] = state[16];</span>
+<span class="nc" id="L938">		state[16] = state[8];</span>
+<span class="nc" id="L939">		state[8] = tA[0];</span>
+<span class="nc" id="L940">		tmp = state[25] + (w[41])</span>
+			+ ((state[1] &amp; state[9])
+			| ((state[1] | state[9]) &amp; state[17]));
+<span class="nc" id="L943">		state[1] = circularLeft(tmp, p2) + tA[(pp8k[isp + 5]) ^ 1];</span>
+<span class="nc" id="L944">		state[25] = state[17];</span>
+<span class="nc" id="L945">		state[17] = state[9];</span>
+<span class="nc" id="L946">		state[9] = tA[1];</span>
+<span class="nc" id="L947">		tmp = state[26] + (w[42])</span>
+			+ ((state[2] &amp; state[10])
+			| ((state[2] | state[10]) &amp; state[18]));
+<span class="nc" id="L950">		state[2] = circularLeft(tmp, p2) + tA[(pp8k[isp + 5]) ^ 2];</span>
+<span class="nc" id="L951">		state[26] = state[18];</span>
+<span class="nc" id="L952">		state[18] = state[10];</span>
+<span class="nc" id="L953">		state[10] = tA[2];</span>
+<span class="nc" id="L954">		tmp = state[27] + (w[43])</span>
+			+ ((state[3] &amp; state[11])
+			| ((state[3] | state[11]) &amp; state[19]));
+<span class="nc" id="L957">		state[3] = circularLeft(tmp, p2) + tA[(pp8k[isp + 5]) ^ 3];</span>
+<span class="nc" id="L958">		state[27] = state[19];</span>
+<span class="nc" id="L959">		state[19] = state[11];</span>
+<span class="nc" id="L960">		state[11] = tA[3];</span>
+<span class="nc" id="L961">		tmp = state[28] + (w[44])</span>
+			+ ((state[4] &amp; state[12])
+			| ((state[4] | state[12]) &amp; state[20]));
+<span class="nc" id="L964">		state[4] = circularLeft(tmp, p2) + tA[(pp8k[isp + 5]) ^ 4];</span>
+<span class="nc" id="L965">		state[28] = state[20];</span>
+<span class="nc" id="L966">		state[20] = state[12];</span>
+<span class="nc" id="L967">		state[12] = tA[4];</span>
+<span class="nc" id="L968">		tmp = state[29] + (w[45])</span>
+			+ ((state[5] &amp; state[13])
+			| ((state[5] | state[13]) &amp; state[21]));
+<span class="nc" id="L971">		state[5] = circularLeft(tmp, p2) + tA[(pp8k[isp + 5]) ^ 5];</span>
+<span class="nc" id="L972">		state[29] = state[21];</span>
+<span class="nc" id="L973">		state[21] = state[13];</span>
+<span class="nc" id="L974">		state[13] = tA[5];</span>
+<span class="nc" id="L975">		tmp = state[30] + (w[46])</span>
+			+ ((state[6] &amp; state[14])
+			| ((state[6] | state[14]) &amp; state[22]));
+<span class="nc" id="L978">		state[6] = circularLeft(tmp, p2) + tA[(pp8k[isp + 5]) ^ 6];</span>
+<span class="nc" id="L979">		state[30] = state[22];</span>
+<span class="nc" id="L980">		state[22] = state[14];</span>
+<span class="nc" id="L981">		state[14] = tA[6];</span>
+<span class="nc" id="L982">		tmp = state[31] + (w[47])</span>
+			+ ((state[7] &amp; state[15])
+			| ((state[7] | state[15]) &amp; state[23]));
+<span class="nc" id="L985">		state[7] = circularLeft(tmp, p2) + tA[(pp8k[isp + 5]) ^ 7];</span>
+<span class="nc" id="L986">		state[31] = state[23];</span>
+<span class="nc" id="L987">		state[23] = state[15];</span>
+<span class="nc" id="L988">		state[15] = tA[7];</span>
+
+<span class="nc" id="L990">		tA[0] = circularLeft(state[0], p2);</span>
+<span class="nc" id="L991">		tA[1] = circularLeft(state[1], p2);</span>
+<span class="nc" id="L992">		tA[2] = circularLeft(state[2], p2);</span>
+<span class="nc" id="L993">		tA[3] = circularLeft(state[3], p2);</span>
+<span class="nc" id="L994">		tA[4] = circularLeft(state[4], p2);</span>
+<span class="nc" id="L995">		tA[5] = circularLeft(state[5], p2);</span>
+<span class="nc" id="L996">		tA[6] = circularLeft(state[6], p2);</span>
+<span class="nc" id="L997">		tA[7] = circularLeft(state[7], p2);</span>
+<span class="nc" id="L998">		tmp = state[24] + (w[48])</span>
+			+ ((state[0] &amp; state[8])
+			| ((state[0] | state[8]) &amp; state[16]));
+<span class="nc" id="L1001">		state[0] = circularLeft(tmp, p3) + tA[(pp8k[isp + 6]) ^ 0];</span>
+<span class="nc" id="L1002">		state[24] = state[16];</span>
+<span class="nc" id="L1003">		state[16] = state[8];</span>
+<span class="nc" id="L1004">		state[8] = tA[0];</span>
+<span class="nc" id="L1005">		tmp = state[25] + (w[49])</span>
+			+ ((state[1] &amp; state[9])
+			| ((state[1] | state[9]) &amp; state[17]));
+<span class="nc" id="L1008">		state[1] = circularLeft(tmp, p3) + tA[(pp8k[isp + 6]) ^ 1];</span>
+<span class="nc" id="L1009">		state[25] = state[17];</span>
+<span class="nc" id="L1010">		state[17] = state[9];</span>
+<span class="nc" id="L1011">		state[9] = tA[1];</span>
+<span class="nc" id="L1012">		tmp = state[26] + (w[50])</span>
+			+ ((state[2] &amp; state[10])
+			| ((state[2] | state[10]) &amp; state[18]));
+<span class="nc" id="L1015">		state[2] = circularLeft(tmp, p3) + tA[(pp8k[isp + 6]) ^ 2];</span>
+<span class="nc" id="L1016">		state[26] = state[18];</span>
+<span class="nc" id="L1017">		state[18] = state[10];</span>
+<span class="nc" id="L1018">		state[10] = tA[2];</span>
+<span class="nc" id="L1019">		tmp = state[27] + (w[51])</span>
+			+ ((state[3] &amp; state[11])
+			| ((state[3] | state[11]) &amp; state[19]));
+<span class="nc" id="L1022">		state[3] = circularLeft(tmp, p3) + tA[(pp8k[isp + 6]) ^ 3];</span>
+<span class="nc" id="L1023">		state[27] = state[19];</span>
+<span class="nc" id="L1024">		state[19] = state[11];</span>
+<span class="nc" id="L1025">		state[11] = tA[3];</span>
+<span class="nc" id="L1026">		tmp = state[28] + (w[52])</span>
+			+ ((state[4] &amp; state[12])
+			| ((state[4] | state[12]) &amp; state[20]));
+<span class="nc" id="L1029">		state[4] = circularLeft(tmp, p3) + tA[(pp8k[isp + 6]) ^ 4];</span>
+<span class="nc" id="L1030">		state[28] = state[20];</span>
+<span class="nc" id="L1031">		state[20] = state[12];</span>
+<span class="nc" id="L1032">		state[12] = tA[4];</span>
+<span class="nc" id="L1033">		tmp = state[29] + (w[53])</span>
+			+ ((state[5] &amp; state[13])
+			| ((state[5] | state[13]) &amp; state[21]));
+<span class="nc" id="L1036">		state[5] = circularLeft(tmp, p3) + tA[(pp8k[isp + 6]) ^ 5];</span>
+<span class="nc" id="L1037">		state[29] = state[21];</span>
+<span class="nc" id="L1038">		state[21] = state[13];</span>
+<span class="nc" id="L1039">		state[13] = tA[5];</span>
+<span class="nc" id="L1040">		tmp = state[30] + (w[54])</span>
+			+ ((state[6] &amp; state[14])
+			| ((state[6] | state[14]) &amp; state[22]));
+<span class="nc" id="L1043">		state[6] = circularLeft(tmp, p3) + tA[(pp8k[isp + 6]) ^ 6];</span>
+<span class="nc" id="L1044">		state[30] = state[22];</span>
+<span class="nc" id="L1045">		state[22] = state[14];</span>
+<span class="nc" id="L1046">		state[14] = tA[6];</span>
+<span class="nc" id="L1047">		tmp = state[31] + (w[55])</span>
+			+ ((state[7] &amp; state[15])
+			| ((state[7] | state[15]) &amp; state[23]));
+<span class="nc" id="L1050">		state[7] = circularLeft(tmp, p3) + tA[(pp8k[isp + 6]) ^ 7];</span>
+<span class="nc" id="L1051">		state[31] = state[23];</span>
+<span class="nc" id="L1052">		state[23] = state[15];</span>
+<span class="nc" id="L1053">		state[15] = tA[7];</span>
+
+<span class="nc" id="L1055">		tA[0] = circularLeft(state[0], p3);</span>
+<span class="nc" id="L1056">		tA[1] = circularLeft(state[1], p3);</span>
+<span class="nc" id="L1057">		tA[2] = circularLeft(state[2], p3);</span>
+<span class="nc" id="L1058">		tA[3] = circularLeft(state[3], p3);</span>
+<span class="nc" id="L1059">		tA[4] = circularLeft(state[4], p3);</span>
+<span class="nc" id="L1060">		tA[5] = circularLeft(state[5], p3);</span>
+<span class="nc" id="L1061">		tA[6] = circularLeft(state[6], p3);</span>
+<span class="nc" id="L1062">		tA[7] = circularLeft(state[7], p3);</span>
+<span class="nc" id="L1063">		tmp = state[24] + (w[56])</span>
+			+ ((state[0] &amp; state[8])
+			| ((state[0] | state[8]) &amp; state[16]));
+<span class="nc" id="L1066">		state[0] = circularLeft(tmp, p0) + tA[(pp8k[isp + 7]) ^ 0];</span>
+<span class="nc" id="L1067">		state[24] = state[16];</span>
+<span class="nc" id="L1068">		state[16] = state[8];</span>
+<span class="nc" id="L1069">		state[8] = tA[0];</span>
+<span class="nc" id="L1070">		tmp = state[25] + (w[57])</span>
+			+ ((state[1] &amp; state[9])
+			| ((state[1] | state[9]) &amp; state[17]));
+<span class="nc" id="L1073">		state[1] = circularLeft(tmp, p0) + tA[(pp8k[isp + 7]) ^ 1];</span>
+<span class="nc" id="L1074">		state[25] = state[17];</span>
+<span class="nc" id="L1075">		state[17] = state[9];</span>
+<span class="nc" id="L1076">		state[9] = tA[1];</span>
+<span class="nc" id="L1077">		tmp = state[26] + (w[58])</span>
+			+ ((state[2] &amp; state[10])
+			| ((state[2] | state[10]) &amp; state[18]));
+<span class="nc" id="L1080">		state[2] = circularLeft(tmp, p0) + tA[(pp8k[isp + 7]) ^ 2];</span>
+<span class="nc" id="L1081">		state[26] = state[18];</span>
+<span class="nc" id="L1082">		state[18] = state[10];</span>
+<span class="nc" id="L1083">		state[10] = tA[2];</span>
+<span class="nc" id="L1084">		tmp = state[27] + (w[59])</span>
+			+ ((state[3] &amp; state[11])
+			| ((state[3] | state[11]) &amp; state[19]));
+<span class="nc" id="L1087">		state[3] = circularLeft(tmp, p0) + tA[(pp8k[isp + 7]) ^ 3];</span>
+<span class="nc" id="L1088">		state[27] = state[19];</span>
+<span class="nc" id="L1089">		state[19] = state[11];</span>
+<span class="nc" id="L1090">		state[11] = tA[3];</span>
+<span class="nc" id="L1091">		tmp = state[28] + (w[60])</span>
+			+ ((state[4] &amp; state[12])
+			| ((state[4] | state[12]) &amp; state[20]));
+<span class="nc" id="L1094">		state[4] = circularLeft(tmp, p0) + tA[(pp8k[isp + 7]) ^ 4];</span>
+<span class="nc" id="L1095">		state[28] = state[20];</span>
+<span class="nc" id="L1096">		state[20] = state[12];</span>
+<span class="nc" id="L1097">		state[12] = tA[4];</span>
+<span class="nc" id="L1098">		tmp = state[29] + (w[61])</span>
+			+ ((state[5] &amp; state[13])
+			| ((state[5] | state[13]) &amp; state[21]));
+<span class="nc" id="L1101">		state[5] = circularLeft(tmp, p0) + tA[(pp8k[isp + 7]) ^ 5];</span>
+<span class="nc" id="L1102">		state[29] = state[21];</span>
+<span class="nc" id="L1103">		state[21] = state[13];</span>
+<span class="nc" id="L1104">		state[13] = tA[5];</span>
+<span class="nc" id="L1105">		tmp = state[30] + (w[62])</span>
+			+ ((state[6] &amp; state[14])
+			| ((state[6] | state[14]) &amp; state[22]));
+<span class="nc" id="L1108">		state[6] = circularLeft(tmp, p0) + tA[(pp8k[isp + 7]) ^ 6];</span>
+<span class="nc" id="L1109">		state[30] = state[22];</span>
+<span class="nc" id="L1110">		state[22] = state[14];</span>
+<span class="nc" id="L1111">		state[14] = tA[6];</span>
+<span class="nc" id="L1112">		tmp = state[31] + (w[63])</span>
+			+ ((state[7] &amp; state[15])
+			| ((state[7] | state[15]) &amp; state[23]));
+<span class="nc" id="L1115">		state[7] = circularLeft(tmp, p0) + tA[(pp8k[isp + 7]) ^ 7];</span>
+<span class="nc" id="L1116">		state[31] = state[23];</span>
+<span class="nc" id="L1117">		state[23] = state[15];</span>
+<span class="nc" id="L1118">		state[15] = tA[7];</span>
+<span class="nc" id="L1119">	}</span>
+
+	private final void compress(byte[] x, boolean last)
+	{
+		int tmp;
+<span class="nc" id="L1124">		fft64(x, 0 + (1 * 0), 1 &lt;&lt; 2, 0 + 0);</span>
+<span class="nc" id="L1125">		fft64(x, 0 + (1 * 2), 1 &lt;&lt; 2, 0 + 64);</span>
+<span class="nc" id="L1126">		int m = q[0];</span>
+<span class="nc" id="L1127">		int n = q[0 + 64];</span>
+<span class="nc" id="L1128">		q[0] = m + n;</span>
+<span class="nc" id="L1129">		q[0 + 64] = m - n;</span>
+<span class="nc bnc" id="L1130" title="All 2 branches missed.">		for (int u = 0, v = 0; u &lt; 64; u += 4, v += 4 * 2) {</span>
+			int t;
+<span class="nc bnc" id="L1132" title="All 2 branches missed.">			if (u != 0) {</span>
+<span class="nc" id="L1133">				m = q[0 + u + 0];</span>
+<span class="nc" id="L1134">				n = q[0 + u + 0 + 64];</span>
+<span class="nc" id="L1135">				t = ((n * alphaTab[v + 0 * 2]) &amp; 0xFFFF)</span>
+					+ ((n * alphaTab[v + 0 * 2]) &gt;&gt; 16);
+<span class="nc" id="L1137">				q[0 + u + 0] = m + t;</span>
+<span class="nc" id="L1138">				q[0 + u + 0 + 64] = m - t;</span>
+			}
+<span class="nc" id="L1140">			m = q[0 + u + 1];</span>
+<span class="nc" id="L1141">			n = q[0 + u + 1 + 64];</span>
+<span class="nc" id="L1142">			t = ((n * alphaTab[v + 1 * 2]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 1 * 2]) &gt;&gt; 16);
+<span class="nc" id="L1144">			q[0 + u + 1] = m + t;</span>
+<span class="nc" id="L1145">			q[0 + u + 1 + 64] = m - t;</span>
+<span class="nc" id="L1146">			m = q[0 + u + 2];</span>
+<span class="nc" id="L1147">			n = q[0 + u + 2 + 64];</span>
+<span class="nc" id="L1148">			t = ((n * alphaTab[v + 2 * 2]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 2 * 2]) &gt;&gt; 16);
+<span class="nc" id="L1150">			q[0 + u + 2] = m + t;</span>
+<span class="nc" id="L1151">			q[0 + u + 2 + 64] = m - t;</span>
+<span class="nc" id="L1152">			m = q[0 + u + 3];</span>
+<span class="nc" id="L1153">			n = q[0 + u + 3 + 64];</span>
+<span class="nc" id="L1154">			t = ((n * alphaTab[v + 3 * 2]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 3 * 2]) &gt;&gt; 16);
+<span class="nc" id="L1156">			q[0 + u + 3] = m + t;</span>
+<span class="nc" id="L1157">			q[0 + u + 3 + 64] = m - t;</span>
+		}
+<span class="nc" id="L1159">		fft64(x, 0 + (1 * 1), 1 &lt;&lt; 2, 0 + 128);</span>
+<span class="nc" id="L1160">		fft64(x, 0 + (1 * 3), 1 &lt;&lt; 2, 0 + 192);</span>
+<span class="nc" id="L1161">		m = q[0 + 128];</span>
+<span class="nc" id="L1162">		n = q[0 + 128 + 64];</span>
+<span class="nc" id="L1163">		q[0 + 128] = m + n;</span>
+<span class="nc" id="L1164">		q[0 + 128 + 64] = m - n;</span>
+<span class="nc bnc" id="L1165" title="All 2 branches missed.">		for (int u = 0, v = 0; u &lt; 64; u += 4, v += 4 * 2) {</span>
+			int t;
+<span class="nc bnc" id="L1167" title="All 2 branches missed.">			if (u != 0) {</span>
+<span class="nc" id="L1168">				m = q[(0 + 128) + u + 0];</span>
+<span class="nc" id="L1169">				n = q[(0 + 128) + u + 0 + 64];</span>
+<span class="nc" id="L1170">				t = ((n * alphaTab[v + 0 * 2]) &amp; 0xFFFF)</span>
+					+ ((n * alphaTab[v + 0 * 2]) &gt;&gt; 16);
+<span class="nc" id="L1172">				q[(0 + 128) + u + 0] = m + t;</span>
+<span class="nc" id="L1173">				q[(0 + 128) + u + 0 + 64] = m - t;</span>
+			}
+<span class="nc" id="L1175">			m = q[(0 + 128) + u + 1];</span>
+<span class="nc" id="L1176">			n = q[(0 + 128) + u + 1 + 64];</span>
+<span class="nc" id="L1177">			t = ((n * alphaTab[v + 1 * 2]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 1 * 2]) &gt;&gt; 16);
+<span class="nc" id="L1179">			q[(0 + 128) + u + 1] = m + t;</span>
+<span class="nc" id="L1180">			q[(0 + 128) + u + 1 + 64] = m - t;</span>
+<span class="nc" id="L1181">			m = q[(0 + 128) + u + 2];</span>
+<span class="nc" id="L1182">			n = q[(0 + 128) + u + 2 + 64];</span>
+<span class="nc" id="L1183">			t = ((n * alphaTab[v + 2 * 2]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 2 * 2]) &gt;&gt; 16);
+<span class="nc" id="L1185">			q[(0 + 128) + u + 2] = m + t;</span>
+<span class="nc" id="L1186">			q[(0 + 128) + u + 2 + 64] = m - t;</span>
+<span class="nc" id="L1187">			m = q[(0 + 128) + u + 3];</span>
+<span class="nc" id="L1188">			n = q[(0 + 128) + u + 3 + 64];</span>
+<span class="nc" id="L1189">			t = ((n * alphaTab[v + 3 * 2]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 3 * 2]) &gt;&gt; 16);
+<span class="nc" id="L1191">			q[(0 + 128) + u + 3] = m + t;</span>
+<span class="nc" id="L1192">			q[(0 + 128) + u + 3 + 64] = m - t;</span>
+		}
+<span class="nc" id="L1194">		m = q[0];</span>
+<span class="nc" id="L1195">		n = q[0 + 128];</span>
+<span class="nc" id="L1196">		q[0] = m + n;</span>
+<span class="nc" id="L1197">		q[0 + 128] = m - n;</span>
+<span class="nc bnc" id="L1198" title="All 2 branches missed.">		for (int u = 0, v = 0; u &lt; 128; u += 4, v += 4 * 1) {</span>
+			int t;
+<span class="nc bnc" id="L1200" title="All 2 branches missed.">			if (u != 0) {</span>
+<span class="nc" id="L1201">				m = q[0 + u + 0];</span>
+<span class="nc" id="L1202">				n = q[0 + u + 0 + 128];</span>
+<span class="nc" id="L1203">				t = ((n * alphaTab[v + 0 * 1]) &amp; 0xFFFF)</span>
+					+ ((n * alphaTab[v + 0 * 1]) &gt;&gt; 16);
+<span class="nc" id="L1205">				q[0 + u + 0] = m + t;</span>
+<span class="nc" id="L1206">				q[0 + u + 0 + 128] = m - t;</span>
+			}
+<span class="nc" id="L1208">			m = q[0 + u + 1];</span>
+<span class="nc" id="L1209">			n = q[0 + u + 1 + 128];</span>
+<span class="nc" id="L1210">			t = ((n * alphaTab[v + 1 * 1]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 1 * 1]) &gt;&gt; 16);
+<span class="nc" id="L1212">			q[0 + u + 1] = m + t;</span>
+<span class="nc" id="L1213">			q[0 + u + 1 + 128] = m - t;</span>
+<span class="nc" id="L1214">			m = q[0 + u + 2];</span>
+<span class="nc" id="L1215">			n = q[0 + u + 2 + 128];</span>
+<span class="nc" id="L1216">			t = ((n * alphaTab[v + 2 * 1]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 2 * 1]) &gt;&gt; 16);
+<span class="nc" id="L1218">			q[0 + u + 2] = m + t;</span>
+<span class="nc" id="L1219">			q[0 + u + 2 + 128] = m - t;</span>
+<span class="nc" id="L1220">			m = q[0 + u + 3];</span>
+<span class="nc" id="L1221">			n = q[0 + u + 3 + 128];</span>
+<span class="nc" id="L1222">			t = ((n * alphaTab[v + 3 * 1]) &amp; 0xFFFF)</span>
+				+ ((n * alphaTab[v + 3 * 1]) &gt;&gt; 16);
+<span class="nc" id="L1224">			q[0 + u + 3] = m + t;</span>
+<span class="nc" id="L1225">			q[0 + u + 3 + 128] = m - t;</span>
+		}
+<span class="nc bnc" id="L1227" title="All 2 branches missed.">		if (last) {</span>
+<span class="nc bnc" id="L1228" title="All 2 branches missed.">			for (int i = 0; i &lt; 256; i++) {</span>
+<span class="nc" id="L1229">				int tq = q[i] + yoffF[i];</span>
+<span class="nc" id="L1230">				tq = ((tq &amp; 0xFFFF) + (tq &gt;&gt; 16));</span>
+<span class="nc" id="L1231">				tq = ((tq &amp; 0xFF) - (tq &gt;&gt; 8));</span>
+<span class="nc" id="L1232">				tq = ((tq &amp; 0xFF) - (tq &gt;&gt; 8));</span>
+<span class="nc bnc" id="L1233" title="All 2 branches missed.">				q[i] = (tq &lt;= 128 ? tq : tq - 257);</span>
+			}
+		} else {
+<span class="nc bnc" id="L1236" title="All 2 branches missed.">			for (int i = 0; i &lt; 256; i++) {</span>
+<span class="nc" id="L1237">				int tq = q[i] + yoffN[i];</span>
+<span class="nc" id="L1238">				tq = ((tq &amp; 0xFFFF) + (tq &gt;&gt; 16));</span>
+<span class="nc" id="L1239">				tq = ((tq &amp; 0xFF) - (tq &gt;&gt; 8));</span>
+<span class="nc" id="L1240">				tq = ((tq &amp; 0xFF) - (tq &gt;&gt; 8));</span>
+<span class="nc bnc" id="L1241" title="All 2 branches missed.">				q[i] = (tq &lt;= 128 ? tq : tq - 257);</span>
+			}
+		}
+
+<span class="nc" id="L1245">		System.arraycopy(state, 0, tmpState, 0, 32);</span>
+
+<span class="nc bnc" id="L1247" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L1248">			state[i + 0] ^= decodeLEInt(x, 4 * (i + 0));</span>
+<span class="nc" id="L1249">			state[i + 1] ^= decodeLEInt(x, 4 * (i + 1));</span>
+<span class="nc" id="L1250">			state[i + 2] ^= decodeLEInt(x, 4 * (i + 2));</span>
+<span class="nc" id="L1251">			state[i + 3] ^= decodeLEInt(x, 4 * (i + 3));</span>
+<span class="nc" id="L1252">			state[i + 4] ^= decodeLEInt(x, 4 * (i + 4));</span>
+<span class="nc" id="L1253">			state[i + 5] ^= decodeLEInt(x, 4 * (i + 5));</span>
+<span class="nc" id="L1254">			state[i + 6] ^= decodeLEInt(x, 4 * (i + 6));</span>
+<span class="nc" id="L1255">			state[i + 7] ^= decodeLEInt(x, 4 * (i + 7));</span>
+		}
+<span class="nc bnc" id="L1257" title="All 2 branches missed.">		for (int u = 0; u &lt; 64; u += 8) {</span>
+<span class="nc" id="L1258">			int v = wbp[(u &gt;&gt; 3) + 0];</span>
+<span class="nc" id="L1259">			w[u + 0] = (((q[v + 2 * 0 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 0 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1261">			w[u + 1] = (((q[v + 2 * 1 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 1 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1263">			w[u + 2] = (((q[v + 2 * 2 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 2 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1265">			w[u + 3] = (((q[v + 2 * 3 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 3 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1267">			w[u + 4] = (((q[v + 2 * 4 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 4 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1269">			w[u + 5] = (((q[v + 2 * 5 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 5 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1271">			w[u + 6] = (((q[v + 2 * 6 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 6 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1273">			w[u + 7] = (((q[v + 2 * 7 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 7 + 1]) * 185) &lt;&lt; 16);
+		}
+<span class="nc" id="L1276">		oneRound(0, 3, 23, 17, 27);</span>
+<span class="nc bnc" id="L1277" title="All 2 branches missed.">		for (int u = 0; u &lt; 64; u += 8) {</span>
+<span class="nc" id="L1278">			int v = wbp[(u &gt;&gt; 3) + 8];</span>
+<span class="nc" id="L1279">			w[u + 0] = (((q[v + 2 * 0 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 0 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1281">			w[u + 1] = (((q[v + 2 * 1 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 1 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1283">			w[u + 2] = (((q[v + 2 * 2 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 2 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1285">			w[u + 3] = (((q[v + 2 * 3 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 3 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1287">			w[u + 4] = (((q[v + 2 * 4 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 4 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1289">			w[u + 5] = (((q[v + 2 * 5 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 5 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1291">			w[u + 6] = (((q[v + 2 * 6 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 6 + 1]) * 185) &lt;&lt; 16);
+<span class="nc" id="L1293">			w[u + 7] = (((q[v + 2 * 7 + 0]) * 185) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 7 + 1]) * 185) &lt;&lt; 16);
+		}
+<span class="nc" id="L1296">		oneRound(1, 28, 19, 22, 7);</span>
+<span class="nc bnc" id="L1297" title="All 2 branches missed.">		for (int u = 0; u &lt; 64; u += 8) {</span>
+<span class="nc" id="L1298">			int v = wbp[(u &gt;&gt; 3) + 16];</span>
+<span class="nc" id="L1299">			w[u + 0] = (((q[v + 2 * 0 + (-256)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 0 + (-128)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1301">			w[u + 1] = (((q[v + 2 * 1 + (-256)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 1 + (-128)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1303">			w[u + 2] = (((q[v + 2 * 2 + (-256)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 2 + (-128)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1305">			w[u + 3] = (((q[v + 2 * 3 + (-256)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 3 + (-128)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1307">			w[u + 4] = (((q[v + 2 * 4 + (-256)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 4 + (-128)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1309">			w[u + 5] = (((q[v + 2 * 5 + (-256)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 5 + (-128)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1311">			w[u + 6] = (((q[v + 2 * 6 + (-256)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 6 + (-128)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1313">			w[u + 7] = (((q[v + 2 * 7 + (-256)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 7 + (-128)]) * 233) &lt;&lt; 16);
+		}
+<span class="nc" id="L1316">		oneRound(2, 29, 9, 15, 5);</span>
+<span class="nc bnc" id="L1317" title="All 2 branches missed.">		for (int u = 0; u &lt; 64; u += 8) {</span>
+<span class="nc" id="L1318">			int v = wbp[(u &gt;&gt; 3) + 24];</span>
+<span class="nc" id="L1319">			w[u + 0] = (((q[v + 2 * 0 + (-383)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 0 + (-255)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1321">			w[u + 1] = (((q[v + 2 * 1 + (-383)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 1 + (-255)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1323">			w[u + 2] = (((q[v + 2 * 2 + (-383)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 2 + (-255)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1325">			w[u + 3] = (((q[v + 2 * 3 + (-383)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 3 + (-255)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1327">			w[u + 4] = (((q[v + 2 * 4 + (-383)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 4 + (-255)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1329">			w[u + 5] = (((q[v + 2 * 5 + (-383)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 5 + (-255)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1331">			w[u + 6] = (((q[v + 2 * 6 + (-383)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 6 + (-255)]) * 233) &lt;&lt; 16);
+<span class="nc" id="L1333">			w[u + 7] = (((q[v + 2 * 7 + (-383)]) * 233) &amp; 0xFFFF)</span>
+				+ (((q[v + 2 * 7 + (-255)]) * 233) &lt;&lt; 16);
+		}
+<span class="nc" id="L1336">		oneRound(3, 4, 13, 10, 25);</span>
+
+		{
+<span class="nc" id="L1339">			int tA0 = circularLeft(state[0], 4);</span>
+<span class="nc" id="L1340">			int tA1 = circularLeft(state[1], 4);</span>
+<span class="nc" id="L1341">			int tA2 = circularLeft(state[2], 4);</span>
+<span class="nc" id="L1342">			int tA3 = circularLeft(state[3], 4);</span>
+<span class="nc" id="L1343">			int tA4 = circularLeft(state[4], 4);</span>
+<span class="nc" id="L1344">			int tA5 = circularLeft(state[5], 4);</span>
+<span class="nc" id="L1345">			int tA6 = circularLeft(state[6], 4);</span>
+<span class="nc" id="L1346">			int tA7 = circularLeft(state[7], 4);</span>
+<span class="nc" id="L1347">			tmp = state[24] + (tmpState[0]) + (((state[8]</span>
+				^ state[16]) &amp; state[0]) ^ state[16]);
+<span class="nc" id="L1349">			state[0] = circularLeft(tmp, 13) + tA5;</span>
+<span class="nc" id="L1350">			state[24] = state[16];</span>
+<span class="nc" id="L1351">			state[16] = state[8];</span>
+<span class="nc" id="L1352">			state[8] = tA0;</span>
+<span class="nc" id="L1353">			tmp = state[25] + (tmpState[1]) + (((state[9]</span>
+				^ state[17]) &amp; state[1]) ^ state[17]);
+<span class="nc" id="L1355">			state[1] = circularLeft(tmp, 13) + tA4;</span>
+<span class="nc" id="L1356">			state[25] = state[17];</span>
+<span class="nc" id="L1357">			state[17] = state[9];</span>
+<span class="nc" id="L1358">			state[9] = tA1;</span>
+<span class="nc" id="L1359">			tmp = state[26] + (tmpState[2]) + (((state[10]</span>
+				^ state[18]) &amp; state[2]) ^ state[18]);
+<span class="nc" id="L1361">			state[2] = circularLeft(tmp, 13) + tA7;</span>
+<span class="nc" id="L1362">			state[26] = state[18];</span>
+<span class="nc" id="L1363">			state[18] = state[10];</span>
+<span class="nc" id="L1364">			state[10] = tA2;</span>
+<span class="nc" id="L1365">			tmp = state[27] + (tmpState[3]) + (((state[11]</span>
+				^ state[19]) &amp; state[3]) ^ state[19]);
+<span class="nc" id="L1367">			state[3] = circularLeft(tmp, 13) + tA6;</span>
+<span class="nc" id="L1368">			state[27] = state[19];</span>
+<span class="nc" id="L1369">			state[19] = state[11];</span>
+<span class="nc" id="L1370">			state[11] = tA3;</span>
+<span class="nc" id="L1371">			tmp = state[28] + (tmpState[4]) + (((state[12]</span>
+				^ state[20]) &amp; state[4]) ^ state[20]);
+<span class="nc" id="L1373">			state[4] = circularLeft(tmp, 13) + tA1;</span>
+<span class="nc" id="L1374">			state[28] = state[20];</span>
+<span class="nc" id="L1375">			state[20] = state[12];</span>
+<span class="nc" id="L1376">			state[12] = tA4;</span>
+<span class="nc" id="L1377">			tmp = state[29] + (tmpState[5]) + (((state[13]</span>
+				^ state[21]) &amp; state[5]) ^ state[21]);
+<span class="nc" id="L1379">			state[5] = circularLeft(tmp, 13) + tA0;</span>
+<span class="nc" id="L1380">			state[29] = state[21];</span>
+<span class="nc" id="L1381">			state[21] = state[13];</span>
+<span class="nc" id="L1382">			state[13] = tA5;</span>
+<span class="nc" id="L1383">			tmp = state[30] + (tmpState[6]) + (((state[14]</span>
+				^ state[22]) &amp; state[6]) ^ state[22]);
+<span class="nc" id="L1385">			state[6] = circularLeft(tmp, 13) + tA3;</span>
+<span class="nc" id="L1386">			state[30] = state[22];</span>
+<span class="nc" id="L1387">			state[22] = state[14];</span>
+<span class="nc" id="L1388">			state[14] = tA6;</span>
+<span class="nc" id="L1389">			tmp = state[31] + (tmpState[7]) + (((state[15]</span>
+				^ state[23]) &amp; state[7]) ^ state[23]);
+<span class="nc" id="L1391">			state[7] = circularLeft(tmp, 13) + tA2;</span>
+<span class="nc" id="L1392">			state[31] = state[23];</span>
+<span class="nc" id="L1393">			state[23] = state[15];</span>
+<span class="nc" id="L1394">			state[15] = tA7;</span>
+		}
+		{
+<span class="nc" id="L1397">			int tA0 = circularLeft(state[0], 13);</span>
+<span class="nc" id="L1398">			int tA1 = circularLeft(state[1], 13);</span>
+<span class="nc" id="L1399">			int tA2 = circularLeft(state[2], 13);</span>
+<span class="nc" id="L1400">			int tA3 = circularLeft(state[3], 13);</span>
+<span class="nc" id="L1401">			int tA4 = circularLeft(state[4], 13);</span>
+<span class="nc" id="L1402">			int tA5 = circularLeft(state[5], 13);</span>
+<span class="nc" id="L1403">			int tA6 = circularLeft(state[6], 13);</span>
+<span class="nc" id="L1404">			int tA7 = circularLeft(state[7], 13);</span>
+<span class="nc" id="L1405">			tmp = state[24] + (tmpState[8]) + (((state[8]</span>
+				^ state[16]) &amp; state[0]) ^ state[16]);
+<span class="nc" id="L1407">			state[0] = circularLeft(tmp, 10) + tA7;</span>
+<span class="nc" id="L1408">			state[24] = state[16];</span>
+<span class="nc" id="L1409">			state[16] = state[8];</span>
+<span class="nc" id="L1410">			state[8] = tA0;</span>
+<span class="nc" id="L1411">			tmp = state[25] + (tmpState[9]) + (((state[9]</span>
+				^ state[17]) &amp; state[1]) ^ state[17]);
+<span class="nc" id="L1413">			state[1] = circularLeft(tmp, 10) + tA6;</span>
+<span class="nc" id="L1414">			state[25] = state[17];</span>
+<span class="nc" id="L1415">			state[17] = state[9];</span>
+<span class="nc" id="L1416">			state[9] = tA1;</span>
+<span class="nc" id="L1417">			tmp = state[26] + (tmpState[10]) + (((state[10]</span>
+				^ state[18]) &amp; state[2]) ^ state[18]);
+<span class="nc" id="L1419">			state[2] = circularLeft(tmp, 10) + tA5;</span>
+<span class="nc" id="L1420">			state[26] = state[18];</span>
+<span class="nc" id="L1421">			state[18] = state[10];</span>
+<span class="nc" id="L1422">			state[10] = tA2;</span>
+<span class="nc" id="L1423">			tmp = state[27] + (tmpState[11]) + (((state[11]</span>
+				^ state[19]) &amp; state[3]) ^ state[19]);
+<span class="nc" id="L1425">			state[3] = circularLeft(tmp, 10) + tA4;</span>
+<span class="nc" id="L1426">			state[27] = state[19];</span>
+<span class="nc" id="L1427">			state[19] = state[11];</span>
+<span class="nc" id="L1428">			state[11] = tA3;</span>
+<span class="nc" id="L1429">			tmp = state[28] + (tmpState[12]) + (((state[12]</span>
+				^ state[20]) &amp; state[4]) ^ state[20]);
+<span class="nc" id="L1431">			state[4] = circularLeft(tmp, 10) + tA3;</span>
+<span class="nc" id="L1432">			state[28] = state[20];</span>
+<span class="nc" id="L1433">			state[20] = state[12];</span>
+<span class="nc" id="L1434">			state[12] = tA4;</span>
+<span class="nc" id="L1435">			tmp = state[29] + (tmpState[13]) + (((state[13]</span>
+				^ state[21]) &amp; state[5]) ^ state[21]);
+<span class="nc" id="L1437">			state[5] = circularLeft(tmp, 10) + tA2;</span>
+<span class="nc" id="L1438">			state[29] = state[21];</span>
+<span class="nc" id="L1439">			state[21] = state[13];</span>
+<span class="nc" id="L1440">			state[13] = tA5;</span>
+<span class="nc" id="L1441">			tmp = state[30] + (tmpState[14]) + (((state[14]</span>
+				^ state[22]) &amp; state[6]) ^ state[22]);
+<span class="nc" id="L1443">			state[6] = circularLeft(tmp, 10) + tA1;</span>
+<span class="nc" id="L1444">			state[30] = state[22];</span>
+<span class="nc" id="L1445">			state[22] = state[14];</span>
+<span class="nc" id="L1446">			state[14] = tA6;</span>
+<span class="nc" id="L1447">			tmp = state[31] + (tmpState[15]) + (((state[15]</span>
+				^ state[23]) &amp; state[7]) ^ state[23]);
+<span class="nc" id="L1449">			state[7] = circularLeft(tmp, 10) + tA0;</span>
+<span class="nc" id="L1450">			state[31] = state[23];</span>
+<span class="nc" id="L1451">			state[23] = state[15];</span>
+<span class="nc" id="L1452">			state[15] = tA7;</span>
+		}
+		{
+<span class="nc" id="L1455">			int tA0 = circularLeft(state[0], 10);</span>
+<span class="nc" id="L1456">			int tA1 = circularLeft(state[1], 10);</span>
+<span class="nc" id="L1457">			int tA2 = circularLeft(state[2], 10);</span>
+<span class="nc" id="L1458">			int tA3 = circularLeft(state[3], 10);</span>
+<span class="nc" id="L1459">			int tA4 = circularLeft(state[4], 10);</span>
+<span class="nc" id="L1460">			int tA5 = circularLeft(state[5], 10);</span>
+<span class="nc" id="L1461">			int tA6 = circularLeft(state[6], 10);</span>
+<span class="nc" id="L1462">			int tA7 = circularLeft(state[7], 10);</span>
+<span class="nc" id="L1463">			tmp = state[24] + (tmpState[16]) + (((state[8]</span>
+				^ state[16]) &amp; state[0]) ^ state[16]);
+<span class="nc" id="L1465">			state[0] = circularLeft(tmp, 25) + tA4;</span>
+<span class="nc" id="L1466">			state[24] = state[16];</span>
+<span class="nc" id="L1467">			state[16] = state[8];</span>
+<span class="nc" id="L1468">			state[8] = tA0;</span>
+<span class="nc" id="L1469">			tmp = state[25] + (tmpState[17]) + (((state[9]</span>
+				^ state[17]) &amp; state[1]) ^ state[17]);
+<span class="nc" id="L1471">			state[1] = circularLeft(tmp, 25) + tA5;</span>
+<span class="nc" id="L1472">			state[25] = state[17];</span>
+<span class="nc" id="L1473">			state[17] = state[9];</span>
+<span class="nc" id="L1474">			state[9] = tA1;</span>
+<span class="nc" id="L1475">			tmp = state[26] + (tmpState[18]) + (((state[10]</span>
+				^ state[18]) &amp; state[2]) ^ state[18]);
+<span class="nc" id="L1477">			state[2] = circularLeft(tmp, 25) + tA6;</span>
+<span class="nc" id="L1478">			state[26] = state[18];</span>
+<span class="nc" id="L1479">			state[18] = state[10];</span>
+<span class="nc" id="L1480">			state[10] = tA2;</span>
+<span class="nc" id="L1481">			tmp = state[27] + (tmpState[19]) + (((state[11]</span>
+				^ state[19]) &amp; state[3]) ^ state[19]);
+<span class="nc" id="L1483">			state[3] = circularLeft(tmp, 25) + tA7;</span>
+<span class="nc" id="L1484">			state[27] = state[19];</span>
+<span class="nc" id="L1485">			state[19] = state[11];</span>
+<span class="nc" id="L1486">			state[11] = tA3;</span>
+<span class="nc" id="L1487">			tmp = state[28] + (tmpState[20]) + (((state[12]</span>
+				^ state[20]) &amp; state[4]) ^ state[20]);
+<span class="nc" id="L1489">			state[4] = circularLeft(tmp, 25) + tA0;</span>
+<span class="nc" id="L1490">			state[28] = state[20];</span>
+<span class="nc" id="L1491">			state[20] = state[12];</span>
+<span class="nc" id="L1492">			state[12] = tA4;</span>
+<span class="nc" id="L1493">			tmp = state[29] + (tmpState[21]) + (((state[13]</span>
+				^ state[21]) &amp; state[5]) ^ state[21]);
+<span class="nc" id="L1495">			state[5] = circularLeft(tmp, 25) + tA1;</span>
+<span class="nc" id="L1496">			state[29] = state[21];</span>
+<span class="nc" id="L1497">			state[21] = state[13];</span>
+<span class="nc" id="L1498">			state[13] = tA5;</span>
+<span class="nc" id="L1499">			tmp = state[30] + (tmpState[22]) + (((state[14]</span>
+				^ state[22]) &amp; state[6]) ^ state[22]);
+<span class="nc" id="L1501">			state[6] = circularLeft(tmp, 25) + tA2;</span>
+<span class="nc" id="L1502">			state[30] = state[22];</span>
+<span class="nc" id="L1503">			state[22] = state[14];</span>
+<span class="nc" id="L1504">			state[14] = tA6;</span>
+<span class="nc" id="L1505">			tmp = state[31] + (tmpState[23]) + (((state[15]</span>
+				^ state[23]) &amp; state[7]) ^ state[23]);
+<span class="nc" id="L1507">			state[7] = circularLeft(tmp, 25) + tA3;</span>
+<span class="nc" id="L1508">			state[31] = state[23];</span>
+<span class="nc" id="L1509">			state[23] = state[15];</span>
+<span class="nc" id="L1510">			state[15] = tA7;</span>
+		}
+		{
+<span class="nc" id="L1513">			int tA0 = circularLeft(state[0], 25);</span>
+<span class="nc" id="L1514">			int tA1 = circularLeft(state[1], 25);</span>
+<span class="nc" id="L1515">			int tA2 = circularLeft(state[2], 25);</span>
+<span class="nc" id="L1516">			int tA3 = circularLeft(state[3], 25);</span>
+<span class="nc" id="L1517">			int tA4 = circularLeft(state[4], 25);</span>
+<span class="nc" id="L1518">			int tA5 = circularLeft(state[5], 25);</span>
+<span class="nc" id="L1519">			int tA6 = circularLeft(state[6], 25);</span>
+<span class="nc" id="L1520">			int tA7 = circularLeft(state[7], 25);</span>
+<span class="nc" id="L1521">			tmp = state[24] + (tmpState[24]) + (((state[8]</span>
+				^ state[16]) &amp; state[0]) ^ state[16]);
+<span class="nc" id="L1523">			state[0] = circularLeft(tmp, 4) + tA1;</span>
+<span class="nc" id="L1524">			state[24] = state[16];</span>
+<span class="nc" id="L1525">			state[16] = state[8];</span>
+<span class="nc" id="L1526">			state[8] = tA0;</span>
+<span class="nc" id="L1527">			tmp = state[25] + (tmpState[25]) + (((state[9]</span>
+				^ state[17]) &amp; state[1]) ^ state[17]);
+<span class="nc" id="L1529">			state[1] = circularLeft(tmp, 4) + tA0;</span>
+<span class="nc" id="L1530">			state[25] = state[17];</span>
+<span class="nc" id="L1531">			state[17] = state[9];</span>
+<span class="nc" id="L1532">			state[9] = tA1;</span>
+<span class="nc" id="L1533">			tmp = state[26] + (tmpState[26]) + (((state[10]</span>
+				^ state[18]) &amp; state[2]) ^ state[18]);
+<span class="nc" id="L1535">			state[2] = circularLeft(tmp, 4) + tA3;</span>
+<span class="nc" id="L1536">			state[26] = state[18];</span>
+<span class="nc" id="L1537">			state[18] = state[10];</span>
+<span class="nc" id="L1538">			state[10] = tA2;</span>
+<span class="nc" id="L1539">			tmp = state[27] + (tmpState[27]) + (((state[11]</span>
+				^ state[19]) &amp; state[3]) ^ state[19]);
+<span class="nc" id="L1541">			state[3] = circularLeft(tmp, 4) + tA2;</span>
+<span class="nc" id="L1542">			state[27] = state[19];</span>
+<span class="nc" id="L1543">			state[19] = state[11];</span>
+<span class="nc" id="L1544">			state[11] = tA3;</span>
+<span class="nc" id="L1545">			tmp = state[28] + (tmpState[28]) + (((state[12]</span>
+				^ state[20]) &amp; state[4]) ^ state[20]);
+<span class="nc" id="L1547">			state[4] = circularLeft(tmp, 4) + tA5;</span>
+<span class="nc" id="L1548">			state[28] = state[20];</span>
+<span class="nc" id="L1549">			state[20] = state[12];</span>
+<span class="nc" id="L1550">			state[12] = tA4;</span>
+<span class="nc" id="L1551">			tmp = state[29] + (tmpState[29]) + (((state[13]</span>
+				^ state[21]) &amp; state[5]) ^ state[21]);
+<span class="nc" id="L1553">			state[5] = circularLeft(tmp, 4) + tA4;</span>
+<span class="nc" id="L1554">			state[29] = state[21];</span>
+<span class="nc" id="L1555">			state[21] = state[13];</span>
+<span class="nc" id="L1556">			state[13] = tA5;</span>
+<span class="nc" id="L1557">			tmp = state[30] + (tmpState[30]) + (((state[14]</span>
+				^ state[22]) &amp; state[6]) ^ state[22]);
+<span class="nc" id="L1559">			state[6] = circularLeft(tmp, 4) + tA7;</span>
+<span class="nc" id="L1560">			state[30] = state[22];</span>
+<span class="nc" id="L1561">			state[22] = state[14];</span>
+<span class="nc" id="L1562">			state[14] = tA6;</span>
+<span class="nc" id="L1563">			tmp = state[31] + (tmpState[31]) + (((state[15]</span>
+				^ state[23]) &amp; state[7]) ^ state[23]);
+<span class="nc" id="L1565">			state[7] = circularLeft(tmp, 4) + tA6;</span>
+<span class="nc" id="L1566">			state[31] = state[23];</span>
+<span class="nc" id="L1567">			state[23] = state[15];</span>
+<span class="nc" id="L1568">			state[15] = tA7;</span>
+		}
+<span class="nc" id="L1570">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L1575">		return &quot;SIMD-&quot; + (getDigestLength() &lt;&lt; 3);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

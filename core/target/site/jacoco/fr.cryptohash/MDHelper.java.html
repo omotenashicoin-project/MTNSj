@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MDHelper.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">MDHelper.java</span></div><h1>MDHelper.java</h1><pre class="source lang-java linenums">// $Id: MDHelper.java 157 2010-04-26 19:03:44Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the padding common to MD4, MD5, the SHA family,
+ * and RIPEMD-160. This code works as long as the internal block length
+ * is a power of 2, which is the case for all these algorithms.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 157 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+abstract class MDHelper extends DigestEngine {
+
+	/**
+	 * Create the object. Little-endian padding is for MD4, MD5 and
+	 * RIPEMD-160; the SHA family uses big-endian padding. The
+	 * MD padding includes an encoding of the input message bit length,
+	 * which is over 64 bits for some algorithms, 128-bit for others
+	 * (namely SHA-384 and SHA-512). Note that this implementation
+	 * handles only message lengths which fit on 64 bits.
+	 *
+	 * @param littleEndian   {@code true} for little-endian padding
+	 * @param lenlen         the length encoding length, in bytes (must
+	 *                       be at least 8)
+	 */
+	MDHelper(boolean littleEndian, int lenlen)
+	{
+<span class="nc" id="L57">		this(littleEndian, lenlen, (byte)0x80);</span>
+<span class="nc" id="L58">	}</span>
+
+	/**
+	 * Create the object. Little-endian padding is for MD4, MD5 and
+	 * RIPEMD-160; the SHA family uses big-endian padding. The
+	 * MD padding includes an encoding of the input message bit length,
+	 * which is over 64 bits for some algorithms, 128-bit for others
+	 * (namely SHA-384 and SHA-512). Note that this implementation
+	 * handles only message lengths which fit on 64 bits. The first
+	 * additional byte value is specified; this is normally 0x80,
+	 * except for Tiger (not Tiger2) which uses 0x01.
+	 *
+	 * @param littleEndian   {@code true} for little-endian padding
+	 * @param lenlen         the length encoding length, in bytes (must
+	 *                       be at least 8)
+	 * @param fbyte          the first padding byte
+	 */
+	MDHelper(boolean littleEndian, int lenlen, byte fbyte)
+<span class="nc" id="L76">	{</span>
+<span class="nc" id="L77">		this.littleEndian = littleEndian;</span>
+<span class="nc" id="L78">		countBuf = new byte[lenlen];</span>
+<span class="nc" id="L79">		this.fbyte = fbyte;</span>
+<span class="nc" id="L80">	}</span>
+
+	private boolean littleEndian;
+	private byte[] countBuf;
+	private byte fbyte;
+
+	/**
+	 * Compute the padding. The padding data is input into the engine,
+	 * which is flushed.
+	 */
+	protected void makeMDPadding()
+	{
+<span class="nc" id="L92">		int dataLen = flush();</span>
+<span class="nc" id="L93">		int blen = getBlockLength();</span>
+<span class="nc" id="L94">		long currentLength = getBlockCount() * (long)blen;</span>
+<span class="nc" id="L95">		currentLength = (currentLength + (long)dataLen) * 8L;</span>
+<span class="nc" id="L96">		int lenlen = countBuf.length;</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">		if (littleEndian) {</span>
+<span class="nc" id="L98">			encodeLEInt((int)currentLength, countBuf, 0);</span>
+<span class="nc" id="L99">			encodeLEInt((int)(currentLength &gt;&gt;&gt; 32), countBuf, 4);</span>
+		} else {
+<span class="nc" id="L101">			encodeBEInt((int)(currentLength &gt;&gt;&gt; 32),</span>
+				countBuf, lenlen - 8);
+<span class="nc" id="L103">			encodeBEInt((int)currentLength,</span>
+				countBuf, lenlen - 4);
+		}
+<span class="nc" id="L106">		int endLen = (dataLen + lenlen + blen) &amp; ~(blen - 1);</span>
+<span class="nc" id="L107">		update(fbyte);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">		for (int i = dataLen + 1; i &lt; endLen - lenlen; i ++)</span>
+<span class="nc" id="L109">			update((byte)0);</span>
+<span class="nc" id="L110">		update(countBuf);</span>
+
+		/*
+		 * This code is used only for debugging purposes.
+		 *
+		if (flush() != 0)
+			throw new Error(&quot;panic: buffering went astray&quot;);
+		 *
+		 */
+<span class="nc" id="L119">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in little-endian
+	 * convention (least significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeLEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L132">		buf[off + 0] = (byte)val;</span>
+<span class="nc" id="L133">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L134">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L135">		buf[off + 3] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L136">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in big-endian
+	 * convention (most significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeBEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L149">		buf[off + 0] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L150">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L151">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L152">		buf[off + 3] = (byte)val;</span>
+<span class="nc" id="L153">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

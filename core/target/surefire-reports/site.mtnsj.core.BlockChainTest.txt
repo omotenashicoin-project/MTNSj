@@ -1,0 +1,28 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.BlockChainTest
+-------------------------------------------------------------------------------
+Tests run: 13, Failures: 6, Errors: 0, Skipped: 0, Time elapsed: 1.106 sec <<< FAILURE! - in site.mtnsj.core.BlockChainTest
+difficultyTransitions(site.mtnsj.core.BlockChainTest)  Time elapsed: 0.321 sec  <<< FAILURE!
+java.lang.AssertionError
+	at site.mtnsj.core.BlockChainTest.difficultyTransitions(BlockChainTest.java:168)
+
+estimatedBlockTime(site.mtnsj.core.BlockChainTest)  Time elapsed: 0.055 sec  <<< FAILURE!
+java.lang.AssertionError: expected:<Tue Oct 23 15:35:05 GMT 2012> but was:<Tue Dec 06 21:20:00 GMT 2022>
+	at site.mtnsj.core.BlockChainTest.estimatedBlockTime(BlockChainTest.java:424)
+
+badBip66Version(site.mtnsj.core.BlockChainTest)  Time elapsed: 0.07 sec  <<< FAILURE!
+java.lang.AssertionError: Expected test to throw an instance of site.mtnsj.core.VerificationException$BlockVersionOutOfDate
+
+badDifficulty(site.mtnsj.core.BlockChainTest)  Time elapsed: 0.045 sec  <<< FAILURE!
+org.junit.ComparisonFailure: expected:<[000000033cc282bc1fa9dcae7a533263fd7fe66490f550d80076433340831604]> but was:<[2f534c4999cb347759843f675da500bc1e387697acff5f0b6bbd7bae5d0fc3fb]>
+	at site.mtnsj.core.BlockChainTest.getBlock1(BlockChainTest.java:413)
+	at site.mtnsj.core.BlockChainTest.badDifficulty(BlockChainTest.java:182)
+
+badBip65Version(site.mtnsj.core.BlockChainTest)  Time elapsed: 0.053 sec  <<< FAILURE!
+java.lang.AssertionError: Expected test to throw an instance of site.mtnsj.core.VerificationException$BlockVersionOutOfDate
+
+testBasicChaining(site.mtnsj.core.BlockChainTest)  Time elapsed: 0.062 sec  <<< FAILURE!
+org.junit.ComparisonFailure: expected:<[000000033cc282bc1fa9dcae7a533263fd7fe66490f550d80076433340831604]> but was:<[2f534c4999cb347759843f675da500bc1e387697acff5f0b6bbd7bae5d0fc3fb]>
+	at site.mtnsj.core.BlockChainTest.getBlock1(BlockChainTest.java:413)
+	at site.mtnsj.core.BlockChainTest.testBasicChaining(BlockChainTest.java:103)
+

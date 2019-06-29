@@ -1,0 +1,831 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>KeyChainGroup.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.wallet</a> &gt; <span class="el_source">KeyChainGroup.java</span></div><h1>KeyChainGroup.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 2014 Mike Hearn
+ * Copyright 2014 Andreas Schildbach
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package site.mtnsj.wallet;
+
+import com.google.common.collect.*;
+import com.google.protobuf.*;
+import site.mtnsj.core.*;
+import site.mtnsj.crypto.*;
+import site.mtnsj.script.*;
+import site.mtnsj.utils.*;
+import site.mtnsj.wallet.listeners.KeyChainEventListener;
+import org.slf4j.*;
+import org.spongycastle.crypto.params.*;
+
+import javax.annotation.*;
+import java.security.*;
+import java.util.*;
+import java.util.concurrent.*;
+
+import static com.google.common.base.Preconditions.*;
+
+/**
+ * &lt;p&gt;A KeyChainGroup is used by the {@link site.mtnsj.wallet.Wallet} and
+ * manages: a {@link BasicKeyChain} object (which will normally be empty), and zero or more
+ * {@link DeterministicKeyChain}s. A deterministic key chain will be created lazily/on demand
+ * when a fresh or current key is requested, possibly being initialized from the private key bytes of the earliest non
+ * rotating key in the basic key chain if one is available, or from a fresh random seed if not.&lt;/p&gt;
+ *
+ * &lt;p&gt;If a key rotation time is set, it may be necessary to add a new DeterministicKeyChain with a fresh seed
+ * and also preserve the old one, so funds can be swept from the rotating keys. In this case, there may be
+ * more than one deterministic chain. The latest chain is called the active chain and is where new keys are served
+ * from.&lt;/p&gt;
+ *
+ * &lt;p&gt;The wallet delegates most key management tasks to this class. It is &lt;b&gt;not&lt;/b&gt; thread safe and requires external
+ * locking, i.e. by the wallet lock. The group then in turn delegates most operations to the key chain objects,
+ * combining their responses together when necessary.&lt;/p&gt;
+ *
+ * &lt;p&gt;Deterministic key chains have a concept of a lookahead size and threshold. Please see the discussion in the
+ * class docs for {@link DeterministicKeyChain} for more information on this topic.&lt;/p&gt;
+ */
+public class KeyChainGroup implements KeyBag {
+
+    static {
+        // Init proper random number generator, as some old Android installations have bugs that make it unsecure.
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">        if (Utils.isAndroidRuntime())</span>
+<span class="nc" id="L61">            new LinuxSecureRandom();</span>
+    }
+
+<span class="fc" id="L64">    private static final Logger log = LoggerFactory.getLogger(KeyChainGroup.class);</span>
+
+    private BasicKeyChain basic;
+    private NetworkParameters params;
+    protected final LinkedList&lt;DeterministicKeyChain&gt; chains;
+    // currentKeys is used for normal, non-multisig/married wallets. currentAddresses is used when we're handing out
+    // P2SH addresses. They're mutually exclusive.
+    private final EnumMap&lt;KeyChain.KeyPurpose, DeterministicKey&gt; currentKeys;
+    private final EnumMap&lt;KeyChain.KeyPurpose, Address&gt; currentAddresses;
+    @Nullable private KeyCrypter keyCrypter;
+<span class="fc" id="L74">    private int lookaheadSize = -1;</span>
+<span class="fc" id="L75">    private int lookaheadThreshold = -1;</span>
+
+    /** Creates a keychain group with no basic chain, and a single, lazily created HD chain. */
+    public KeyChainGroup(NetworkParameters params) {
+<span class="fc" id="L79">        this(params, null, new ArrayList&lt;DeterministicKeyChain&gt;(1), null, null);</span>
+<span class="fc" id="L80">    }</span>
+
+    /** Creates a keychain group with no basic chain, and an HD chain initialized from the given seed. */
+    public KeyChainGroup(NetworkParameters params, DeterministicSeed seed) {
+<span class="nc" id="L84">        this(params, null, ImmutableList.of(new DeterministicKeyChain(seed)), null, null);</span>
+<span class="nc" id="L85">    }</span>
+
+    /** Creates a keychain group with no basic chain, and an HD chain initialized from the given seed. */
+    public KeyChainGroup(NetworkParameters params, DeterministicSeed seed, DeterministicKeyChain.KeyChainType keyChainType) {
+<span class="fc" id="L89">        this(params, null, ImmutableList.of(new DeterministicKeyChain(seed,keyChainType)), null, null);</span>
+<span class="fc" id="L90">    }</span>
+
+    /**
+     * Creates a keychain group with no basic chain, and an HD chain that is watching the given watching key.
+     * This HAS to be an account key as returned by {@link DeterministicKeyChain#getWatchingKey()}.
+     */
+    public KeyChainGroup(NetworkParameters params, DeterministicKey watchKey) {
+<span class="nc" id="L97">        this(params, null, ImmutableList.of(DeterministicKeyChain.watch(watchKey)), null, null);</span>
+<span class="nc" id="L98">    }</span>
+
+    /**
+     * Creates a keychain group with no basic chain, and an HD chain that is watching the given watching key.
+     * This HAS to be an account key as returned by {@link DeterministicKeyChain#getWatchingKey()}.
+     */
+    public KeyChainGroup(NetworkParameters params, DeterministicKey watchKey,DeterministicKeyChain.KeyChainType keyChainType) {
+<span class="nc" id="L105">        this(params, null, ImmutableList.of(DeterministicKeyChain.watch(watchKey,keyChainType)), null, null);</span>
+<span class="nc" id="L106">    }</span>
+
+    // Used for deserialization.
+    private KeyChainGroup(NetworkParameters params, @Nullable BasicKeyChain basicKeyChain, List&lt;DeterministicKeyChain&gt; chains,
+<span class="fc" id="L110">                          @Nullable EnumMap&lt;KeyChain.KeyPurpose, DeterministicKey&gt; currentKeys, @Nullable KeyCrypter crypter) {</span>
+<span class="fc" id="L111">        this.params = params;</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        this.basic = basicKeyChain == null ? new BasicKeyChain() : basicKeyChain;</span>
+<span class="fc" id="L113">        this.chains = new LinkedList&lt;DeterministicKeyChain&gt;(checkNotNull(chains));</span>
+<span class="fc" id="L114">        this.keyCrypter = crypter;</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        this.currentKeys = currentKeys == null</span>
+                ? new EnumMap&lt;KeyChain.KeyPurpose, DeterministicKey&gt;(KeyChain.KeyPurpose.class)
+                : currentKeys;
+<span class="fc" id="L118">        this.currentAddresses = new EnumMap&lt;KeyChain.KeyPurpose, Address&gt;(KeyChain.KeyPurpose.class);</span>
+<span class="fc" id="L119">        maybeLookaheadScripts();</span>
+
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (isMarried()) {</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            for (Map.Entry&lt;KeyChain.KeyPurpose, DeterministicKey&gt; entry : this.currentKeys.entrySet()) {</span>
+<span class="nc" id="L123">                Address address = makeP2SHOutputScript(entry.getValue(), getActiveKeyChain()).getToAddress(params);</span>
+<span class="nc" id="L124">                currentAddresses.put(entry.getKey(), address);</span>
+<span class="nc" id="L125">            }</span>
+        }
+<span class="fc" id="L127">    }</span>
+
+    // This keeps married redeem data in sync with the number of keys issued
+    private void maybeLookaheadScripts() {
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        for (DeterministicKeyChain chain : chains) {</span>
+<span class="fc" id="L132">            chain.maybeLookAheadScripts();</span>
+<span class="fc" id="L133">        }</span>
+<span class="fc" id="L134">    }</span>
+
+    /** Adds a new HD chain to the chains list, and make it the default chain (from which keys are issued). */
+    public void createAndActivateNewHDChain() {
+        // We can't do auto upgrade here because we don't know the rotation time, if any.
+<span class="fc" id="L139">        final DeterministicKeyChain chain = new DeterministicKeyChain(new SecureRandom());</span>
+<span class="fc" id="L140">        addAndActivateHDChain(chain);</span>
+<span class="fc" id="L141">    }</span>
+
+    /**
+     * Adds an HD chain to the chains list, and make it the default chain (from which keys are issued).
+     * Useful for adding a complex pre-configured keychain, such as a married wallet.
+     */
+    public void addAndActivateHDChain(DeterministicKeyChain chain) {
+<span class="fc" id="L148">        log.info(&quot;Creating and activating a new HD chain: {}&quot;, chain);</span>
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">        for (ListenerRegistration&lt;KeyChainEventListener&gt; registration : basic.getListeners())</span>
+<span class="nc" id="L150">            chain.addEventListener(registration.listener, registration.executor);</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if (lookaheadSize &gt;= 0)</span>
+<span class="fc" id="L152">            chain.setLookaheadSize(lookaheadSize);</span>
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">        if (lookaheadThreshold &gt;= 0)</span>
+<span class="nc" id="L154">            chain.setLookaheadThreshold(lookaheadThreshold);</span>
+<span class="fc" id="L155">        chains.add(chain);</span>
+<span class="fc" id="L156">    }</span>
+
+    /**
+     * Returns a key that hasn't been seen in a transaction yet, and which is suitable for displaying in a wallet
+     * user interface as &quot;a convenient key to receive funds on&quot; when the purpose parameter is
+     * {@link KeyChain.KeyPurpose#RECEIVE_FUNDS}. The returned key is stable until
+     * it's actually seen in a pending or confirmed transaction, at which point this method will start returning
+     * a different key (for each purpose independently).
+     * &lt;p&gt;This method is not supposed to be used for married keychains and will throw UnsupportedOperationException if
+     * the active chain is married.
+     * For married keychains use {@link #currentAddress(KeyChain.KeyPurpose)}
+     * to get a proper P2SH address&lt;/p&gt;
+     */
+    public DeterministicKey currentKey(KeyChain.KeyPurpose purpose) {
+<span class="fc" id="L170">        DeterministicKeyChain chain = getActiveKeyChain();</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">        if (chain.isMarried()) {</span>
+<span class="nc" id="L172">            throw new UnsupportedOperationException(&quot;Key is not suitable to receive coins for married keychains.&quot; +</span>
+                                                    &quot; Use freshAddress to get P2SH address instead&quot;);
+        }
+<span class="fc" id="L175">        DeterministicKey current = currentKeys.get(purpose);</span>
+<span class="fc bfc" id="L176" title="All 2 branches covered.">        if (current == null) {</span>
+<span class="fc" id="L177">            current = freshKey(purpose);</span>
+<span class="fc" id="L178">            currentKeys.put(purpose, current);</span>
+        }
+<span class="fc" id="L180">        return current;</span>
+    }
+
+    /**
+     * Returns address for a {@link #currentKey(KeyChain.KeyPurpose)}
+     */
+    public Address currentAddress(KeyChain.KeyPurpose purpose) {
+<span class="fc" id="L187">        DeterministicKeyChain chain = getActiveKeyChain();</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">        if (chain.isMarried()) {</span>
+<span class="nc" id="L189">            Address current = currentAddresses.get(purpose);</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">            if (current == null) {</span>
+<span class="nc" id="L191">                current = freshAddress(purpose);</span>
+<span class="nc" id="L192">                currentAddresses.put(purpose, current);</span>
+            }
+<span class="nc" id="L194">            return current;</span>
+        } else {
+<span class="fc" id="L196">            return currentKey(purpose).toAddress(params);</span>
+        }
+    }
+
+    /**
+     * Returns a key that has not been returned by this method before (fresh). You can think of this as being
+     * a newly created key, although the notion of &quot;create&quot; is not really valid for a
+     * {@link DeterministicKeyChain}. When the parameter is
+     * {@link KeyChain.KeyPurpose#RECEIVE_FUNDS} the returned key is suitable for being put
+     * into a receive coins wizard type UI. You should use this when the user is definitely going to hand this key out
+     * to someone who wishes to send money.
+     * &lt;p&gt;This method is not supposed to be used for married keychains and will throw UnsupportedOperationException if
+     * the active chain is married.
+     * For married keychains use {@link #freshAddress(KeyChain.KeyPurpose)}
+     * to get a proper P2SH address&lt;/p&gt;
+     */
+    public DeterministicKey freshKey(KeyChain.KeyPurpose purpose) {
+<span class="fc" id="L213">        return freshKeys(purpose, 1).get(0);</span>
+    }
+
+    /**
+     * Returns a key/s that have not been returned by this method before (fresh). You can think of this as being
+     * newly created key/s, although the notion of &quot;create&quot; is not really valid for a
+     * {@link DeterministicKeyChain}. When the parameter is
+     * {@link KeyChain.KeyPurpose#RECEIVE_FUNDS} the returned key is suitable for being put
+     * into a receive coins wizard type UI. You should use this when the user is definitely going to hand this key out
+     * to someone who wishes to send money.
+     * &lt;p&gt;This method is not supposed to be used for married keychains and will throw UnsupportedOperationException if
+     * the active chain is married.
+     * For married keychains use {@link #freshAddress(KeyChain.KeyPurpose)}
+     * to get a proper P2SH address&lt;/p&gt;
+     */
+    public List&lt;DeterministicKey&gt; freshKeys(KeyChain.KeyPurpose purpose, int numberOfKeys) {
+<span class="fc" id="L229">        DeterministicKeyChain chain = getActiveKeyChain();</span>
+<span class="pc bpc" id="L230" title="1 of 2 branches missed.">        if (chain.isMarried()) {</span>
+<span class="nc" id="L231">            throw new UnsupportedOperationException(&quot;Key is not suitable to receive coins for married keychains.&quot; +</span>
+                    &quot; Use freshAddress to get P2SH address instead&quot;);
+        }
+<span class="fc" id="L234">        return chain.getKeys(purpose, numberOfKeys);   // Always returns the next key along the key chain.</span>
+    }
+
+    /**
+     * Returns address for a {@link #freshKey(KeyChain.KeyPurpose)}
+     */
+    public Address freshAddress(KeyChain.KeyPurpose purpose) {
+<span class="nc" id="L241">        DeterministicKeyChain chain = getActiveKeyChain();</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">        if (chain.isMarried()) {</span>
+<span class="nc" id="L243">            Script outputScript = chain.freshOutputScript(purpose);</span>
+<span class="nc" id="L244">            checkState(outputScript.isPayToScriptHash()); // Only handle P2SH for now</span>
+<span class="nc" id="L245">            Address freshAddress = Address.fromP2SHScript(params, outputScript);</span>
+<span class="nc" id="L246">            maybeLookaheadScripts();</span>
+<span class="nc" id="L247">            currentAddresses.put(purpose, freshAddress);</span>
+<span class="nc" id="L248">            return freshAddress;</span>
+        } else {
+<span class="nc" id="L250">            DeterministicKey deterministicKey = freshKey(purpose);</span>
+<span class="nc" id="L251">            return deterministicKey.toAddress(params);</span>
+        }
+    }
+
+    /** Returns the key chain that's used for generation of fresh/current keys. This is always the newest HD chain. */
+    public final DeterministicKeyChain getActiveKeyChain() {
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">        if (chains.isEmpty()) {</span>
+<span class="nc bnc" id="L258" title="All 2 branches missed.">            if (basic.numKeys() &gt; 0) {</span>
+<span class="nc" id="L259">                log.warn(&quot;No HD chain present but random keys are: you probably deserialized an old wallet.&quot;);</span>
+                // If called from the wallet (most likely) it'll try to upgrade us, as it knows the rotation time
+                // but not the password.
+<span class="nc" id="L262">                throw new DeterministicUpgradeRequiredException();</span>
+            }
+            // Otherwise we have no HD chains and no random keys: we are a new born! So a random seed is fine.
+<span class="nc" id="L265">            createAndActivateNewHDChain();</span>
+        }
+<span class="fc" id="L267">        return chains.get(chains.size() - 1);</span>
+    }
+
+    /**
+     * Sets the lookahead buffer size for ALL deterministic key chains as well as for following key chains if any exist,
+     * see {@link DeterministicKeyChain#setLookaheadSize(int)}
+     * for more information.
+     */
+    public void setLookaheadSize(int lookaheadSize) {
+<span class="fc" id="L276">        this.lookaheadSize = lookaheadSize;</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        for (DeterministicKeyChain chain : chains) {</span>
+<span class="fc" id="L278">            chain.setLookaheadSize(lookaheadSize);</span>
+<span class="fc" id="L279">        }</span>
+<span class="fc" id="L280">    }</span>
+
+    /**
+     * Gets the current lookahead size being used for ALL deterministic key chains. See
+     * {@link DeterministicKeyChain#setLookaheadSize(int)}
+     * for more information.
+     */
+    public int getLookaheadSize() {
+<span class="nc bnc" id="L288" title="All 2 branches missed.">        if (lookaheadSize == -1)</span>
+<span class="nc" id="L289">            return getActiveKeyChain().getLookaheadSize();</span>
+        else
+<span class="nc" id="L291">            return lookaheadSize;</span>
+    }
+
+    /**
+     * Sets the lookahead buffer threshold for ALL deterministic key chains, see
+     * {@link DeterministicKeyChain#setLookaheadThreshold(int)}
+     * for more information.
+     */
+    public void setLookaheadThreshold(int num) {
+<span class="nc bnc" id="L300" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains) {</span>
+<span class="nc" id="L301">            chain.setLookaheadThreshold(num);</span>
+<span class="nc" id="L302">        }</span>
+<span class="nc" id="L303">    }</span>
+
+    /**
+     * Gets the current lookahead threshold being used for ALL deterministic key chains. See
+     * {@link DeterministicKeyChain#setLookaheadThreshold(int)}
+     * for more information.
+     */
+    public int getLookaheadThreshold() {
+<span class="nc bnc" id="L311" title="All 2 branches missed.">        if (lookaheadThreshold == -1)</span>
+<span class="nc" id="L312">            return getActiveKeyChain().getLookaheadThreshold();</span>
+        else
+<span class="nc" id="L314">            return lookaheadThreshold;</span>
+    }
+
+    /** Imports the given keys into the basic chain, creating it if necessary. */
+    public int importKeys(List&lt;ECKey&gt; keys) {
+<span class="nc" id="L319">        return basic.importKeys(keys);</span>
+    }
+
+    /** Imports the given keys into the basic chain, creating it if necessary. */
+    public int importKeys(ECKey... keys) {
+<span class="nc" id="L324">        return importKeys(ImmutableList.copyOf(keys));</span>
+    }
+
+    public boolean checkPassword(CharSequence password) {
+<span class="nc bnc" id="L328" title="All 2 branches missed.">        checkState(keyCrypter != null, &quot;Not encrypted&quot;);</span>
+<span class="nc" id="L329">        return checkAESKey(keyCrypter.deriveKey(password));</span>
+    }
+
+    public boolean checkAESKey(KeyParameter aesKey) {
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        checkState(keyCrypter != null, &quot;Not encrypted&quot;);</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">        if (basic.numKeys() &gt; 0)</span>
+<span class="nc" id="L335">            return basic.checkAESKey(aesKey);</span>
+<span class="nc" id="L336">        return getActiveKeyChain().checkAESKey(aesKey);</span>
+    }
+
+    /** Imports the given unencrypted keys into the basic chain, encrypting them along the way with the given key. */
+    public int importKeysAndEncrypt(final List&lt;ECKey&gt; keys, KeyParameter aesKey) {
+        // TODO: Firstly check if the aes key can decrypt any of the existing keys successfully.
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        checkState(keyCrypter != null, &quot;Not encrypted&quot;);</span>
+<span class="nc" id="L343">        LinkedList&lt;ECKey&gt; encryptedKeys = Lists.newLinkedList();</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">        for (ECKey key : keys) {</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">            if (key.isEncrypted())</span>
+<span class="nc" id="L346">                throw new IllegalArgumentException(&quot;Cannot provide already encrypted keys&quot;);</span>
+<span class="nc" id="L347">            encryptedKeys.add(key.encrypt(keyCrypter, aesKey));</span>
+<span class="nc" id="L348">        }</span>
+<span class="nc" id="L349">        return importKeys(encryptedKeys);</span>
+    }
+
+    @Override
+    @Nullable
+    public RedeemData findRedeemDataFromScriptHash(byte[] scriptHash) {
+        // Iterate in reverse order, since the active keychain is the one most likely to have the hit
+<span class="nc bnc" id="L356" title="All 2 branches missed.">        for (Iterator&lt;DeterministicKeyChain&gt; iter = chains.descendingIterator() ; iter.hasNext() ; ) {</span>
+<span class="nc" id="L357">            DeterministicKeyChain chain = iter.next();</span>
+<span class="nc" id="L358">            RedeemData redeemData = chain.findRedeemDataByScriptHash(ByteString.copyFrom(scriptHash));</span>
+<span class="nc bnc" id="L359" title="All 2 branches missed.">            if (redeemData != null)</span>
+<span class="nc" id="L360">                return redeemData;</span>
+<span class="nc" id="L361">        }</span>
+<span class="nc" id="L362">        return null;</span>
+    }
+
+    public void markP2SHAddressAsUsed(Address address) {
+<span class="nc" id="L366">        checkArgument(address.isP2SHAddress());</span>
+<span class="nc" id="L367">        RedeemData data = findRedeemDataFromScriptHash(address.getHash160());</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">        if (data == null)</span>
+<span class="nc" id="L369">            return;   // Not our P2SH address.</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">        for (ECKey key : data.keys) {</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">            for (DeterministicKeyChain chain : chains) {</span>
+<span class="nc" id="L372">                DeterministicKey k = chain.findKeyFromPubKey(key.getPubKey());</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">                if (k == null) continue;</span>
+<span class="nc" id="L374">                chain.markKeyAsUsed(k);</span>
+<span class="nc" id="L375">                maybeMarkCurrentAddressAsUsed(address);</span>
+<span class="nc" id="L376">            }</span>
+<span class="nc" id="L377">        }</span>
+<span class="nc" id="L378">    }</span>
+
+    @Nullable
+    @Override
+    public ECKey findKeyFromPubHash(byte[] pubkeyHash) {
+        ECKey result;
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">        if ((result = basic.findKeyFromPubHash(pubkeyHash)) != null)</span>
+<span class="nc" id="L385">            return result;</span>
+<span class="fc bfc" id="L386" title="All 2 branches covered.">        for (DeterministicKeyChain chain : chains) {</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">            if ((result = chain.findKeyFromPubHash(pubkeyHash)) != null)</span>
+<span class="fc" id="L388">                return result;</span>
+<span class="fc" id="L389">        }</span>
+<span class="fc" id="L390">        return null;</span>
+    }
+
+    /**
+     * Mark the DeterministicKeys as used, if they match the pubkeyHash
+     * See {@link DeterministicKeyChain#markKeyAsUsed(DeterministicKey)} for more info on this.
+     */
+    public void markPubKeyHashAsUsed(byte[] pubkeyHash) {
+<span class="fc bfc" id="L398" title="All 2 branches covered.">        for (DeterministicKeyChain chain : chains) {</span>
+            DeterministicKey key;
+<span class="fc bfc" id="L400" title="All 2 branches covered.">            if ((key = chain.markPubHashAsUsed(pubkeyHash)) != null) {</span>
+<span class="fc" id="L401">                maybeMarkCurrentKeyAsUsed(key);</span>
+<span class="fc" id="L402">                return;</span>
+            }
+<span class="fc" id="L404">        }</span>
+<span class="fc" id="L405">    }</span>
+
+    /** If the given P2SH address is &quot;current&quot;, advance it to a new one. */
+    private void maybeMarkCurrentAddressAsUsed(Address address) {
+<span class="nc" id="L409">        checkArgument(address.isP2SHAddress());</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">        for (Map.Entry&lt;KeyChain.KeyPurpose, Address&gt; entry : currentAddresses.entrySet()) {</span>
+<span class="nc bnc" id="L411" title="All 4 branches missed.">            if (entry.getValue() != null &amp;&amp; entry.getValue().equals(address)) {</span>
+<span class="nc" id="L412">                log.info(&quot;Marking P2SH address as used: {}&quot;, address);</span>
+<span class="nc" id="L413">                currentAddresses.put(entry.getKey(), freshAddress(entry.getKey()));</span>
+<span class="nc" id="L414">                return;</span>
+            }
+<span class="nc" id="L416">        }</span>
+<span class="nc" id="L417">    }</span>
+
+    /** If the given key is &quot;current&quot;, advance the current key to a new one. */
+    private void maybeMarkCurrentKeyAsUsed(DeterministicKey key) {
+        // It's OK for currentKeys to be empty here: it means we're a married wallet and the key may be a part of a
+        // rotating chain.
+<span class="fc bfc" id="L423" title="All 2 branches covered.">        for (Map.Entry&lt;KeyChain.KeyPurpose, DeterministicKey&gt; entry : currentKeys.entrySet()) {</span>
+<span class="pc bpc" id="L424" title="1 of 4 branches missed.">            if (entry.getValue() != null &amp;&amp; entry.getValue().equals(key)) {</span>
+<span class="fc" id="L425">                log.info(&quot;Marking key as used: {}&quot;, key);</span>
+<span class="fc" id="L426">                currentKeys.put(entry.getKey(), freshKey(entry.getKey()));</span>
+<span class="fc" id="L427">                return;</span>
+            }
+<span class="fc" id="L429">        }</span>
+<span class="fc" id="L430">    }</span>
+
+    public boolean hasKey(ECKey key) {
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (basic.hasKey(key))</span>
+<span class="nc" id="L434">            return true;</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="nc bnc" id="L436" title="All 2 branches missed.">            if (chain.hasKey(key))</span>
+<span class="nc" id="L437">                return true;</span>
+<span class="nc" id="L438">        return false;</span>
+    }
+
+    @Nullable
+    @Override
+    public ECKey findKeyFromPubKey(byte[] pubkey) {
+        ECKey result;
+<span class="pc bpc" id="L445" title="1 of 2 branches missed.">        if ((result = basic.findKeyFromPubKey(pubkey)) != null)</span>
+<span class="nc" id="L446">            return result;</span>
+<span class="fc bfc" id="L447" title="All 2 branches covered.">        for (DeterministicKeyChain chain : chains) {</span>
+<span class="fc bfc" id="L448" title="All 2 branches covered.">            if ((result = chain.findKeyFromPubKey(pubkey)) != null)</span>
+<span class="fc" id="L449">                return result;</span>
+<span class="fc" id="L450">        }</span>
+<span class="fc" id="L451">        return null;</span>
+    }
+
+    /**
+     * Mark the DeterministicKeys as used, if they match the pubkey
+     * See {@link DeterministicKeyChain#markKeyAsUsed(DeterministicKey)} for more info on this.
+     */
+    public void markPubKeyAsUsed(byte[] pubkey) {
+<span class="pc bpc" id="L459" title="1 of 2 branches missed.">        for (DeterministicKeyChain chain : chains) {</span>
+            DeterministicKey key;
+<span class="pc bpc" id="L461" title="1 of 2 branches missed.">            if ((key = chain.markPubKeyAsUsed(pubkey)) != null) {</span>
+<span class="fc" id="L462">                maybeMarkCurrentKeyAsUsed(key);</span>
+<span class="fc" id="L463">                return;</span>
+            }
+<span class="nc" id="L465">        }</span>
+<span class="nc" id="L466">    }</span>
+
+    /** Returns the number of keys managed by this group, including the lookahead buffers. */
+    public int numKeys() {
+<span class="fc" id="L470">        int result = basic.numKeys();</span>
+<span class="fc bfc" id="L471" title="All 2 branches covered.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="fc" id="L472">            result += chain.numKeys();</span>
+<span class="fc" id="L473">        return result;</span>
+    }
+
+    /**
+     * Removes a key that was imported into the basic key chain. You cannot remove deterministic keys.
+     * @throws java.lang.IllegalArgumentException if the key is deterministic.
+     */
+    public boolean removeImportedKey(ECKey key) {
+<span class="nc" id="L481">        checkNotNull(key);</span>
+<span class="nc bnc" id="L482" title="All 2 branches missed.">        checkArgument(!(key instanceof DeterministicKey));</span>
+<span class="nc" id="L483">        return basic.removeKey(key);</span>
+    }
+
+    /**
+     * Whether the active keychain is married.  A keychain is married when it vends P2SH addresses
+     * from multiple keychains in a multisig relationship.
+     * @see site.mtnsj.wallet.MarriedKeyChain
+     */
+    public final boolean isMarried() {
+<span class="pc bpc" id="L492" title="1 of 4 branches missed.">        return !chains.isEmpty() &amp;&amp; getActiveKeyChain().isMarried();</span>
+    }
+
+    /**
+     * Encrypt the keys in the group using the KeyCrypter and the AES key. A good default KeyCrypter to use is
+     * {@link site.mtnsj.crypto.KeyCrypterScrypt}.
+     *
+     * @throws site.mtnsj.crypto.KeyCrypterException Thrown if the wallet encryption fails for some reason,
+     *         leaving the group unchanged.
+     * @throws DeterministicUpgradeRequiredException Thrown if there are random keys but no HD chain.
+     */
+    public void encrypt(KeyCrypter keyCrypter, KeyParameter aesKey) {
+<span class="nc" id="L504">        checkNotNull(keyCrypter);</span>
+<span class="nc" id="L505">        checkNotNull(aesKey);</span>
+        // This code must be exception safe.
+<span class="nc" id="L507">        BasicKeyChain newBasic = basic.toEncrypted(keyCrypter, aesKey);</span>
+<span class="nc" id="L508">        List&lt;DeterministicKeyChain&gt; newChains = new ArrayList&lt;DeterministicKeyChain&gt;(chains.size());</span>
+<span class="nc bnc" id="L509" title="All 4 branches missed.">        if (chains.isEmpty() &amp;&amp; basic.numKeys() == 0) {</span>
+            // No HD chains and no random keys: encrypting an entirely empty keychain group. But we can't do that, we
+            // must have something to encrypt: so instantiate a new HD chain here.
+<span class="nc" id="L512">            createAndActivateNewHDChain();</span>
+        }
+<span class="nc bnc" id="L514" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="nc" id="L515">            newChains.add(chain.toEncrypted(keyCrypter, aesKey));</span>
+<span class="nc" id="L516">        this.keyCrypter = keyCrypter;</span>
+<span class="nc" id="L517">        basic = newBasic;</span>
+<span class="nc" id="L518">        chains.clear();</span>
+<span class="nc" id="L519">        chains.addAll(newChains);</span>
+<span class="nc" id="L520">    }</span>
+
+    /**
+     * Decrypt the keys in the group using the previously given key crypter and the AES key. A good default
+     * KeyCrypter to use is {@link site.mtnsj.crypto.KeyCrypterScrypt}.
+     *
+     * @throws site.mtnsj.crypto.KeyCrypterException Thrown if the wallet decryption fails for some reason, leaving the group unchanged.
+     */
+    public void decrypt(KeyParameter aesKey) {
+        // This code must be exception safe.
+<span class="nc" id="L530">        checkNotNull(aesKey);</span>
+<span class="nc" id="L531">        BasicKeyChain newBasic = basic.toDecrypted(aesKey);</span>
+<span class="nc" id="L532">        List&lt;DeterministicKeyChain&gt; newChains = new ArrayList&lt;DeterministicKeyChain&gt;(chains.size());</span>
+<span class="nc bnc" id="L533" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="nc" id="L534">            newChains.add(chain.toDecrypted(aesKey));</span>
+
+<span class="nc" id="L536">        this.keyCrypter = null;</span>
+<span class="nc" id="L537">        basic = newBasic;</span>
+<span class="nc" id="L538">        chains.clear();</span>
+<span class="nc" id="L539">        chains.addAll(newChains);</span>
+<span class="nc" id="L540">    }</span>
+
+    /** Returns true if the group is encrypted. */
+    public boolean isEncrypted() {
+<span class="nc bnc" id="L544" title="All 2 branches missed.">        return keyCrypter != null;</span>
+    }
+
+    /**
+     * Returns whether this chain has only watching keys (unencrypted keys with no private part). Mixed chains are
+     * forbidden.
+     * 
+     * @throws IllegalStateException if there are no keys, or if there is a mix between watching and non-watching keys.
+     */
+    public boolean isWatching() {
+<span class="nc" id="L554">        BasicKeyChain.State basicState = basic.isWatching();</span>
+<span class="nc" id="L555">        BasicKeyChain.State activeState = BasicKeyChain.State.EMPTY;</span>
+<span class="nc bnc" id="L556" title="All 2 branches missed.">        if (!chains.isEmpty()) {</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">            if (getActiveKeyChain().isWatching())</span>
+<span class="nc" id="L558">                activeState = BasicKeyChain.State.WATCHING;</span>
+            else
+<span class="nc" id="L560">                activeState = BasicKeyChain.State.REGULAR;</span>
+        }
+<span class="nc bnc" id="L562" title="All 2 branches missed.">        if (basicState == BasicKeyChain.State.EMPTY) {</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">            if (activeState == BasicKeyChain.State.EMPTY)</span>
+<span class="nc" id="L564">                throw new IllegalStateException(&quot;Empty key chain group: cannot answer isWatching() query&quot;);</span>
+<span class="nc bnc" id="L565" title="All 2 branches missed.">            return activeState == BasicKeyChain.State.WATCHING;</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">        } else if (activeState == BasicKeyChain.State.EMPTY)</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">            return basicState == BasicKeyChain.State.WATCHING;</span>
+        else {
+<span class="nc bnc" id="L569" title="All 2 branches missed.">            if (activeState != basicState)</span>
+<span class="nc" id="L570">                throw new IllegalStateException(&quot;Mix of watching and non-watching keys in wallet&quot;);</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">            return activeState == BasicKeyChain.State.WATCHING;</span>
+        }
+    }
+
+    /** Returns the key crypter or null if the group is not encrypted. */
+<span class="fc" id="L576">    @Nullable public KeyCrypter getKeyCrypter() { return keyCrypter; }</span>
+
+    /**
+     * Returns a list of the non-deterministic keys that have been imported into the wallet, or the empty list if none.
+     */
+    public List&lt;ECKey&gt; getImportedKeys() {
+<span class="fc" id="L582">        return basic.getKeys();</span>
+    }
+
+    public long getEarliestKeyCreationTime() {
+<span class="nc" id="L586">        long time = basic.getEarliestKeyCreationTime();   // Long.MAX_VALUE if empty.</span>
+<span class="nc bnc" id="L587" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="nc" id="L588">            time = Math.min(time, chain.getEarliestKeyCreationTime());</span>
+<span class="nc" id="L589">        return time;</span>
+    }
+
+    public int getBloomFilterElementCount() {
+<span class="nc" id="L593">        int result = basic.numBloomFilterEntries();</span>
+<span class="nc bnc" id="L594" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains) {</span>
+<span class="nc" id="L595">            result += chain.numBloomFilterEntries();</span>
+<span class="nc" id="L596">        }</span>
+<span class="nc" id="L597">        return result;</span>
+    }
+
+    public BloomFilter getBloomFilter(int size, double falsePositiveRate, long nTweak) {
+<span class="nc" id="L601">        BloomFilter filter = new BloomFilter(size, falsePositiveRate, nTweak);</span>
+<span class="nc bnc" id="L602" title="All 2 branches missed.">        if (basic.numKeys() &gt; 0)</span>
+<span class="nc" id="L603">            filter.merge(basic.getFilter(size, falsePositiveRate, nTweak));</span>
+
+<span class="nc bnc" id="L605" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains) {</span>
+<span class="nc" id="L606">            filter.merge(chain.getFilter(size, falsePositiveRate, nTweak));</span>
+<span class="nc" id="L607">        }</span>
+<span class="nc" id="L608">        return filter;</span>
+    }
+
+    /** {@inheritDoc} */
+    public boolean isRequiringUpdateAllBloomFilter() {
+<span class="nc" id="L613">        throw new UnsupportedOperationException();   // Unused.</span>
+    }
+
+    private Script makeP2SHOutputScript(DeterministicKey followedKey, DeterministicKeyChain chain) {
+<span class="nc" id="L617">        return ScriptBuilder.createP2SHOutputScript(chain.getRedeemData(followedKey).redeemScript);</span>
+    }
+
+    /** Adds a listener for events that are run when keys are added, on the user thread. */
+    public void addEventListener(KeyChainEventListener listener) {
+<span class="nc" id="L622">        addEventListener(listener, Threading.USER_THREAD);</span>
+<span class="nc" id="L623">    }</span>
+
+    /** Adds a listener for events that are run when keys are added, on the given executor. */
+    public void addEventListener(KeyChainEventListener listener, Executor executor) {
+<span class="nc" id="L627">        checkNotNull(listener);</span>
+<span class="nc" id="L628">        checkNotNull(executor);</span>
+<span class="nc" id="L629">        basic.addEventListener(listener, executor);</span>
+<span class="nc bnc" id="L630" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="nc" id="L631">            chain.addEventListener(listener, executor);</span>
+<span class="nc" id="L632">    }</span>
+
+    /** Removes a listener for events that are run when keys are added. */
+    public boolean removeEventListener(KeyChainEventListener listener) {
+<span class="nc" id="L636">        checkNotNull(listener);</span>
+<span class="nc bnc" id="L637" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="nc" id="L638">            chain.removeEventListener(listener);</span>
+<span class="nc" id="L639">        return basic.removeEventListener(listener);</span>
+    }
+
+    /** Returns a list of key protobufs obtained by merging the chains. */
+    public List&lt;Protos.Key&gt; serializeToProtobuf() {
+        List&lt;Protos.Key&gt; result;
+<span class="pc bpc" id="L645" title="1 of 2 branches missed.">        if (basic != null)</span>
+<span class="fc" id="L646">            result = basic.serializeToProtobuf();</span>
+        else
+<span class="nc" id="L648">            result = Lists.newArrayList();</span>
+<span class="fc bfc" id="L649" title="All 2 branches covered.">        for (DeterministicKeyChain chain : chains) {</span>
+<span class="fc" id="L650">            List&lt;Protos.Key&gt; protos = chain.serializeToProtobuf();</span>
+<span class="fc" id="L651">            result.addAll(protos);</span>
+<span class="fc" id="L652">        }</span>
+<span class="fc" id="L653">        return result;</span>
+    }
+
+    static KeyChainGroup fromProtobufUnencrypted(NetworkParameters params, List&lt;Protos.Key&gt; keys) throws UnreadableWalletException {
+<span class="nc" id="L657">        return fromProtobufUnencrypted(params, keys, new DefaultKeyChainFactory());</span>
+    }
+
+    public static KeyChainGroup fromProtobufUnencrypted(NetworkParameters params, List&lt;Protos.Key&gt; keys, KeyChainFactory factory) throws UnreadableWalletException {
+<span class="fc" id="L661">        BasicKeyChain basicKeyChain = BasicKeyChain.fromProtobufUnencrypted(keys);</span>
+<span class="fc" id="L662">        List&lt;DeterministicKeyChain&gt; chains = DeterministicKeyChain.fromProtobuf(keys, null, factory);</span>
+<span class="fc" id="L663">        EnumMap&lt;KeyChain.KeyPurpose, DeterministicKey&gt; currentKeys = null;</span>
+<span class="pc bpc" id="L664" title="1 of 2 branches missed.">        if (!chains.isEmpty())</span>
+<span class="fc" id="L665">            currentKeys = createCurrentKeysMap(chains);</span>
+<span class="fc" id="L666">        extractFollowingKeychains(chains);</span>
+<span class="fc" id="L667">        return new KeyChainGroup(params, basicKeyChain, chains, currentKeys, null);</span>
+    }
+
+    static KeyChainGroup fromProtobufEncrypted(NetworkParameters params, List&lt;Protos.Key&gt; keys, KeyCrypter crypter) throws UnreadableWalletException {
+<span class="nc" id="L671">        return fromProtobufEncrypted(params, keys, crypter, new DefaultKeyChainFactory());</span>
+    }
+
+    public static KeyChainGroup fromProtobufEncrypted(NetworkParameters params, List&lt;Protos.Key&gt; keys, KeyCrypter crypter, KeyChainFactory factory) throws UnreadableWalletException {
+<span class="nc" id="L675">        checkNotNull(crypter);</span>
+<span class="nc" id="L676">        BasicKeyChain basicKeyChain = BasicKeyChain.fromProtobufEncrypted(keys, crypter);</span>
+<span class="nc" id="L677">        List&lt;DeterministicKeyChain&gt; chains = DeterministicKeyChain.fromProtobuf(keys, crypter, factory);</span>
+<span class="nc" id="L678">        EnumMap&lt;KeyChain.KeyPurpose, DeterministicKey&gt; currentKeys = null;</span>
+<span class="nc bnc" id="L679" title="All 2 branches missed.">        if (!chains.isEmpty())</span>
+<span class="nc" id="L680">            currentKeys = createCurrentKeysMap(chains);</span>
+<span class="nc" id="L681">        extractFollowingKeychains(chains);</span>
+<span class="nc" id="L682">        return new KeyChainGroup(params, basicKeyChain, chains, currentKeys, crypter);</span>
+    }
+
+    /**
+     * If the key chain contains only random keys and no deterministic key chains, this method will create a chain
+     * based on the oldest non-rotating private key (i.e. the seed is derived from the old wallet).
+     *
+     * @param keyRotationTimeSecs If non-zero, UNIX time for which keys created before this are assumed to be
+     *                            compromised or weak, those keys will not be used for deterministic upgrade.
+     * @param aesKey If non-null, the encryption key the keychain is encrypted under. If the keychain is encrypted
+     *               and this is not supplied, an exception is thrown letting you know you should ask the user for
+     *               their password, turn it into a key, and then try again.
+     * @throws java.lang.IllegalStateException if there is already a deterministic key chain present or if there are
+     *                                         no random keys (i.e. this is not an upgrade scenario), or if aesKey is
+     *                                         provided but the wallet is not encrypted.
+     * @throws java.lang.IllegalArgumentException if the rotation time specified excludes all keys.
+     * @throws DeterministicUpgradeRequiresPassword if the key chain group is encrypted
+     *         and you should provide the users encryption key.
+     * @return the DeterministicKeyChain that was created by the upgrade.
+     */
+    public DeterministicKeyChain upgradeToDeterministic(long keyRotationTimeSecs, @Nullable KeyParameter aesKey) throws DeterministicUpgradeRequiresPassword, AllRandomKeysRotating {
+<span class="nc bnc" id="L703" title="All 2 branches missed.">        checkState(basic.numKeys() &gt; 0);</span>
+<span class="nc bnc" id="L704" title="All 2 branches missed.">        checkArgument(keyRotationTimeSecs &gt;= 0);</span>
+        // Subtract one because the key rotation time might have been set to the creation time of the first known good
+        // key, in which case, that's the one we want to find.
+<span class="nc" id="L707">        ECKey keyToUse = basic.findOldestKeyAfter(keyRotationTimeSecs - 1);</span>
+<span class="nc bnc" id="L708" title="All 2 branches missed.">        if (keyToUse == null)</span>
+<span class="nc" id="L709">            throw new AllRandomKeysRotating();</span>
+
+<span class="nc bnc" id="L711" title="All 2 branches missed.">        if (keyToUse.isEncrypted()) {</span>
+<span class="nc bnc" id="L712" title="All 2 branches missed.">            if (aesKey == null) {</span>
+                // We can't auto upgrade because we don't know the users password at this point. We throw an
+                // exception so the calling code knows to abort the load and ask the user for their password, they can
+                // then try loading the wallet again passing in the AES key.
+                //
+                // There are a few different approaches we could have used here, but they all suck. The most obvious
+                // is to try and be as lazy as possible, running in the old random-wallet mode until the user enters
+                // their password for some other reason and doing the upgrade then. But this could result in strange
+                // and unexpected UI flows for the user, as well as complicating the job of wallet developers who then
+                // have to support both &quot;old&quot; and &quot;new&quot; UI modes simultaneously, switching them on the fly. Given that
+                // this is a one-off transition, it seems more reasonable to just ask the user for their password
+                // on startup, and then the wallet app can have all the widgets for accessing seed words etc active
+                // all the time.
+<span class="nc" id="L725">                throw new DeterministicUpgradeRequiresPassword();</span>
+            }
+<span class="nc" id="L727">            keyToUse = keyToUse.decrypt(aesKey);</span>
+<span class="nc bnc" id="L728" title="All 2 branches missed.">        } else if (aesKey != null) {</span>
+<span class="nc" id="L729">            throw new IllegalStateException(&quot;AES Key was provided but wallet is not encrypted.&quot;);</span>
+        }
+
+<span class="nc bnc" id="L732" title="All 2 branches missed.">        if (chains.isEmpty()) {</span>
+<span class="nc" id="L733">            log.info(&quot;Auto-upgrading pre-HD wallet to HD!&quot;);</span>
+        } else {
+<span class="nc" id="L735">            log.info(&quot;Wallet with existing HD chain is being re-upgraded due to change in key rotation time.&quot;);</span>
+        }
+<span class="nc" id="L737">        log.info(&quot;Instantiating new HD chain using oldest non-rotating private key (address: {})&quot;, keyToUse.toAddress(params));</span>
+<span class="nc" id="L738">        byte[] entropy = checkNotNull(keyToUse.getSecretBytes());</span>
+        // Private keys should be at least 128 bits long.
+<span class="nc bnc" id="L740" title="All 2 branches missed.">        checkState(entropy.length &gt;= DeterministicSeed.DEFAULT_SEED_ENTROPY_BITS / 8);</span>
+        // We reduce the entropy here to 128 bits because people like to write their seeds down on paper, and 128
+        // bits should be sufficient forever unless the laws of the universe change or ECC is broken; in either case
+        // we all have bigger problems.
+<span class="nc" id="L744">        entropy = Arrays.copyOfRange(entropy, 0, DeterministicSeed.DEFAULT_SEED_ENTROPY_BITS / 8);    // final argument is exclusive range.</span>
+<span class="nc bnc" id="L745" title="All 2 branches missed.">        checkState(entropy.length == DeterministicSeed.DEFAULT_SEED_ENTROPY_BITS / 8);</span>
+<span class="nc" id="L746">        String passphrase = &quot;&quot;; // FIXME allow non-empty passphrase</span>
+<span class="nc" id="L747">        DeterministicKeyChain chain = new DeterministicKeyChain(entropy, passphrase, keyToUse.getCreationTimeSeconds());</span>
+<span class="nc bnc" id="L748" title="All 2 branches missed.">        if (aesKey != null) {</span>
+<span class="nc" id="L749">            chain = chain.toEncrypted(checkNotNull(basic.getKeyCrypter()), aesKey);</span>
+        }
+<span class="nc" id="L751">        chains.add(chain);</span>
+<span class="nc" id="L752">        return chain;</span>
+    }
+
+    /** Returns true if the group contains random keys but no HD chains. */
+    public boolean isDeterministicUpgradeRequired() {
+<span class="pc bpc" id="L757" title="3 of 4 branches missed.">        return basic.numKeys() &gt; 0 &amp;&amp; chains.isEmpty();</span>
+    }
+
+    private static EnumMap&lt;KeyChain.KeyPurpose, DeterministicKey&gt; createCurrentKeysMap(List&lt;DeterministicKeyChain&gt; chains) {
+<span class="fc" id="L761">        DeterministicKeyChain activeChain = chains.get(chains.size() - 1);</span>
+
+<span class="fc" id="L763">        EnumMap&lt;KeyChain.KeyPurpose, DeterministicKey&gt; currentKeys = new EnumMap&lt;KeyChain.KeyPurpose, DeterministicKey&gt;(KeyChain.KeyPurpose.class);</span>
+
+        // assuming that only RECEIVE and CHANGE keys are being used at the moment, we will treat latest issued external key
+        // as current RECEIVE key and latest issued internal key as CHANGE key. This should be changed as soon as other
+        // kinds of KeyPurpose are introduced.
+<span class="pc bpc" id="L768" title="1 of 2 branches missed.">        if (activeChain.getIssuedExternalKeys() &gt; 0) {</span>
+<span class="fc" id="L769">            DeterministicKey currentExternalKey = activeChain.getKeyByPath(</span>
+<span class="fc" id="L770">                    HDUtils.append(</span>
+<span class="fc" id="L771">                            HDUtils.concat(activeChain.getAccountPath(), DeterministicKeyChain.EXTERNAL_SUBPATH),</span>
+<span class="fc" id="L772">                            new ChildNumber(activeChain.getIssuedExternalKeys() - 1)));</span>
+<span class="fc" id="L773">            currentKeys.put(KeyChain.KeyPurpose.RECEIVE_FUNDS, currentExternalKey);</span>
+        }
+
+<span class="pc bpc" id="L776" title="1 of 2 branches missed.">        if (activeChain.getIssuedInternalKeys() &gt; 0) {</span>
+<span class="fc" id="L777">            DeterministicKey currentInternalKey = activeChain.getKeyByPath(</span>
+<span class="fc" id="L778">                    HDUtils.append(</span>
+<span class="fc" id="L779">                            HDUtils.concat(activeChain.getAccountPath(), DeterministicKeyChain.INTERNAL_SUBPATH),</span>
+<span class="fc" id="L780">                            new ChildNumber(activeChain.getIssuedInternalKeys() - 1)));</span>
+<span class="fc" id="L781">            currentKeys.put(KeyChain.KeyPurpose.CHANGE, currentInternalKey);</span>
+        }
+<span class="fc" id="L783">        return currentKeys;</span>
+    }
+
+    private static void extractFollowingKeychains(List&lt;DeterministicKeyChain&gt; chains) {
+        // look for following key chains and map them to the watch keys of followed keychains
+<span class="fc" id="L788">        List&lt;DeterministicKeyChain&gt; followingChains = Lists.newArrayList();</span>
+<span class="fc bfc" id="L789" title="All 2 branches covered.">        for (Iterator&lt;DeterministicKeyChain&gt; it = chains.iterator(); it.hasNext(); ) {</span>
+<span class="fc" id="L790">            DeterministicKeyChain chain = it.next();</span>
+<span class="pc bpc" id="L791" title="1 of 2 branches missed.">            if (chain.isFollowing()) {</span>
+<span class="nc" id="L792">                followingChains.add(chain);</span>
+<span class="nc" id="L793">                it.remove();</span>
+<span class="pc bpc" id="L794" title="1 of 2 branches missed.">            } else if (!followingChains.isEmpty()) {</span>
+<span class="nc bnc" id="L795" title="All 2 branches missed.">                if (!(chain instanceof MarriedKeyChain))</span>
+<span class="nc" id="L796">                    throw new IllegalStateException();</span>
+<span class="nc" id="L797">                ((MarriedKeyChain)chain).setFollowingKeyChains(followingChains);</span>
+<span class="nc" id="L798">                followingChains = Lists.newArrayList();</span>
+            }
+<span class="fc" id="L800">        }</span>
+<span class="fc" id="L801">    }</span>
+
+    public String toString(boolean includePrivateKeys) {
+<span class="nc" id="L804">        final StringBuilder builder = new StringBuilder();</span>
+<span class="nc bnc" id="L805" title="All 2 branches missed.">        if (basic != null) {</span>
+<span class="nc" id="L806">            List&lt;ECKey&gt; keys = basic.getKeys();</span>
+<span class="nc" id="L807">            Collections.sort(keys, ECKey.AGE_COMPARATOR);</span>
+<span class="nc bnc" id="L808" title="All 2 branches missed.">            for (ECKey key : keys)</span>
+<span class="nc" id="L809">                key.formatKeyWithAddress(includePrivateKeys, builder, params);</span>
+        }
+<span class="nc bnc" id="L811" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="nc" id="L812">            builder.append(chain.toString(includePrivateKeys, params)).append('\n');</span>
+<span class="nc" id="L813">        return builder.toString();</span>
+    }
+
+    /** Returns a copy of the current list of chains. */
+    public List&lt;DeterministicKeyChain&gt; getDeterministicKeyChains() {
+<span class="nc" id="L818">        return new ArrayList&lt;DeterministicKeyChain&gt;(chains);</span>
+    }
+    /**
+     * Returns a counter that increases (by an arbitrary amount) each time new keys have been calculated due to
+     * lookahead and thus the Bloom filter that was previously calculated has become stale.
+     */
+    public int getCombinedKeyLookaheadEpochs() {
+<span class="nc" id="L825">        int epoch = 0;</span>
+<span class="nc bnc" id="L826" title="All 2 branches missed.">        for (DeterministicKeyChain chain : chains)</span>
+<span class="nc" id="L827">            epoch += chain.getKeyLookaheadEpoch();</span>
+<span class="nc" id="L828">        return epoch;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

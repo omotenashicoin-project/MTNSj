@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="site.mtnsj.core.H2FullPrunedBlockChainTest" time="1.035" tests="7" errors="4" skipped="0" failures="2">
+  <properties>
+    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
+    <property name="sun.boot.library.path" value="/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64"/>
+    <property name="java.vm.version" value="25.191-b12"/>
+    <property name="java.vm.vendor" value="Oracle Corporation"/>
+    <property name="maven.multiModuleProjectDirectory" value="/mnt/c/deps/wallet/MTNSj"/>
+    <property name="java.vendor.url" value="http://java.oracle.com/"/>
+    <property name="path.separator" value=":"/>
+    <property name="guice.disable.misplaced.annotation.check" value="true"/>
+    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
+    <property name="file.encoding.pkg" value="sun.io"/>
+    <property name="sun.java.launcher" value="SUN_STANDARD"/>
+    <property name="sun.os.patch.level" value="unknown"/>
+    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
+    <property name="user.dir" value="/mnt/c/deps/wallet/MTNSj"/>
+    <property name="java.runtime.version" value="1.8.0_191-8u191-b12-0ubuntu0.18.04.1-b12"/>
+    <property name="java.awt.graphicsenv" value="sun.awt.X11GraphicsEnvironment"/>
+    <property name="java.endorsed.dirs" value="/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/endorsed"/>
+    <property name="os.arch" value="amd64"/>
+    <property name="java.io.tmpdir" value="/tmp"/>
+    <property name="line.separator" value="&#10;"/>
+    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
+    <property name="os.name" value="Linux"/>
+    <property name="classworlds.conf" value="/usr/share/maven/bin/m2.conf"/>
+    <property name="sun.jnu.encoding" value="UTF-8"/>
+    <property name="java.library.path" value="/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib"/>
+    <property name="maven.conf" value="/usr/share/maven/conf"/>
+    <property name="java.specification.name" value="Java Platform API Specification"/>
+    <property name="java.class.version" value="52.0"/>
+    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
+    <property name="os.version" value="4.4.0-17763-Microsoft"/>
+    <property name="library.jansi.path" value="/usr/share/maven/lib/jansi-native"/>
+    <property name="user.home" value="/home/ubuntu"/>
+    <property name="user.timezone" value="GMT"/>
+    <property name="java.awt.printerjob" value="sun.print.PSPrinterJob"/>
+    <property name="java.specification.version" value="1.8"/>
+    <property name="file.encoding" value="UTF-8"/>
+    <property name="user.name" value="ubuntu"/>
+    <property name="java.class.path" value="/usr/share/maven/boot/plexus-classworlds-2.x.jar"/>
+    <property name="java.vm.specification.version" value="1.8"/>
+    <property name="sun.arch.data.model" value="64"/>
+    <property name="java.home" value="/usr/lib/jvm/java-8-openjdk-amd64/jre"/>
+    <property name="sun.java.command" value="org.codehaus.plexus.classworlds.launcher.Launcher install"/>
+    <property name="java.specification.vendor" value="Oracle Corporation"/>
+    <property name="user.language" value="en"/>
+    <property name="awt.toolkit" value="sun.awt.X11.XToolkit"/>
+    <property name="java.vm.info" value="mixed mode"/>
+    <property name="java.version" value="1.8.0_191"/>
+    <property name="java.ext.dirs" value="/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/ext:/usr/java/packages/lib/ext"/>
+    <property name="securerandom.source" value="file:/dev/./urandom"/>
+    <property name="sun.boot.class.path" value="/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/resources.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/rt.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/sunrsasign.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/jsse.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/jce.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/charsets.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/jfr.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/classes"/>
+    <property name="java.vendor" value="Oracle Corporation"/>
+    <property name="maven.home" value="/usr/share/maven"/>
+    <property name="file.separator" value="/"/>
+    <property name="java.vendor.url.bug" value="http://bugreport.sun.com/bugreport/"/>
+    <property name="sun.cpu.endian" value="little"/>
+    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
+    <property name="sun.cpu.isalist" value=""/>
+  </properties>
+  <testcase name="testFirst100KBlocks" classname="site.mtnsj.core.H2FullPrunedBlockChainTest" time="0">
+    <error type="java.lang.NullPointerException">java.lang.NullPointerException
+</error>
+  </testcase>
+  <testcase name="testFinalizedBlocks" classname="site.mtnsj.core.H2FullPrunedBlockChainTest" time="0.513">
+    <error message="Could not verify block:&#10; block: &#10;   hash: 2b44c1fbf408dcc38d841a36852029a25ae09df5d272d7c04c138c17730cf20b&#10;   version: 1&#10;   previous block: c5c1a1f8e793af670e9d7768ee8ca7188c2efd087125e585eb852a02c1a9c2bc&#10;   merkle root: 461c47e7f43138b3a89f807ad562e4172603325aa633038b4ffdc40094db76ad&#10;   time: 1559093084 (2019-05-29T01:24:44Z)&#10;   difficulty target (nBits): 545259519&#10;   nonce: 0&#10;   with 1 transaction(s):&#10;  461c47e7f43138b3a89f807ad562e4172603325aa633038b4ffdc40094db76ad&#10;     == COINBASE TXN (scriptSig PUSHDATA(2)[dd00])  (scriptPubKey PUSHDATA(33)[0308efbf808ce5d545b76cf485f3866b91e1872e43daf8bafa4a4165d8fa6c44d8] CHECKSIG)&#10;" type="site.mtnsj.core.VerificationException">site.mtnsj.core.VerificationException: 
+Could not verify block:
+ block: 
+   hash: 2b44c1fbf408dcc38d841a36852029a25ae09df5d272d7c04c138c17730cf20b
+   version: 1
+   previous block: c5c1a1f8e793af670e9d7768ee8ca7188c2efd087125e585eb852a02c1a9c2bc
+   merkle root: 461c47e7f43138b3a89f807ad562e4172603325aa633038b4ffdc40094db76ad
+   time: 1559093084 (2019-05-29T01:24:44Z)
+   difficulty target (nBits): 545259519
+   nonce: 0
+   with 1 transaction(s):
+  461c47e7f43138b3a89f807ad562e4172603325aa633038b4ffdc40094db76ad
+     == COINBASE TXN (scriptSig PUSHDATA(2)[dd00])  (scriptPubKey PUSHDATA(33)[0308efbf808ce5d545b76cf485f3866b91e1872e43daf8bafa4a4165d8fa6c44d8] CHECKSIG)
+
+Caused by: site.mtnsj.core.VerificationException: Transaction fees out of range
+</error>
+    <system-out><![CDATA[Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+]]></system-out>
+  </testcase>
+  <testcase name="missingHeightFromCoinbase" classname="site.mtnsj.core.H2FullPrunedBlockChainTest" time="0.041">
+    <error message="Transaction fees out of range" type="site.mtnsj.core.VerificationException">site.mtnsj.core.VerificationException: Transaction fees out of range
+</error>
+    <system-out><![CDATA[Starting reading transaction cursor offset: 4
+Starting reading transaction cursor offset: 4
+Starting reading transaction cursor offset: 4
+Starting reading transaction cursor offset: 4
+Starting reading transaction cursor offset: 4
+Starting reading transaction cursor offset: 4
+]]></system-out>
+  </testcase>
+  <testcase name="testGetOpenTransactionOutputs" classname="site.mtnsj.core.H2FullPrunedBlockChainTest" time="0.014">
+    <failure message="Wrong Number of Outputs expected:&lt;1&gt; but was:&lt;0&gt;" type="java.lang.AssertionError"><![CDATA[java.lang.AssertionError: Wrong Number of Outputs expected:<1> but was:<0>
+]]></failure>
+    <system-out><![CDATA[Starting reading transaction cursor offset: 0
+]]></system-out>
+  </testcase>
+  <testcase name="skipScripts" classname="site.mtnsj.core.H2FullPrunedBlockChainTest" time="0.015"/>
+  <testcase name="testGeneratedChain" classname="site.mtnsj.core.H2FullPrunedBlockChainTest" time="0.411">
+    <failure type="java.lang.AssertionError">java.lang.AssertionError
+</failure>
+    <system-out><![CDATA[Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 81
+Starting reading transaction cursor offset: 181
+Starting reading transaction cursor offset: 326
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 81
+Starting reading transaction cursor offset: 181
+Starting reading transaction cursor offset: 326
+Starting reading transaction cursor offset: 388
+Starting reading transaction cursor offset: 450
+Starting reading transaction cursor offset: 512
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+REading varInt 64 bits
+REading varInt 64 bits
+Starting reading transaction cursor offset: 89
+Starting reading transaction cursor offset: 189
+Starting reading transaction cursor offset: 333
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 81
+Starting reading transaction cursor offset: 181
+Starting reading transaction cursor offset: 326
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+Starting reading transaction cursor offset: 0
+]]></system-out>
+  </testcase>
+  <testcase name="testUTXOProviderWithWallet" classname="site.mtnsj.core.H2FullPrunedBlockChainTest" time="0.039">
+    <error message="Insufficient money,  missing 0.50 MTNS" type="site.mtnsj.core.InsufficientMoneyException">site.mtnsj.core.InsufficientMoneyException: Insufficient money,  missing 0.50 MTNS
+</error>
+    <system-out><![CDATA[MnemonicCode class: [brown, fragile, bring, draft, dune, cycle, slender, update, body, pretty, month, twelve], passphrase: , 
+toSeed: 2a4cc11f08e7dc7b999fcd336bd4e2ea7599f78a84993c5b03f2e4dc142531b8165279ad1b32187fb866a7a6452f6985883908f861cf8de8274f0bd81b7110d8
+Starting reading transaction cursor offset: 0
+]]></system-out>
+  </testcase>
+</testsuite>

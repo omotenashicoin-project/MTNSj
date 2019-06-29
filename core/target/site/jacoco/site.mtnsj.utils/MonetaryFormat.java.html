@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MonetaryFormat.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.utils</a> &gt; <span class="el_source">MonetaryFormat.java</span></div><h1>MonetaryFormat.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 2014 Andreas Schildbach
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package site.mtnsj.utils;
+
+import site.mtnsj.core.Coin;
+import site.mtnsj.core.Monetary;
+
+import java.math.RoundingMode;
+import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.math.LongMath.*;
+
+/**
+ * &lt;p&gt;
+ * Utility for formatting and parsing coin values to and from human readable form.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * MonetaryFormat instances are immutable. Invoking a configuration method has no effect on the receiving instance; you
+ * must store and use the new instance it returns, instead. Instances are thread safe, so they may be stored safely as
+ * static constants.
+ * &lt;/p&gt;
+ */
+public final class MonetaryFormat {
+
+    /** Standard format for the BTC denomination. */
+<span class="fc" id="L47">    public static final MonetaryFormat BTC = new MonetaryFormat().shift(0).minDecimals(2).repeatOptionalDecimals(2, 3);</span>
+    /** Standard format for the mBTC denomination. */
+<span class="fc" id="L49">    public static final MonetaryFormat MBTC = new MonetaryFormat().shift(3).minDecimals(2).optionalDecimals(2);</span>
+    /** Standard format for the µBTC denomination. */
+<span class="fc" id="L51">    public static final MonetaryFormat UBTC = new MonetaryFormat().shift(6).minDecimals(0).optionalDecimals(2);</span>
+    /** Standard format for fiat amounts. */
+<span class="fc" id="L53">    public static final MonetaryFormat FIAT = new MonetaryFormat().shift(0).minDecimals(2).repeatOptionalDecimals(2, 1);</span>
+    /** Currency code for base 1 Bitcoin. */
+    public static final String CODE_BTC = &quot;MTNS&quot;;
+    /** Currency code for base 1/1000 Bitcoin. */
+    public static final String CODE_MBTC = &quot;mMTNS&quot;;
+    /** Currency code for base 1/1000000 Bitcoin. */
+    public static final String CODE_UBTC = &quot;µMTNS&quot;;
+
+    public static final int MAX_DECIMALS = 8;
+
+    private final char negativeSign;
+    private final char positiveSign;
+    private final char zeroDigit;
+    private final char decimalMark;
+    private final int minDecimals;
+    private final List&lt;Integer&gt; decimalGroups;
+    private final int shift;
+    private final RoundingMode roundingMode;
+    private final String[] codes;
+    private final char codeSeparator;
+    private final boolean codePrefixed;
+
+    private static final String DECIMALS_PADDING = &quot;0000000000000000&quot;; // a few more than necessary for Bitcoin
+
+    /**
+     * Set character to prefix negative values.
+     */
+    public MonetaryFormat negativeSign(char negativeSign) {
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        checkArgument(!Character.isDigit(negativeSign));</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        checkArgument(negativeSign &gt; 0);</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (negativeSign == this.negativeSign)</span>
+<span class="nc" id="L84">            return this;</span>
+        else
+<span class="nc" id="L86">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Set character to prefix positive values. A zero value means no sign is used in this case. For parsing, a missing
+     * sign will always be interpreted as if the positive sign was used.
+     */
+    public MonetaryFormat positiveSign(char positiveSign) {
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        checkArgument(!Character.isDigit(positiveSign));</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (positiveSign == this.positiveSign)</span>
+<span class="nc" id="L97">            return this;</span>
+        else
+<span class="nc" id="L99">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Set character range to use for representing digits. It starts with the specified character representing zero.
+     */
+    public MonetaryFormat digits(char zeroDigit) {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (zeroDigit == this.zeroDigit)</span>
+<span class="nc" id="L108">            return this;</span>
+        else
+<span class="nc" id="L110">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Set character to use as the decimal mark. If the formatted value does not have any decimals, no decimal mark is
+     * used either.
+     */
+    public MonetaryFormat decimalMark(char decimalMark) {
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        checkArgument(!Character.isDigit(decimalMark));</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        checkArgument(decimalMark &gt; 0);</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (decimalMark == this.decimalMark)</span>
+<span class="nc" id="L122">            return this;</span>
+        else
+<span class="nc" id="L124">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Set minimum number of decimals to use for formatting. If the value precision exceeds all decimals specified
+     * (including additional decimals specified by {@link #optionalDecimals(int...)} or
+     * {@link #repeatOptionalDecimals(int, int)}), the value will be rounded. This configuration is not relevant for
+     * parsing.
+     */
+    public MonetaryFormat minDecimals(int minDecimals) {
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        if (minDecimals == this.minDecimals)</span>
+<span class="fc" id="L136">            return this;</span>
+        else
+<span class="fc" id="L138">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set additional groups of decimals to use after the minimum decimals, if they are useful for expressing precision.
+     * Each value is a number of decimals in that group. If the value precision exceeds all decimals specified
+     * (including minimum decimals), the value will be rounded. This configuration is not relevant for parsing.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example, if you pass &lt;tt&gt;4,2&lt;/tt&gt; it will add four decimals to your formatted string if needed, and then add
+     * another two decimals if needed. At this point, rather than adding further decimals the value will be rounded.
+     * &lt;/p&gt;
+     * 
+     * @param groups
+     *            any number numbers of decimals, one for each group
+     */
+    public MonetaryFormat optionalDecimals(int... groups) {
+<span class="fc" id="L158">        List&lt;Integer&gt; decimalGroups = new ArrayList&lt;Integer&gt;(groups.length);</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        for (int group : groups)</span>
+<span class="fc" id="L160">            decimalGroups.add(group);</span>
+<span class="fc" id="L161">        return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set repeated additional groups of decimals to use after the minimum decimals, if they are useful for expressing
+     * precision. If the value precision exceeds all decimals specified (including minimum decimals), the value will be
+     * rounded. This configuration is not relevant for parsing.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example, if you pass &lt;tt&gt;1,8&lt;/tt&gt; it will up to eight decimals to your formatted string if needed. After
+     * these have been used up, rather than adding further decimals the value will be rounded.
+     * &lt;/p&gt;
+     * 
+     * @param decimals
+     *            value of the group to be repeated
+     * @param repetitions
+     *            number of repetitions
+     */
+    public MonetaryFormat repeatOptionalDecimals(int decimals, int repetitions) {
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        checkArgument(repetitions &gt;= 0);</span>
+<span class="fc" id="L184">        List&lt;Integer&gt; decimalGroups = new ArrayList&lt;Integer&gt;(repetitions);</span>
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        for (int i = 0; i &lt; repetitions; i++)</span>
+<span class="fc" id="L186">            decimalGroups.add(decimals);</span>
+<span class="fc" id="L187">        return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Set number of digits to shift the decimal separator to the right, coming from the standard BTC notation that was
+     * common pre-2014. Note this will change the currency code if enabled.
+     */
+    public MonetaryFormat shift(int shift) {
+<span class="fc bfc" id="L196" title="All 2 branches covered.">        if (shift == this.shift)</span>
+<span class="fc" id="L197">            return this;</span>
+        else
+<span class="fc" id="L199">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Set rounding mode to use when it becomes necessary.
+     */
+    public MonetaryFormat roundingMode(RoundingMode roundingMode) {
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        if (roundingMode == this.roundingMode)</span>
+<span class="nc" id="L208">            return this;</span>
+        else
+<span class="nc" id="L210">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Don't display currency code when formatting. This configuration is not relevant for parsing.
+     */
+    public MonetaryFormat noCode() {
+<span class="pc bpc" id="L218" title="1 of 2 branches missed.">        if (codes == null)</span>
+<span class="nc" id="L219">            return this;</span>
+        else
+<span class="fc" id="L221">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, null, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Configure currency code for given decimal separator shift. This configuration is not relevant for parsing.
+     * 
+     * @param codeShift
+     *            decimal separator shift, see {@link #shift}
+     * @param code
+     *            currency code
+     */
+    public MonetaryFormat code(int codeShift, String code) {
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        checkArgument(codeShift &gt;= 0);</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">        final String[] codes = null == this.codes</span>
+            ? new String[MAX_DECIMALS]
+<span class="nc" id="L237">            : Arrays.copyOf(this.codes, this.codes.length);</span>
+
+<span class="nc" id="L239">        codes[codeShift] = code;</span>
+<span class="nc" id="L240">        return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Separator between currency code and formatted value. This configuration is not relevant for parsing.
+     */
+    public MonetaryFormat codeSeparator(char codeSeparator) {
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        checkArgument(!Character.isDigit(codeSeparator));</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">        checkArgument(codeSeparator &gt; 0);</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">        if (codeSeparator == this.codeSeparator)</span>
+<span class="nc" id="L251">            return this;</span>
+        else
+<span class="nc" id="L253">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+    /**
+     * Prefix formatted output by currency code. This configuration is not relevant for parsing.
+     */
+    public MonetaryFormat prefixCode() {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">        if (codePrefixed)</span>
+<span class="nc" id="L262">            return this;</span>
+        else
+<span class="nc" id="L264">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, true);
+    }
+
+    /**
+     * Postfix formatted output with currency code. This configuration is not relevant for parsing.
+     */
+    public MonetaryFormat postfixCode() {
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        if (!codePrefixed)</span>
+<span class="nc" id="L273">            return this;</span>
+        else
+<span class="fc" id="L275">            return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                    shift, roundingMode, codes, codeSeparator, false);
+    }
+
+    /**
+     * Configure this instance with values from a {@link Locale}.
+     */
+    public MonetaryFormat withLocale(Locale locale) {
+<span class="nc" id="L283">        DecimalFormatSymbols dfs = new DecimalFormatSymbols(locale);</span>
+<span class="nc" id="L284">        char negativeSign = dfs.getMinusSign();</span>
+<span class="nc" id="L285">        char zeroDigit = dfs.getZeroDigit();</span>
+<span class="nc" id="L286">        char decimalMark = dfs.getMonetaryDecimalSeparator();</span>
+<span class="nc" id="L287">        return new MonetaryFormat(negativeSign, positiveSign, zeroDigit, decimalMark, minDecimals, decimalGroups,</span>
+                shift, roundingMode, codes, codeSeparator, codePrefixed);
+    }
+
+<span class="fc" id="L291">    public MonetaryFormat() {</span>
+        // defaults
+<span class="fc" id="L293">        this.negativeSign = '-';</span>
+<span class="fc" id="L294">        this.positiveSign = 0; // none</span>
+<span class="fc" id="L295">        this.zeroDigit = '0';</span>
+<span class="fc" id="L296">        this.decimalMark = '.';</span>
+<span class="fc" id="L297">        this.minDecimals = 2;</span>
+<span class="fc" id="L298">        this.decimalGroups = null;</span>
+<span class="fc" id="L299">        this.shift = 0;</span>
+<span class="fc" id="L300">        this.roundingMode = RoundingMode.HALF_UP;</span>
+<span class="fc" id="L301">        this.codes = new String[MAX_DECIMALS];</span>
+<span class="fc" id="L302">        this.codes[0] = CODE_BTC;</span>
+<span class="fc" id="L303">        this.codes[3] = CODE_MBTC;</span>
+<span class="fc" id="L304">        this.codes[6] = CODE_UBTC;</span>
+<span class="fc" id="L305">        this.codeSeparator = ' ';</span>
+<span class="fc" id="L306">        this.codePrefixed = true;</span>
+<span class="fc" id="L307">    }</span>
+
+    private MonetaryFormat(char negativeSign, char positiveSign, char zeroDigit, char decimalMark, int minDecimals,
+            List&lt;Integer&gt; decimalGroups, int shift, RoundingMode roundingMode, String[] codes,
+<span class="fc" id="L311">            char codeSeparator, boolean codePrefixed) {</span>
+<span class="fc" id="L312">        this.negativeSign = negativeSign;</span>
+<span class="fc" id="L313">        this.positiveSign = positiveSign;</span>
+<span class="fc" id="L314">        this.zeroDigit = zeroDigit;</span>
+<span class="fc" id="L315">        this.decimalMark = decimalMark;</span>
+<span class="fc" id="L316">        this.minDecimals = minDecimals;</span>
+<span class="fc" id="L317">        this.decimalGroups = decimalGroups;</span>
+<span class="fc" id="L318">        this.shift = shift;</span>
+<span class="fc" id="L319">        this.roundingMode = roundingMode;</span>
+<span class="fc" id="L320">        this.codes = codes;</span>
+<span class="fc" id="L321">        this.codeSeparator = codeSeparator;</span>
+<span class="fc" id="L322">        this.codePrefixed = codePrefixed;</span>
+<span class="fc" id="L323">    }</span>
+
+    /**
+     * Format the given monetary value to a human readable form.
+     */
+    public CharSequence format(Monetary monetary) {
+        // preparation
+<span class="fc" id="L330">        int maxDecimals = minDecimals;</span>
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">        if (decimalGroups != null)</span>
+<span class="fc bfc" id="L332" title="All 2 branches covered.">            for (int group : decimalGroups)</span>
+<span class="fc" id="L333">                maxDecimals += group;</span>
+<span class="fc" id="L334">        int smallestUnitExponent = monetary.smallestUnitExponent();</span>
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">        checkState(maxDecimals &lt;= smallestUnitExponent,</span>
+<span class="fc" id="L336">                &quot;The maximum possible number of decimals (%s) cannot exceed %s.&quot;, maxDecimals, smallestUnitExponent);</span>
+
+        // rounding
+<span class="fc" id="L339">        long satoshis = Math.abs(monetary.getValue());</span>
+<span class="fc" id="L340">        long precisionDivisor = checkedPow(10, smallestUnitExponent - shift - maxDecimals);</span>
+<span class="fc" id="L341">        satoshis = checkedMultiply(divide(satoshis, precisionDivisor, roundingMode), precisionDivisor);</span>
+
+        // shifting
+<span class="fc" id="L344">        long shiftDivisor = checkedPow(10, smallestUnitExponent - shift);</span>
+<span class="fc" id="L345">        long numbers = satoshis / shiftDivisor;</span>
+<span class="fc" id="L346">        long decimals = satoshis % shiftDivisor;</span>
+
+        // formatting
+<span class="fc" id="L349">        String decimalsStr = String.format(Locale.US, &quot;%0&quot; + (smallestUnitExponent - shift) + &quot;d&quot;, decimals);</span>
+<span class="fc" id="L350">        StringBuilder str = new StringBuilder(decimalsStr);</span>
+<span class="fc bfc" id="L351" title="All 4 branches covered.">        while (str.length() &gt; minDecimals &amp;&amp; str.charAt(str.length() - 1) == '0')</span>
+<span class="fc" id="L352">            str.setLength(str.length() - 1); // trim trailing zero</span>
+<span class="fc" id="L353">        int i = minDecimals;</span>
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">        if (decimalGroups != null) {</span>
+<span class="fc bfc" id="L355" title="All 2 branches covered.">            for (int group : decimalGroups) {</span>
+<span class="pc bpc" id="L356" title="1 of 4 branches missed.">                if (str.length() &gt; i &amp;&amp; str.length() &lt; i + group) {</span>
+<span class="nc bnc" id="L357" title="All 2 branches missed.">                    while (str.length() &lt; i + group)</span>
+<span class="nc" id="L358">                        str.append('0');</span>
+                    break;
+                }
+<span class="fc" id="L361">                i += group;</span>
+<span class="fc" id="L362">            }</span>
+        }
+<span class="fc bfc" id="L364" title="All 2 branches covered.">        if (str.length() &gt; 0)</span>
+<span class="fc" id="L365">            str.insert(0, decimalMark);</span>
+<span class="fc" id="L366">        str.insert(0, numbers);</span>
+<span class="fc bfc" id="L367" title="All 2 branches covered.">        if (monetary.getValue() &lt; 0)</span>
+<span class="fc" id="L368">            str.insert(0, negativeSign);</span>
+<span class="pc bpc" id="L369" title="1 of 2 branches missed.">        else if (positiveSign != 0)</span>
+<span class="nc" id="L370">            str.insert(0, positiveSign);</span>
+<span class="fc bfc" id="L371" title="All 2 branches covered.">        if (codes != null) {</span>
+<span class="pc bpc" id="L372" title="1 of 2 branches missed.">            if (codePrefixed) {</span>
+<span class="nc" id="L373">                str.insert(0, codeSeparator);</span>
+<span class="nc" id="L374">                str.insert(0, code());</span>
+            } else {
+<span class="fc" id="L376">                str.append(codeSeparator);</span>
+<span class="fc" id="L377">                str.append(code());</span>
+            }
+        }
+
+        // Convert to non-arabic digits.
+<span class="pc bpc" id="L382" title="1 of 2 branches missed.">        if (zeroDigit != '0') {</span>
+<span class="nc" id="L383">            int offset = zeroDigit - '0';</span>
+<span class="nc bnc" id="L384" title="All 2 branches missed.">            for (int d = 0; d &lt; str.length(); d++) {</span>
+<span class="nc" id="L385">                char c = str.charAt(d);</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">                if (Character.isDigit(c))</span>
+<span class="nc" id="L387">                    str.setCharAt(d, (char) (c + offset));</span>
+            }
+        }
+<span class="fc" id="L390">        return str;</span>
+    }
+
+    /**
+     * Parse a human readable coin value to a {@link site.mtnsj.core.Coin} instance.
+     * 
+     * @throws NumberFormatException
+     *             if the string cannot be parsed for some reason
+     */
+    public Coin parse(String str) throws NumberFormatException {
+<span class="nc" id="L400">        return Coin.valueOf(parseValue(str, Coin.SMALLEST_UNIT_EXPONENT));</span>
+    }
+
+    /**
+     * Parse a human readable fiat value to a {@link site.mtnsj.utils.Fiat} instance.
+     * 
+     * @throws NumberFormatException
+     *             if the string cannot be parsed for some reason
+     */
+    public Fiat parseFiat(String currencyCode, String str) throws NumberFormatException {
+<span class="nc" id="L410">        return Fiat.valueOf(currencyCode, parseValue(str, Fiat.SMALLEST_UNIT_EXPONENT));</span>
+    }
+
+    private long parseValue(String str, int smallestUnitExponent) {
+<span class="nc bnc" id="L414" title="All 2 branches missed.">        checkState(DECIMALS_PADDING.length() &gt;= smallestUnitExponent);</span>
+<span class="nc bnc" id="L415" title="All 2 branches missed.">        if (str.isEmpty())</span>
+<span class="nc" id="L416">            throw new NumberFormatException(&quot;empty string&quot;);</span>
+<span class="nc" id="L417">        char first = str.charAt(0);</span>
+<span class="nc bnc" id="L418" title="All 4 branches missed.">        if (first == negativeSign || first == positiveSign)</span>
+<span class="nc" id="L419">            str = str.substring(1);</span>
+        String numbers;
+        String decimals;
+<span class="nc" id="L422">        int decimalMarkIndex = str.indexOf(decimalMark);</span>
+<span class="nc bnc" id="L423" title="All 2 branches missed.">        if (decimalMarkIndex != -1) {</span>
+<span class="nc" id="L424">            numbers = str.substring(0, decimalMarkIndex);</span>
+<span class="nc" id="L425">            decimals = (str + DECIMALS_PADDING).substring(decimalMarkIndex + 1);</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">            if (decimals.indexOf(decimalMark) != -1)</span>
+<span class="nc" id="L427">                throw new NumberFormatException(&quot;more than one decimal mark&quot;);</span>
+        } else {
+<span class="nc" id="L429">            numbers = str;</span>
+<span class="nc" id="L430">            decimals = DECIMALS_PADDING;</span>
+        }
+<span class="nc" id="L432">        String satoshis = numbers + decimals.substring(0, smallestUnitExponent - shift);</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        for (char c : satoshis.toCharArray())</span>
+<span class="nc bnc" id="L434" title="All 2 branches missed.">            if (!Character.isDigit(c))</span>
+<span class="nc" id="L435">                throw new NumberFormatException(&quot;illegal character: &quot; + c);</span>
+<span class="nc" id="L436">        long value = Long.parseLong(satoshis); // Non-arabic digits allowed here.</span>
+<span class="nc bnc" id="L437" title="All 2 branches missed.">        if (first == negativeSign)</span>
+<span class="nc" id="L438">            value = -value;</span>
+<span class="nc" id="L439">        return value;</span>
+    }
+
+    /**
+     * Get currency code that will be used for current shift.
+     */
+    public String code() {
+<span class="pc bpc" id="L446" title="1 of 2 branches missed.">        if (codes == null)</span>
+<span class="nc" id="L447">            return null;</span>
+<span class="pc bpc" id="L448" title="1 of 2 branches missed.">        if (codes[shift] == null)</span>
+<span class="nc" id="L449">            throw new NumberFormatException(&quot;missing code for shift: &quot; + shift);</span>
+<span class="fc" id="L450">        return codes[shift];</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>SporkManager.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">SporkManager.java</span></div><h1>SporkManager.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+
+import org.darkcoinj.DarkSendSigner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+
+/**
+ * Created by Hash Engineering on 2/20/2016.
+ * modify OMotenashiCoin Project by kani
+ */
+public class SporkManager {
+<span class="nc" id="L15">    private static final Logger log = LoggerFactory.getLogger(SporkManager.class);</span>
+
+    MasternodeSignature sig;
+    String strMasterPrivKey;
+
+
+    HashMap&lt;Sha256Hash, SporkMessage&gt; mapSporks;
+    HashMap&lt;Integer, SporkMessage&gt; mapSporksActive;
+
+    AbstractBlockChain blockChain;
+    //NetworkParameters context;
+    Context context;
+
+    SporkManager(Context context)
+<span class="nc" id="L29">    {</span>
+<span class="nc" id="L30">        this.context = context;</span>
+<span class="nc" id="L31">        mapSporks = new HashMap&lt;Sha256Hash, SporkMessage&gt;();</span>
+<span class="nc" id="L32">        mapSporksActive = new HashMap&lt;Integer, SporkMessage&gt;();</span>
+<span class="nc" id="L33">    }</span>
+
+    void setBlockChain(AbstractBlockChain blockChain)
+    {
+<span class="nc" id="L37">        this.blockChain = blockChain;</span>
+<span class="nc" id="L38">    }</span>
+
+    void processSpork(Peer from, SporkMessage spork) {
+<span class="nc bnc" id="L41" title="All 4 branches missed.">        if (context.isLiteMode() &amp;&amp; !context.allowInstantXinLiteMode()) return; //disable all darksend/masternode related functionality</span>
+
+            //if (chainActive.Tip() == NULL) return;
+
+<span class="nc" id="L45">            Sha256Hash hash = spork.getHash();</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">            if (mapSporksActive.containsKey(spork.nSporkID)) {</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">                if (mapSporksActive.get(spork.nSporkID).nTimeSigned &gt;= spork.nTimeSigned) {</span>
+<span class="nc" id="L48">                    if (DarkCoinSystem.fDebug) log.info(&quot;spork - seen &quot;+hash.toString()+&quot; block &quot; + blockChain.getBestChainHeight());</span>
+<span class="nc" id="L49">                    return;</span>
+                } else {
+                    if (DarkCoinSystem.fDebug)
+<span class="nc" id="L52">                        log.info(&quot;spork - got updated spork &quot;+hash.toString()+&quot; block &quot; +blockChain.getBestChainHeight());</span>
+                }
+            }
+
+<span class="nc" id="L56">            log.info(&quot;spork - new &quot;+hash.toString()+&quot; ID &quot;+spork.nSporkID+&quot; Time &quot;+spork.nTimeSigned+&quot; bestHeight&quot; + blockChain.getBestChainHeight());</span>
+
+<span class="nc bnc" id="L58" title="All 2 branches missed.">            if (!checkSignature(spork)) {</span>
+<span class="nc" id="L59">                log.info(&quot;spork - invalid signature&quot;);</span>
+                //Misbehaving(pfrom -&gt; GetId(), 100);
+<span class="nc" id="L61">                return;</span>
+            }
+
+<span class="nc" id="L64">            mapSporks.put(hash, spork);</span>
+<span class="nc" id="L65">            mapSporksActive.put(spork.nSporkID, spork);</span>
+<span class="nc" id="L66">            relay(spork);</span>
+
+            //does a task if needed
+<span class="nc" id="L69">            executeSpork(spork.nSporkID, spork.nValue);</span>
+
+<span class="nc" id="L71">    }</span>
+    /*
+    void processGetSporks(GetSporksMessage m)
+    {
+        if (strCommand == &quot;getsporks&quot;)
+        {
+            std::map&lt;int, CSporkMessage&gt;::iterator it = mapSporksActive.begin();
+
+            while(it != mapSporksActive.end()) {
+                pfrom-&gt;PushMessage(&quot;spork&quot;, it-&gt;second);
+                it++;
+            }
+        }
+
+    }*/
+
+    static final int SPORK_START                                            = 10001;
+    static final int SPORK_END                                              = 10015;
+
+    public static final int SPORK_2_SWIFTTX = 10001;
+    public static final int SPORK_3_SWIFTTX_BLOCK_FILTERING = 10002;
+    public static final int SPORK_5_MAX_VALUE = 10004;
+    public static final int SPORK_7_MASTERNODE_SCANNING = 10006;
+    public static final int SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT = 10007;
+    public static final int SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT = 10008;
+    public static final int SPORK_10_MASTERNODE_PAY_UPDATED_NODES = 10009;
+    public static final int SPORK_12_RECONSIDER_BLOCKS = 10011;
+    public static final int SPORK_13_ENABLE_SUPERBLOCKS = 10012;
+    public static final int SPORK_14_NEW_PROTOCOL_ENFORCEMENT = 10013;
+    public static final int SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2 = 10014;
+    public static final int SPORK_16_ZEROCOIN_MAINTENANCE_MODE = 10015;
+
+    public static final long SPORK_2_SWIFTTX_DEFAULT = 978307200;                         //2001-1-1
+    public static final long SPORK_3_SWIFTTX_BLOCK_FILTERING_DEFAULT = 1424217600;        //2015-2-18
+    public static final long SPORK_5_MAX_VALUE_DEFAULT = 1000;                            //1000 MTNS
+    public static final long SPORK_7_MASTERNODE_SCANNING_DEFAULT = 978307200;             //2001-1-1
+    public static final long SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT_DEFAULT = 4070908800L; //OFF
+    public static final long SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT_DEFAULT = 4070908800L;  //OFF
+    public static final long SPORK_10_MASTERNODE_PAY_UPDATED_NODES_DEFAULT = 4070908800L;  //OFF
+    public static final long SPORK_12_RECONSIDER_BLOCKS_DEFAULT = 0;                       //zero
+    public static final long SPORK_13_ENABLE_SUPERBLOCKS_DEFAULT = 4070908800L;            //OFF
+    public static final long SPORK_14_NEW_PROTOCOL_ENFORCEMENT_DEFAULT = 4070908800L;      //OFF
+    public static final long SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2_DEFAULT = 4070908800L;    //OFF
+    public static final long SPORK_16_ZEROCOIN_MAINTENANCE_MODE_DEFAULT = 4070908800L;     //OFF
+
+
+    // grab the spork, otherwise say it's off
+    public boolean isSporkActive(int nSporkID)
+    {
+<span class="nc" id="L120">        long r = -1;</span>
+
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        if(mapSporksActive.containsKey(nSporkID)){</span>
+<span class="nc" id="L123">            r = mapSporksActive.get(nSporkID).nValue;</span>
+        } else {
+<span class="nc bnc" id="L125" title="All 13 branches missed.">            switch (nSporkID) {</span>
+<span class="nc" id="L126">                case SPORK_2_SWIFTTX:                        r = SPORK_2_SWIFTTX_DEFAULT ; break;</span>
+<span class="nc" id="L127">                case SPORK_3_SWIFTTX_BLOCK_FILTERING:        r = SPORK_3_SWIFTTX_BLOCK_FILTERING_DEFAULT; break;</span>
+<span class="nc" id="L128">                case SPORK_5_MAX_VALUE:                      r = SPORK_5_MAX_VALUE_DEFAULT; break;</span>
+<span class="nc" id="L129">                case SPORK_7_MASTERNODE_SCANNING:            r = SPORK_7_MASTERNODE_SCANNING_DEFAULT; break;</span>
+<span class="nc" id="L130">                case SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT: r = SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT_DEFAULT; break;</span>
+<span class="nc" id="L131">                case SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT:  r = SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT_DEFAULT; break;</span>
+<span class="nc" id="L132">                case SPORK_10_MASTERNODE_PAY_UPDATED_NODES:  r = SPORK_10_MASTERNODE_PAY_UPDATED_NODES_DEFAULT; break;</span>
+<span class="nc" id="L133">                case SPORK_12_RECONSIDER_BLOCKS:             r = SPORK_12_RECONSIDER_BLOCKS_DEFAULT; break;</span>
+<span class="nc" id="L134">                case SPORK_13_ENABLE_SUPERBLOCKS:            r = SPORK_13_ENABLE_SUPERBLOCKS_DEFAULT; break;</span>
+<span class="nc" id="L135">                case SPORK_14_NEW_PROTOCOL_ENFORCEMENT:      r = SPORK_14_NEW_PROTOCOL_ENFORCEMENT_DEFAULT; break;</span>
+<span class="nc" id="L136">                case SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2:    r = SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2_DEFAULT; break;</span>
+<span class="nc" id="L137">                case SPORK_16_ZEROCOIN_MAINTENANCE_MODE:     r = SPORK_16_ZEROCOIN_MAINTENANCE_MODE_DEFAULT; break;</span>
+                default:
+<span class="nc" id="L139">                    log.info(&quot;spork&quot;, &quot;CSporkManager::IsSporkActive -- Unknown Spork ID&quot; + nSporkID);</span>
+<span class="nc" id="L140">                    r = 4070908800L; // 2099-1-1 i.e. off by default</span>
+                    break;
+            }
+        }
+
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        return r &lt; Utils.currentTimeSeconds();</span>
+    }
+
+    // grab the value of the spork on the network, or the default
+    public long getSporkValue(int nSporkID)
+    {
+<span class="nc" id="L151">        long r = -1;</span>
+
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        if(mapSporksActive.containsKey(nSporkID)){</span>
+<span class="nc" id="L154">            return mapSporksActive.get(nSporkID).nValue;</span>
+        } else {
+<span class="nc bnc" id="L156" title="All 13 branches missed.">            switch (nSporkID) {</span>
+<span class="nc" id="L157">                case SPORK_2_SWIFTTX:                        return SPORK_2_SWIFTTX_DEFAULT ;</span>
+<span class="nc" id="L158">                case SPORK_3_SWIFTTX_BLOCK_FILTERING:        return SPORK_3_SWIFTTX_BLOCK_FILTERING_DEFAULT;</span>
+<span class="nc" id="L159">                case SPORK_5_MAX_VALUE:                      return SPORK_5_MAX_VALUE_DEFAULT;</span>
+<span class="nc" id="L160">                case SPORK_7_MASTERNODE_SCANNING:            return SPORK_7_MASTERNODE_SCANNING_DEFAULT;</span>
+<span class="nc" id="L161">                case SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT: return SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT_DEFAULT;</span>
+<span class="nc" id="L162">                case SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT:  return SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT_DEFAULT;</span>
+<span class="nc" id="L163">                case SPORK_10_MASTERNODE_PAY_UPDATED_NODES:  return SPORK_10_MASTERNODE_PAY_UPDATED_NODES_DEFAULT;</span>
+<span class="nc" id="L164">                case SPORK_12_RECONSIDER_BLOCKS:             return SPORK_12_RECONSIDER_BLOCKS_DEFAULT;</span>
+<span class="nc" id="L165">                case SPORK_13_ENABLE_SUPERBLOCKS:            return SPORK_13_ENABLE_SUPERBLOCKS_DEFAULT;</span>
+<span class="nc" id="L166">                case SPORK_14_NEW_PROTOCOL_ENFORCEMENT:      return SPORK_14_NEW_PROTOCOL_ENFORCEMENT_DEFAULT;</span>
+<span class="nc" id="L167">                case SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2:    return SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2_DEFAULT;</span>
+<span class="nc" id="L168">                case SPORK_16_ZEROCOIN_MAINTENANCE_MODE:     return SPORK_16_ZEROCOIN_MAINTENANCE_MODE_DEFAULT;</span>
+                default:
+<span class="nc" id="L170">                    log.info(&quot;spork&quot;, &quot;CSporkManager::GetSporkValue -- Unknown Spork ID &quot;+ nSporkID);</span>
+<span class="nc" id="L171">                    return -1;</span>
+            }
+        }
+    }
+
+    public void executeSpork(int nSporkID, long nValue)
+    {
+        //if(nSporkID == SPORK_11_RESET_BUDGET &amp;&amp; nValue == 1){
+        //   //budget.Clear();
+        //}
+
+        //correct fork via spork technology
+<span class="nc bnc" id="L183" title="All 4 branches missed.">        if(nSporkID == SPORK_12_RECONSIDER_BLOCKS &amp;&amp; nValue &gt; 0) {</span>
+            //log.info(&quot;Spork::ExecuteSpork -- Reconsider Last %d Blocks\n&quot;, nValue);
+
+<span class="nc" id="L186">            reprocessBlocks((int)nValue);</span>
+        }
+<span class="nc" id="L188">    }</span>
+
+    void reprocessBlocks(int nBlocks)
+    {
+        //DashJ will not do this for now.
+
+        /*
+        std::map&lt;uint256, long&gt;::iterator it = mapRejectedBlocks.begin();
+        while(it != mapRejectedBlocks.end()){
+            //use a window twice as large as is usual for the nBlocks we want to reset
+            if((*it).second  &gt; GetTime() - (nBlocks*60*5)) {
+                BlockMap::iterator mi = mapBlockIndex.find((*it).first);
+                if (mi != mapBlockIndex.end() &amp;&amp; (*mi).second) {
+                    LOCK(cs_main);
+
+                    CBlockIndex* pindex = (*mi).second;
+                    LogPrintf(&quot;ReprocessBlocks - %s\n&quot;, (*it).first.ToString());
+
+                    CValidationState state;
+                    ReconsiderBlock(state, pindex);
+                }
+            }
+            ++it;
+        }
+
+        CValidationState state;
+        {
+            LOCK(cs_main);
+            DisconnectBlocksAndReprocess(nBlocks);
+        }
+
+        if (state.IsValid()) {
+            ActivateBestChain(state);
+        }
+        */
+<span class="nc" id="L223">    }</span>
+
+
+    boolean checkSignature(SporkMessage spork)
+    {
+        //note: need to investigate why this is failing
+        //std::string strMessage = boost::lexical_cast&lt;std::string&gt;(spork.nSporkID) + boost::lexical_cast&lt;std::string&gt;(spork.nValue) + boost::lexical_cast&lt;std::string&gt;(spork.nTimeSigned);
+<span class="nc" id="L230">        String strMessage = &quot;&quot; + spork.nSporkID + spork.nValue + spork.nTimeSigned;</span>
+<span class="nc" id="L231">        PublicKey pubkey = new PublicKey(Utils.HEX.decode(context.getParams().getSporkKey()));</span>
+
+<span class="nc" id="L233">        StringBuilder errorMessage = new StringBuilder();</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        if(!DarkSendSigner.verifyMessage(pubkey, spork.sig, strMessage, errorMessage)){</span>
+<span class="nc" id="L235">            return false;</span>
+        }
+
+<span class="nc" id="L238">        return true;</span>
+    }
+
+    boolean sign(SporkMessage spork)
+    {
+        //std::string strMessage = boost::lexical_cast&lt;std::string&gt;(spork.nSporkID) + boost::lexical_cast&lt;std::string&gt;(spork.nValue) + boost::lexical_cast&lt;std::string&gt;(spork.nTimeSigned);
+<span class="nc" id="L244">        String strMessage = &quot;&quot; + spork.nSporkID + spork.nValue + spork.nTimeSigned;</span>
+
+        ECKey key2;
+        PublicKey pubkey2;
+<span class="nc" id="L248">        StringBuilder errorMessage = new StringBuilder();</span>
+
+<span class="nc bnc" id="L250" title="All 2 branches missed.">        if((key2 = DarkSendSigner.setKey(strMasterPrivKey, errorMessage)) == null)</span>
+        {
+<span class="nc" id="L252">            log.info(&quot;CMasternodePayments::Sign - ERROR: Invalid masternodeprivkey: &quot;+ errorMessage);</span>
+<span class="nc" id="L253">            return false;</span>
+        }
+<span class="nc" id="L255">        pubkey2 = new PublicKey(key2.getPubKey());</span>
+
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        if((spork.sig = DarkSendSigner.signMessage(strMessage, errorMessage, key2)) == null) {</span>
+<span class="nc" id="L258">            log.info(&quot;CMasternodePayments::Sign - Sign message failed&quot;);</span>
+<span class="nc" id="L259">            return false;</span>
+        }
+
+<span class="nc bnc" id="L262" title="All 2 branches missed.">        if(!DarkSendSigner.verifyMessage(pubkey2, spork.sig, strMessage, errorMessage)) {</span>
+<span class="nc" id="L263">            log.info(&quot;CMasternodePayments::Sign - Verify message failed&quot;);</span>
+<span class="nc" id="L264">            return false;</span>
+        }
+
+<span class="nc" id="L267">        return true;</span>
+    }
+
+    boolean updateSpork(int nSporkID, long nValue)
+    {
+
+<span class="nc" id="L273">        SporkMessage msg = new SporkMessage(context.getParams());</span>
+<span class="nc" id="L274">        msg.nSporkID = nSporkID;</span>
+<span class="nc" id="L275">        msg.nValue = nValue;</span>
+<span class="nc" id="L276">        msg.nTimeSigned = Utils.currentTimeSeconds();</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        if(sign(msg)){</span>
+<span class="nc" id="L278">            relay(msg);</span>
+<span class="nc" id="L279">            mapSporks.put(msg.getHash(), msg);</span>
+<span class="nc" id="L280">            mapSporksActive.put(nSporkID, msg);</span>
+<span class="nc" id="L281">            return true;</span>
+        }
+
+<span class="nc" id="L284">        return false;</span>
+    }
+
+    void relay(SporkMessage msg)
+    {
+        //InventoryItem inv = new InventoryItem(InventoryItem.Type.Spork, msg.getHash());
+        //RelayInv(inv);
+        //TODO:  Not needed in SPV
+<span class="nc" id="L292">    }</span>
+
+    boolean setPrivKey(String strPrivKey)
+    {
+<span class="nc" id="L296">        SporkMessage msg = new SporkMessage(context.getParams());</span>
+
+        // Test signing successful, proceed
+<span class="nc" id="L299">        strMasterPrivKey = strPrivKey;</span>
+
+<span class="nc" id="L301">        sign(msg);</span>
+
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        if(checkSignature(msg)){</span>
+<span class="nc" id="L304">            log.info(&quot;SporkManager::setPrivKey - Successfully initialized as spork signer\n&quot;);</span>
+<span class="nc" id="L305">            return true;</span>
+        } else {
+<span class="nc" id="L307">            return false;</span>
+        }
+    }
+
+    int getSporkIDByName(String strName)
+    {
+<span class="nc bnc" id="L313" title="All 2 branches missed.">        if (strName == &quot;SPORK_2_SWIFTTX&quot;)                           return SPORK_2_SWIFTTX;</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">        if (strName == &quot;SPORK_3_SWIFTTX_BLOCK_FILTERING&quot;)           return SPORK_3_SWIFTTX_BLOCK_FILTERING;</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">        if (strName == &quot;SPORK_5_MAX_VALUE&quot;)                         return SPORK_5_MAX_VALUE;</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        if (strName == &quot;SPORK_7_MASTERNODE_SCANNING&quot;)               return SPORK_7_MASTERNODE_SCANNING;</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">        if (strName == &quot;SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT&quot;)    return SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT;</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if (strName == &quot;SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT&quot;)     return SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT;</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">        if (strName == &quot;SPORK_10_MASTERNODE_PAY_UPDATED_NODES&quot;)     return SPORK_10_MASTERNODE_PAY_UPDATED_NODES;</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">        if (strName == &quot;SPORK_12_RECONSIDER_BLOCKS&quot;)                return SPORK_12_RECONSIDER_BLOCKS;</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">        if (strName == &quot;SPORK_13_ENABLE_SUPERBLOCKS&quot;)               return SPORK_13_ENABLE_SUPERBLOCKS;</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">        if (strName == &quot;SPORK_14_NEW_PROTOCOL_ENFORCEMENT&quot;)         return SPORK_14_NEW_PROTOCOL_ENFORCEMENT;</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        if (strName == &quot;SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2&quot;)       return SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2;</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">        if (strName == &quot;SPORK_16_ZEROCOIN_MAINTENANCE_MODE&quot;)        return SPORK_16_ZEROCOIN_MAINTENANCE_MODE;</span>
+        
+<span class="nc" id="L326">        log.info(&quot;spork&quot;, &quot;CSporkManager::GetSporkIDByName -- Unknown Spork name: &quot;+ strName);</span>
+        
+<span class="nc" id="L328">        return -1;</span>
+    }
+
+    String getSporkNameByID(int id)
+    {
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        if (id == SPORK_2_SWIFTTX)                              return &quot;SPORK_2_SWIFTTX&quot;;</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">        if (id == SPORK_3_SWIFTTX_BLOCK_FILTERING)              return &quot;SPORK_3_SWIFTTX_BLOCK_FILTERING&quot;;</span>
+<span class="nc bnc" id="L335" title="All 2 branches missed.">        if (id == SPORK_5_MAX_VALUE)                            return &quot;SPORK_5_MAX_VALUE&quot;;</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">        if (id == SPORK_7_MASTERNODE_SCANNING)                  return &quot;SPORK_7_MASTERNODE_SCANNING&quot;;</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">        if (id == SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT)       return &quot;SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT&quot;;</span>
+<span class="nc bnc" id="L338" title="All 2 branches missed.">        if (id == SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT)        return &quot;SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT&quot;;</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">        if (id == SPORK_10_MASTERNODE_PAY_UPDATED_NODES)        return &quot;SPORK_10_MASTERNODE_PAY_UPDATED_NODES&quot;;</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">        if (id == SPORK_12_RECONSIDER_BLOCKS)                   return &quot;SPORK_12_RECONSIDER_BLOCKS&quot;;</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">        if (id == SPORK_13_ENABLE_SUPERBLOCKS)                  return &quot;SPORK_13_ENABLE_SUPERBLOCKS&quot;;</span>
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        if (id == SPORK_14_NEW_PROTOCOL_ENFORCEMENT)            return &quot;SPORK_14_NEW_PROTOCOL_ENFORCEMENT&quot;;</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        if (id == SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2)          return &quot;SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2&quot;;</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">        if (id == SPORK_16_ZEROCOIN_MAINTENANCE_MODE)           return &quot;SPORK_16_ZEROCOIN_MAINTENANCE_MODE&quot;;</span>
+        
+<span class="nc" id="L346">        return &quot;Unknown&quot;;</span>
+        
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

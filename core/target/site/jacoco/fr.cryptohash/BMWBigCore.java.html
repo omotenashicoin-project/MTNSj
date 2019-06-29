@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>BMWBigCore.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">BMWBigCore.java</span></div><h1>BMWBigCore.java</h1><pre class="source lang-java linenums">// $Id: BMWBigCore.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * This class implements BMW-384 and BMW-512.
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+abstract class BMWBigCore extends DigestEngine {
+
+	private long[] M, H, H2, Q, W;
+
+	/**
+	 * Create the object.
+	 */
+	BMWBigCore()
+<span class="nc" id="L47">	{</span>
+<span class="nc" id="L48">	}</span>
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L53">		return 128;</span>
+	}
+
+	/** @see DigestEngine */
+	protected Digest copyState(BMWBigCore dst)
+	{
+<span class="nc" id="L59">		System.arraycopy(H, 0, dst.H, 0, H.length);</span>
+<span class="nc" id="L60">		return super.copyState(dst);</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L66">		long[] iv = getInitVal();</span>
+<span class="nc" id="L67">		System.arraycopy(iv, 0, H, 0, iv.length);</span>
+<span class="nc" id="L68">	}</span>
+
+	abstract long[] getInitVal();
+
+<span class="nc" id="L72">	private static final long[] FINAL = {</span>
+		0xaaaaaaaaaaaaaaa0L, 0xaaaaaaaaaaaaaaa1L,
+		0xaaaaaaaaaaaaaaa2L, 0xaaaaaaaaaaaaaaa3L,
+		0xaaaaaaaaaaaaaaa4L, 0xaaaaaaaaaaaaaaa5L,
+		0xaaaaaaaaaaaaaaa6L, 0xaaaaaaaaaaaaaaa7L,
+		0xaaaaaaaaaaaaaaa8L, 0xaaaaaaaaaaaaaaa9L,
+		0xaaaaaaaaaaaaaaaaL, 0xaaaaaaaaaaaaaaabL,
+		0xaaaaaaaaaaaaaaacL, 0xaaaaaaaaaaaaaaadL,
+		0xaaaaaaaaaaaaaaaeL, 0xaaaaaaaaaaaaaaafL
+	};
+
+<span class="nc" id="L83">	private static final long[] K = {</span>
+		16L * 0x0555555555555555L, 17L * 0x0555555555555555L,
+		18L * 0x0555555555555555L, 19L * 0x0555555555555555L,
+		20L * 0x0555555555555555L, 21L * 0x0555555555555555L,
+		22L * 0x0555555555555555L, 23L * 0x0555555555555555L,
+		24L * 0x0555555555555555L, 25L * 0x0555555555555555L,
+		26L * 0x0555555555555555L, 27L * 0x0555555555555555L,
+		28L * 0x0555555555555555L, 29L * 0x0555555555555555L,
+		30L * 0x0555555555555555L, 31L * 0x0555555555555555L
+	};
+
+	private void compress(long[] m)
+	{
+<span class="nc" id="L96">		long[] h = H;</span>
+<span class="nc" id="L97">		long[] q = Q;</span>
+<span class="nc" id="L98">		long[] w = W;</span>
+<span class="nc" id="L99">		w[0] = (m[5] ^ h[5]) - (m[7] ^ h[7]) + (m[10] ^ h[10])</span>
+			+ (m[13] ^ h[13]) + (m[14] ^ h[14]);
+<span class="nc" id="L101">		w[1] = (m[6] ^ h[6]) - (m[8] ^ h[8]) + (m[11] ^ h[11])</span>
+			+ (m[14] ^ h[14]) - (m[15] ^ h[15]);
+<span class="nc" id="L103">		w[2] = (m[0] ^ h[0]) + (m[7] ^ h[7]) + (m[9] ^ h[9])</span>
+			- (m[12] ^ h[12]) + (m[15] ^ h[15]);
+<span class="nc" id="L105">		w[3] = (m[0] ^ h[0]) - (m[1] ^ h[1]) + (m[8] ^ h[8])</span>
+			- (m[10] ^ h[10]) + (m[13] ^ h[13]);
+<span class="nc" id="L107">		w[4] = (m[1] ^ h[1]) + (m[2] ^ h[2]) + (m[9] ^ h[9])</span>
+			- (m[11] ^ h[11]) - (m[14] ^ h[14]);
+<span class="nc" id="L109">		w[5] = (m[3] ^ h[3]) - (m[2] ^ h[2]) + (m[10] ^ h[10])</span>
+			- (m[12] ^ h[12]) + (m[15] ^ h[15]);
+<span class="nc" id="L111">		w[6] = (m[4] ^ h[4]) - (m[0] ^ h[0]) - (m[3] ^ h[3])</span>
+			- (m[11] ^ h[11]) + (m[13] ^ h[13]);
+<span class="nc" id="L113">		w[7] = (m[1] ^ h[1]) - (m[4] ^ h[4]) - (m[5] ^ h[5])</span>
+			- (m[12] ^ h[12]) - (m[14] ^ h[14]);
+<span class="nc" id="L115">		w[8] = (m[2] ^ h[2]) - (m[5] ^ h[5]) - (m[6] ^ h[6])</span>
+			+ (m[13] ^ h[13]) - (m[15] ^ h[15]);
+<span class="nc" id="L117">		w[9] = (m[0] ^ h[0]) - (m[3] ^ h[3]) + (m[6] ^ h[6])</span>
+			- (m[7] ^ h[7]) + (m[14] ^ h[14]);
+<span class="nc" id="L119">		w[10] = (m[8] ^ h[8]) - (m[1] ^ h[1]) - (m[4] ^ h[4])</span>
+			- (m[7] ^ h[7]) + (m[15] ^ h[15]);
+<span class="nc" id="L121">		w[11] = (m[8] ^ h[8]) - (m[0] ^ h[0]) - (m[2] ^ h[2])</span>
+			- (m[5] ^ h[5]) + (m[9] ^ h[9]);
+<span class="nc" id="L123">		w[12] = (m[1] ^ h[1]) + (m[3] ^ h[3]) - (m[6] ^ h[6])</span>
+			- (m[9] ^ h[9]) + (m[10] ^ h[10]);
+<span class="nc" id="L125">		w[13] = (m[2] ^ h[2]) + (m[4] ^ h[4]) + (m[7] ^ h[7])</span>
+			+ (m[10] ^ h[10]) + (m[11] ^ h[11]);
+<span class="nc" id="L127">		w[14] = (m[3] ^ h[3]) - (m[5] ^ h[5]) + (m[8] ^ h[8])</span>
+			- (m[11] ^ h[11]) - (m[12] ^ h[12]);
+<span class="nc" id="L129">		w[15] = (m[12] ^ h[12]) - (m[4] ^ h[4]) - (m[6] ^ h[6])</span>
+			- (m[9] ^ h[9]) + (m[13] ^ h[13]);
+<span class="nc bnc" id="L131" title="All 2 branches missed.">		for (int u = 0; u &lt; 15; u += 5) {</span>
+<span class="nc" id="L132">			q[u + 0] = ((w[u + 0] &gt;&gt;&gt; 1) ^ (w[u + 0] &lt;&lt; 3)</span>
+<span class="nc" id="L133">				^ circularLeft(w[u + 0], 4)</span>
+<span class="nc" id="L134">				^ circularLeft(w[u + 0], 37)) + h[u + 1];</span>
+<span class="nc" id="L135">			q[u + 1] = ((w[u + 1] &gt;&gt;&gt; 1) ^ (w[u + 1] &lt;&lt; 2)</span>
+<span class="nc" id="L136">				^ circularLeft(w[u + 1], 13)</span>
+<span class="nc" id="L137">				^ circularLeft(w[u + 1], 43)) + h[u + 2];</span>
+<span class="nc" id="L138">			q[u + 2] = ((w[u + 2] &gt;&gt;&gt; 2) ^ (w[u + 2] &lt;&lt; 1)</span>
+<span class="nc" id="L139">				^ circularLeft(w[u + 2], 19)</span>
+<span class="nc" id="L140">				^ circularLeft(w[u + 2], 53)) + h[u + 3];</span>
+<span class="nc" id="L141">			q[u + 3] = ((w[u + 3] &gt;&gt;&gt; 2) ^ (w[u + 3] &lt;&lt; 2)</span>
+<span class="nc" id="L142">				^ circularLeft(w[u + 3], 28)</span>
+<span class="nc" id="L143">				^ circularLeft(w[u + 3], 59)) + h[u + 4];</span>
+<span class="nc" id="L144">			q[u + 4] = ((w[u + 4] &gt;&gt;&gt; 1) ^ w[u + 4]) + h[u + 5];</span>
+		}
+<span class="nc" id="L146">		q[15] = ((w[15] &gt;&gt;&gt; 1) ^ (w[15] &lt;&lt; 3)</span>
+<span class="nc" id="L147">			^ circularLeft(w[15], 4) ^ circularLeft(w[15], 37))</span>
+			+ h[0];
+
+<span class="nc bnc" id="L150" title="All 2 branches missed.">		for (int u = 16; u &lt; 18; u++) {</span>
+<span class="nc" id="L151">			q[u] = ((q[u - 16] &gt;&gt;&gt; 1) ^ (q[u - 16] &lt;&lt; 2)</span>
+<span class="nc" id="L152">				^ circularLeft(q[u - 16], 13)</span>
+<span class="nc" id="L153">				^ circularLeft(q[u - 16], 43))</span>
+				+ ((q[u - 15] &gt;&gt;&gt; 2) ^ (q[u - 15] &lt;&lt; 1)
+<span class="nc" id="L155">				^ circularLeft(q[u - 15], 19)</span>
+<span class="nc" id="L156">				^ circularLeft(q[u - 15], 53))</span>
+				+ ((q[u - 14] &gt;&gt;&gt; 2) ^ (q[u - 14] &lt;&lt; 2)
+<span class="nc" id="L158">				^ circularLeft(q[u - 14], 28)</span>
+<span class="nc" id="L159">				^ circularLeft(q[u - 14], 59))</span>
+				+ ((q[u - 13] &gt;&gt;&gt; 1) ^ (q[u - 13] &lt;&lt; 3)
+<span class="nc" id="L161">				^ circularLeft(q[u - 13], 4)</span>
+<span class="nc" id="L162">				^ circularLeft(q[u - 13], 37))</span>
+				+ ((q[u - 12] &gt;&gt;&gt; 1) ^ (q[u - 12] &lt;&lt; 2)
+<span class="nc" id="L164">				^ circularLeft(q[u - 12], 13)</span>
+<span class="nc" id="L165">				^ circularLeft(q[u - 12], 43))</span>
+				+ ((q[u - 11] &gt;&gt;&gt; 2) ^ (q[u - 11] &lt;&lt; 1)
+<span class="nc" id="L167">				^ circularLeft(q[u - 11], 19)</span>
+<span class="nc" id="L168">				^ circularLeft(q[u - 11], 53))</span>
+				+ ((q[u - 10] &gt;&gt;&gt; 2) ^ (q[u - 10] &lt;&lt; 2)
+<span class="nc" id="L170">				^ circularLeft(q[u - 10], 28)</span>
+<span class="nc" id="L171">				^ circularLeft(q[u - 10], 59))</span>
+				+ ((q[u - 9] &gt;&gt;&gt; 1) ^ (q[u - 9] &lt;&lt; 3)
+<span class="nc" id="L173">				^ circularLeft(q[u - 9], 4)</span>
+<span class="nc" id="L174">				^ circularLeft(q[u - 9], 37))</span>
+				+ ((q[u - 8] &gt;&gt;&gt; 1) ^ (q[u - 8] &lt;&lt; 2)
+<span class="nc" id="L176">				^ circularLeft(q[u - 8], 13)</span>
+<span class="nc" id="L177">				^ circularLeft(q[u - 8], 43))</span>
+				+ ((q[u - 7] &gt;&gt;&gt; 2) ^ (q[u - 7] &lt;&lt; 1)
+<span class="nc" id="L179">				^ circularLeft(q[u - 7], 19)</span>
+<span class="nc" id="L180">				^ circularLeft(q[u - 7], 53))</span>
+				+ ((q[u - 6] &gt;&gt;&gt; 2) ^ (q[u - 6] &lt;&lt; 2)
+<span class="nc" id="L182">				^ circularLeft(q[u - 6], 28)</span>
+<span class="nc" id="L183">				^ circularLeft(q[u - 6], 59))</span>
+				+ ((q[u - 5] &gt;&gt;&gt; 1) ^ (q[u - 5] &lt;&lt; 3)
+<span class="nc" id="L185">				^ circularLeft(q[u - 5], 4)</span>
+<span class="nc" id="L186">				^ circularLeft(q[u - 5], 37))</span>
+				+ ((q[u - 4] &gt;&gt;&gt; 1) ^ (q[u - 4] &lt;&lt; 2)
+<span class="nc" id="L188">				^ circularLeft(q[u - 4], 13)</span>
+<span class="nc" id="L189">				^ circularLeft(q[u - 4], 43))</span>
+				+ ((q[u - 3] &gt;&gt;&gt; 2) ^ (q[u - 3] &lt;&lt; 1)
+<span class="nc" id="L191">				^ circularLeft(q[u - 3], 19)</span>
+<span class="nc" id="L192">				^ circularLeft(q[u - 3], 53))</span>
+				+ ((q[u - 2] &gt;&gt;&gt; 2) ^ (q[u - 2] &lt;&lt; 2)
+<span class="nc" id="L194">				^ circularLeft(q[u - 2], 28)</span>
+<span class="nc" id="L195">				^ circularLeft(q[u - 2], 59))</span>
+				+ ((q[u - 1] &gt;&gt;&gt; 1) ^ (q[u - 1] &lt;&lt; 3)
+<span class="nc" id="L197">				^ circularLeft(q[u - 1], 4)</span>
+<span class="nc" id="L198">				^ circularLeft(q[u - 1], 37))</span>
+<span class="nc" id="L199">				+ ((circularLeft(m[(u - 16 + 0) &amp; 15],</span>
+					((u - 16 + 0) &amp; 15) + 1)
+<span class="nc" id="L201">				+ circularLeft(m[(u - 16 + 3) &amp; 15],</span>
+					((u - 16 + 3) &amp; 15) + 1)
+<span class="nc" id="L203">				- circularLeft(m[(u - 16 + 10) &amp; 15],</span>
+					((u - 16 + 10) &amp; 15) + 1)
+				+ K[u - 16]) ^ h[(u - 16 + 7) &amp; 15]);
+		}
+<span class="nc bnc" id="L207" title="All 2 branches missed.">		for (int u = 18; u &lt; 32; u++) {</span>
+<span class="nc" id="L208">			q[u] = q[u - 16] + circularLeft(q[u - 15], 5)</span>
+<span class="nc" id="L209">				+ q[u - 14] + circularLeft(q[u - 13], 11)</span>
+<span class="nc" id="L210">				+ q[u - 12] + circularLeft(q[u - 11], 27)</span>
+<span class="nc" id="L211">				+ q[u - 10] + circularLeft(q[u - 9], 32)</span>
+<span class="nc" id="L212">				+ q[u - 8] + circularLeft(q[u - 7], 37)</span>
+<span class="nc" id="L213">				+ q[u - 6] + circularLeft(q[u - 5], 43)</span>
+<span class="nc" id="L214">				+ q[u - 4] + circularLeft(q[u - 3], 53)</span>
+				+ ((q[u - 2] &gt;&gt;&gt; 1) ^ q[u - 2])
+				+ ((q[u - 1] &gt;&gt;&gt; 2) ^ q[u - 1])
+<span class="nc" id="L217">				+ ((circularLeft(m[(u - 16 + 0) &amp; 15],</span>
+					((u - 16 + 0) &amp; 15) + 1)
+<span class="nc" id="L219">				+ circularLeft(m[(u - 16 + 3) &amp; 15],</span>
+					((u - 16 + 3) &amp; 15) + 1)
+<span class="nc" id="L221">				- circularLeft(m[(u - 16 + 10) &amp; 15],</span>
+					((u - 16 + 10) &amp; 15) + 1)
+				+ K[u - 16]) ^ h[(u - 16 + 7) &amp; 15]);
+		}
+
+<span class="nc" id="L226">		long xl = q[16] ^ q[17] ^ q[18] ^ q[19]</span>
+			^ q[20] ^ q[21] ^ q[22] ^ q[23];
+<span class="nc" id="L228">		long xh = xl ^ q[24] ^ q[25] ^ q[26] ^ q[27]</span>
+			^ q[28] ^ q[29] ^ q[30] ^ q[31];
+<span class="nc" id="L230">		h[0] = ((xh &lt;&lt; 5) ^ (q[16] &gt;&gt;&gt; 5) ^ m[0]) + (xl ^ q[24] ^ q[0]);</span>
+<span class="nc" id="L231">		h[1] = ((xh &gt;&gt;&gt; 7) ^ (q[17] &lt;&lt; 8) ^ m[1]) + (xl ^ q[25] ^ q[1]);</span>
+<span class="nc" id="L232">		h[2] = ((xh &gt;&gt;&gt; 5) ^ (q[18] &lt;&lt; 5) ^ m[2]) + (xl ^ q[26] ^ q[2]);</span>
+<span class="nc" id="L233">		h[3] = ((xh &gt;&gt;&gt; 1) ^ (q[19] &lt;&lt; 5) ^ m[3]) + (xl ^ q[27] ^ q[3]);</span>
+<span class="nc" id="L234">		h[4] = ((xh &gt;&gt;&gt; 3) ^ (q[20] &lt;&lt; 0) ^ m[4]) + (xl ^ q[28] ^ q[4]);</span>
+<span class="nc" id="L235">		h[5] = ((xh &lt;&lt; 6) ^ (q[21] &gt;&gt;&gt; 6) ^ m[5]) + (xl ^ q[29] ^ q[5]);</span>
+<span class="nc" id="L236">		h[6] = ((xh &gt;&gt;&gt; 4) ^ (q[22] &lt;&lt; 6) ^ m[6]) + (xl ^ q[30] ^ q[6]);</span>
+<span class="nc" id="L237">		h[7] = ((xh &gt;&gt;&gt; 11) ^ (q[23] &lt;&lt; 2) ^ m[7])</span>
+			+ (xl ^ q[31] ^ q[7]);
+<span class="nc" id="L239">		h[8] = circularLeft(h[4], 9) + (xh ^ q[24] ^ m[8])</span>
+			+ ((xl &lt;&lt; 8) ^ q[23] ^ q[8]);
+<span class="nc" id="L241">		h[9] = circularLeft(h[5], 10) + (xh ^ q[25] ^ m[9])</span>
+			+ ((xl &gt;&gt;&gt; 6) ^ q[16] ^ q[9]);
+<span class="nc" id="L243">		h[10] = circularLeft(h[6], 11) + (xh ^ q[26] ^ m[10])</span>
+			+ ((xl &lt;&lt; 6) ^ q[17] ^ q[10]);
+<span class="nc" id="L245">		h[11] = circularLeft(h[7], 12) + (xh ^ q[27] ^ m[11])</span>
+			+ ((xl &lt;&lt; 4) ^ q[18] ^ q[11]);
+<span class="nc" id="L247">		h[12] = circularLeft(h[0], 13) + (xh ^ q[28] ^ m[12])</span>
+			+ ((xl &gt;&gt;&gt; 3) ^ q[19] ^ q[12]);
+<span class="nc" id="L249">		h[13] = circularLeft(h[1], 14) + (xh ^ q[29] ^ m[13])</span>
+			+ ((xl &gt;&gt;&gt; 4) ^ q[20] ^ q[13]);
+<span class="nc" id="L251">		h[14] = circularLeft(h[2], 15) + (xh ^ q[30] ^ m[14])</span>
+			+ ((xl &gt;&gt;&gt; 7) ^ q[21] ^ q[14]);
+<span class="nc" id="L253">		h[15] = circularLeft(h[3], 16) + (xh ^ q[31] ^ m[15])</span>
+			+ ((xl &gt;&gt;&gt; 2) ^ q[22] ^ q[15]);
+<span class="nc" id="L255">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L260">		byte[] buf = getBlockBuffer();</span>
+<span class="nc" id="L261">		int ptr = flush();</span>
+<span class="nc" id="L262">		long bitLen = (getBlockCount() &lt;&lt; 10) + (ptr &lt;&lt; 3);</span>
+<span class="nc" id="L263">		buf[ptr ++] = (byte)0x80;</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">		if (ptr &gt; 120) {</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">			for (int i = ptr; i &lt; 128; i ++)</span>
+<span class="nc" id="L266">				buf[i] = 0;</span>
+<span class="nc" id="L267">			processBlock(buf);</span>
+<span class="nc" id="L268">			ptr = 0;</span>
+		}
+<span class="nc bnc" id="L270" title="All 2 branches missed.">		for (int i = ptr; i &lt; 120; i ++)</span>
+<span class="nc" id="L271">			buf[i] = 0;</span>
+<span class="nc" id="L272">		encodeLELong(bitLen, buf, 120);</span>
+<span class="nc" id="L273">		processBlock(buf);</span>
+<span class="nc" id="L274">		long[] tmp = H;</span>
+<span class="nc" id="L275">		H = H2;</span>
+<span class="nc" id="L276">		H2 = tmp;</span>
+<span class="nc" id="L277">		System.arraycopy(FINAL, 0, H, 0, 16);</span>
+<span class="nc" id="L278">		compress(H2);</span>
+<span class="nc" id="L279">		int outLen = getDigestLength() &gt;&gt;&gt; 3;</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">		for (int i = 0, j = 16 - outLen; i &lt; outLen; i ++, j ++)</span>
+<span class="nc" id="L281">			encodeLELong(H[j], output, outputOffset + 8 * i);</span>
+<span class="nc" id="L282">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L287">		M = new long[16];</span>
+<span class="nc" id="L288">		H = new long[16];</span>
+<span class="nc" id="L289">		H2 = new long[16];</span>
+<span class="nc" id="L290">		W = new long[16];</span>
+<span class="nc" id="L291">		Q = new long[32];</span>
+<span class="nc" id="L292">		engineReset();</span>
+<span class="nc" id="L293">	}</span>
+
+	/**
+	 * Encode the 64-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in little-endian
+	 * convention (least significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeLELong(long val, byte[] buf, int off)
+	{
+<span class="nc" id="L306">		buf[off + 0] = (byte)val;</span>
+<span class="nc" id="L307">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L308">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L309">		buf[off + 3] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L310">		buf[off + 4] = (byte)(val &gt;&gt;&gt; 32);</span>
+<span class="nc" id="L311">		buf[off + 5] = (byte)(val &gt;&gt;&gt; 40);</span>
+<span class="nc" id="L312">		buf[off + 6] = (byte)(val &gt;&gt;&gt; 48);</span>
+<span class="nc" id="L313">		buf[off + 7] = (byte)(val &gt;&gt;&gt; 56);</span>
+<span class="nc" id="L314">	}</span>
+
+	/**
+	 * Decode a 64-bit little-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final long decodeLELong(byte[] buf, int off)
+	{
+<span class="nc" id="L326">		return (buf[off + 0] &amp; 0xFFL)</span>
+			| ((buf[off + 1] &amp; 0xFFL) &lt;&lt; 8)
+			| ((buf[off + 2] &amp; 0xFFL) &lt;&lt; 16)
+			| ((buf[off + 3] &amp; 0xFFL) &lt;&lt; 24)
+			| ((buf[off + 4] &amp; 0xFFL) &lt;&lt; 32)
+			| ((buf[off + 5] &amp; 0xFFL) &lt;&lt; 40)
+			| ((buf[off + 6] &amp; 0xFFL) &lt;&lt; 48)
+			| ((buf[off + 7] &amp; 0xFFL) &lt;&lt; 56);
+	}
+
+	/**
+	 * Perform a circular rotation by {@code n} to the left
+	 * of the 64-bit word {@code x}. The {@code n} parameter
+	 * must lie between 1 and 63 (inclusive).
+	 *
+	 * @param x   the value to rotate
+	 * @param n   the rotation count (between 1 and 63)
+	 * @return  the rotated value
+	*/
+	private static final long circularLeft(long x, int n)
+	{
+<span class="nc" id="L347">		return (x &lt;&lt; n) | (x &gt;&gt;&gt; (64 - n));</span>
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc bnc" id="L353" title="All 2 branches missed.">		for (int i = 0; i &lt; 16; i ++)</span>
+<span class="nc" id="L354">			M[i] = decodeLELong(data, i * 8);</span>
+<span class="nc" id="L355">		compress(M);</span>
+<span class="nc" id="L356">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L361">		return &quot;BMW-&quot; + (getDigestLength() &lt;&lt; 3);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

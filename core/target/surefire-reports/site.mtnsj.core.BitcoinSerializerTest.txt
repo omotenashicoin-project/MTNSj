@@ -1,0 +1,20 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.BitcoinSerializerTest
+-------------------------------------------------------------------------------
+Tests run: 8, Failures: 0, Errors: 4, Skipped: 0, Time elapsed: 0.01 sec <<< FAILURE! - in site.mtnsj.core.BitcoinSerializerTest
+testCachedParsing(site.mtnsj.core.BitcoinSerializerTest)  Time elapsed: 0 sec  <<< ERROR!
+java.nio.BufferUnderflowException
+	at site.mtnsj.core.BitcoinSerializerTest.testCachedParsing(BitcoinSerializerTest.java:84)
+
+testAddr(site.mtnsj.core.BitcoinSerializerTest)  Time elapsed: 0 sec  <<< ERROR!
+java.nio.BufferUnderflowException
+	at site.mtnsj.core.BitcoinSerializerTest.testAddr(BitcoinSerializerTest.java:61)
+
+testHeaders1(site.mtnsj.core.BitcoinSerializerTest)  Time elapsed: 0.001 sec  <<< ERROR!
+java.nio.BufferUnderflowException
+	at site.mtnsj.core.BitcoinSerializerTest.testHeaders1(BitcoinSerializerTest.java:144)
+
+testHeaders2(site.mtnsj.core.BitcoinSerializerTest)  Time elapsed: 0.001 sec  <<< ERROR!
+java.nio.BufferUnderflowException
+	at site.mtnsj.core.BitcoinSerializerTest.testHeaders2(BitcoinSerializerTest.java:180)
+

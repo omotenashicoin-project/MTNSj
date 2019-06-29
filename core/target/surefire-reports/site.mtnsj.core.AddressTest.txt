@@ -1,0 +1,60 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.AddressTest
+-------------------------------------------------------------------------------
+Tests run: 15, Failures: 2, Errors: 12, Skipped: 0, Time elapsed: 0.482 sec <<< FAILURE! - in site.mtnsj.core.AddressTest
+comparisonGreaterThan(site.mtnsj.core.AddressTest)  Time elapsed: 0.015 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 0 not in [63, 8]
+	at site.mtnsj.core.AddressTest.comparisonGreaterThan(AddressTest.java:241)
+
+comparisonEqualTo(site.mtnsj.core.AddressTest)  Time elapsed: 0.001 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 0 not in [63, 8]
+	at site.mtnsj.core.AddressTest.comparisonEqualTo(AddressTest.java:223)
+
+getNetwork(site.mtnsj.core.AddressTest)  Time elapsed: 0.03 sec  <<< ERROR!
+site.mtnsj.core.AddressFormatException: No network found for MvRLbC1q5zq3SMCa5vBDy14hVGVEuo5uSw
+	at site.mtnsj.core.AddressTest.getNetwork(AddressTest.java:117)
+
+testJavaSerialization(site.mtnsj.core.AddressTest)  Time elapsed: 0.001 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 111 not in [83, 18]
+	at site.mtnsj.core.AddressTest.testJavaSerialization(AddressTest.java:43)
+
+p2shAddressCreationFromKeys(site.mtnsj.core.AddressTest)  Time elapsed: 0.002 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 128 not in [191]
+	at site.mtnsj.core.AddressTest.p2shAddressCreationFromKeys(AddressTest.java:184)
+
+p2shAddress(site.mtnsj.core.AddressTest)  Time elapsed: 0.001 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 5 not in [63, 8]
+	at site.mtnsj.core.AddressTest.p2shAddress(AddressTest.java:158)
+
+stringification(site.mtnsj.core.AddressTest)  Time elapsed: 0.004 sec  <<< FAILURE!
+org.junit.ComparisonFailure: expected:<[n4eA2nbYqErp7H6jebchxAN59DmNpksexv]> but was:<[aoBGTkFUxBtHD9CJxrHnNek3X6YxqaoVbP]>
+	at site.mtnsj.core.AddressTest.stringification(AddressTest.java:63)
+
+getAltNetwork(site.mtnsj.core.AddressTest)  Time elapsed: 0.013 sec  <<< ERROR!
+site.mtnsj.core.AddressFormatException: No network found for 17kzeh4N8g49GFvdDzSf8PjaPfyoD1MndL
+	at site.mtnsj.core.AddressTest.getAltNetwork(AddressTest.java:145)
+
+decoding(site.mtnsj.core.AddressTest)  Time elapsed: 0.001 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 111 not in [83, 18]
+	at site.mtnsj.core.AddressTest.decoding(AddressTest.java:74)
+
+comparisonCloneEqualTo(site.mtnsj.core.AddressTest)  Time elapsed: 0.001 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 0 not in [63, 8]
+	at site.mtnsj.core.AddressTest.comparisonCloneEqualTo(AddressTest.java:214)
+
+comparisonLessThan(site.mtnsj.core.AddressTest)  Time elapsed: 0.001 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 0 not in [63, 8]
+	at site.mtnsj.core.AddressTest.comparisonLessThan(AddressTest.java:232)
+
+roundtripBase58(site.mtnsj.core.AddressTest)  Time elapsed: 0 sec  <<< ERROR!
+site.mtnsj.core.AddressFormatException: No network found for 17kzeh4N8g49GFvdDzSf8PjaPfyoD1MndL
+	at site.mtnsj.core.AddressTest.roundtripBase58(AddressTest.java:209)
+
+errorPaths(site.mtnsj.core.AddressTest)  Time elapsed: 0 sec  <<< FAILURE!
+java.lang.AssertionError: expected:<0> but was:<63>
+	at site.mtnsj.core.AddressTest.errorPaths(AddressTest.java:108)
+
+comparisonBytesVsString(site.mtnsj.core.AddressTest)  Time elapsed: 0.001 sec  <<< ERROR!
+site.mtnsj.core.WrongNetworkException: Version code of address did not match acceptable versions for network: 0 not in [63, 8]
+	at site.mtnsj.core.AddressTest.comparisonBytesVsString(AddressTest.java:251)
+

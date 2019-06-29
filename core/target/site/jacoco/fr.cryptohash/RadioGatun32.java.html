@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>RadioGatun32.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">RadioGatun32.java</span></div><h1>RadioGatun32.java</h1><pre class="source lang-java linenums">// $Id: RadioGatun32.java 232 2010-06-17 14:19:24Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the RadioGatun[32] digest algorithm under the
+ * {@link Digest} API.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 232 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class RadioGatun32 extends DigestEngine {
+
+	private int[] a, b;
+
+	/**
+	 * Build the object.
+	 */
+	public RadioGatun32()
+	{
+<span class="nc" id="L49">		super();</span>
+<span class="nc" id="L50">	}</span>
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L55">		RadioGatun32 d = new RadioGatun32();</span>
+<span class="nc" id="L56">		System.arraycopy(a, 0, d.a, 0, a.length);</span>
+<span class="nc" id="L57">		System.arraycopy(b, 0, d.b, 0, b.length);</span>
+<span class="nc" id="L58">		return copyState(d);</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L64">		return 32;</span>
+	}
+
+	/** @see DigestEngine */
+	protected int getInternalBlockLength()
+	{
+<span class="nc" id="L70">		return 156;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L76">		return -12;</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc bnc" id="L82" title="All 2 branches missed.">		for (int i = 0; i &lt; a.length; i ++)</span>
+<span class="nc" id="L83">			a[i] = 0;</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">		for (int i = 0; i &lt; b.length; i ++)</span>
+<span class="nc" id="L85">			b[i] = 0;</span>
+<span class="nc" id="L86">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L91">		int ptr = flush();</span>
+<span class="nc" id="L92">		byte[] buf = getBlockBuffer();</span>
+<span class="nc" id="L93">		buf[ptr ++] = 0x01;</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">		for (int i = ptr; i &lt; 156; i ++)</span>
+<span class="nc" id="L95">			buf[i] = 0;</span>
+<span class="nc" id="L96">		processBlock(buf);</span>
+<span class="nc" id="L97">		int num = 20;</span>
+		for (;;) {
+<span class="nc" id="L99">			ptr += 12;</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">			if (ptr &gt; 156)</span>
+<span class="nc" id="L101">				break;</span>
+<span class="nc" id="L102">			num --;</span>
+		}
+<span class="nc" id="L104">		blank(num, output, outputOffset);</span>
+<span class="nc" id="L105">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L110">		a = new int[19];</span>
+<span class="nc" id="L111">		b = new int[39];</span>
+<span class="nc" id="L112">		engineReset();</span>
+<span class="nc" id="L113">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in little-endian
+	 * convention (least significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeLEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L126">		buf[off + 0] = (byte)val;</span>
+<span class="nc" id="L127">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L128">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L129">		buf[off + 3] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L130">	}</span>
+
+	/**
+	 * Decode a 32-bit little-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final int decodeLEInt(byte[] buf, int off)
+	{
+<span class="nc" id="L142">		return ((buf[off + 3] &amp; 0xFF) &lt;&lt; 24)</span>
+			| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 16)
+			| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 8)
+			| (buf[off] &amp; 0xFF);
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc" id="L151">		int a00 = a[ 0];</span>
+<span class="nc" id="L152">		int a01 = a[ 1];</span>
+<span class="nc" id="L153">		int a02 = a[ 2];</span>
+<span class="nc" id="L154">		int a03 = a[ 3];</span>
+<span class="nc" id="L155">		int a04 = a[ 4];</span>
+<span class="nc" id="L156">		int a05 = a[ 5];</span>
+<span class="nc" id="L157">		int a06 = a[ 6];</span>
+<span class="nc" id="L158">		int a07 = a[ 7];</span>
+<span class="nc" id="L159">		int a08 = a[ 8];</span>
+<span class="nc" id="L160">		int a09 = a[ 9];</span>
+<span class="nc" id="L161">		int a10 = a[10];</span>
+<span class="nc" id="L162">		int a11 = a[11];</span>
+<span class="nc" id="L163">		int a12 = a[12];</span>
+<span class="nc" id="L164">		int a13 = a[13];</span>
+<span class="nc" id="L165">		int a14 = a[14];</span>
+<span class="nc" id="L166">		int a15 = a[15];</span>
+<span class="nc" id="L167">		int a16 = a[16];</span>
+<span class="nc" id="L168">		int a17 = a[17];</span>
+<span class="nc" id="L169">		int a18 = a[18];</span>
+
+<span class="nc" id="L171">		int dp = 0;</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">		for (int mk = 12; mk &gt;= 0; mk --) {</span>
+<span class="nc" id="L173">			int p0 = decodeLEInt(data, dp + 0);</span>
+<span class="nc" id="L174">			int p1 = decodeLEInt(data, dp + 4);</span>
+<span class="nc" id="L175">			int p2 = decodeLEInt(data, dp + 8);</span>
+<span class="nc" id="L176">			dp += 12;</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">			int bj = (mk == 12) ? 0 : 3 * (mk + 1);</span>
+<span class="nc" id="L178">			b[bj + 0] ^= p0;</span>
+<span class="nc" id="L179">			b[bj + 1] ^= p1;</span>
+<span class="nc" id="L180">			b[bj + 2] ^= p2;</span>
+<span class="nc" id="L181">			a16 ^= p0;</span>
+<span class="nc" id="L182">			a17 ^= p1;</span>
+<span class="nc" id="L183">			a18 ^= p2;</span>
+
+<span class="nc" id="L185">			bj = mk * 3;</span>
+<span class="nc bnc" id="L186" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L187">				bj = 0;</span>
+<span class="nc" id="L188">			b[bj + 0] ^= a01;</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L190">				bj = 0;</span>
+<span class="nc" id="L191">			b[bj + 1] ^= a02;</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L193">				bj = 0;</span>
+<span class="nc" id="L194">			b[bj + 2] ^= a03;</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L196">				bj = 0;</span>
+<span class="nc" id="L197">			b[bj + 0] ^= a04;</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L199">				bj = 0;</span>
+<span class="nc" id="L200">			b[bj + 1] ^= a05;</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L202">				bj = 0;</span>
+<span class="nc" id="L203">			b[bj + 2] ^= a06;</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L205">				bj = 0;</span>
+<span class="nc" id="L206">			b[bj + 0] ^= a07;</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L208">				bj = 0;</span>
+<span class="nc" id="L209">			b[bj + 1] ^= a08;</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L211">				bj = 0;</span>
+<span class="nc" id="L212">			b[bj + 2] ^= a09;</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L214">				bj = 0;</span>
+<span class="nc" id="L215">			b[bj + 0] ^= a10;</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L217">				bj = 0;</span>
+<span class="nc" id="L218">			b[bj + 1] ^= a11;</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">			if ((bj += 3) == 39)</span>
+<span class="nc" id="L220">				bj = 0;</span>
+<span class="nc" id="L221">			b[bj + 2] ^= a12;</span>
+
+<span class="nc" id="L223">			int t00 = a00 ^ (a01 | ~a02);</span>
+<span class="nc" id="L224">			int t01 = a01 ^ (a02 | ~a03);</span>
+<span class="nc" id="L225">			int t02 = a02 ^ (a03 | ~a04);</span>
+<span class="nc" id="L226">			int t03 = a03 ^ (a04 | ~a05);</span>
+<span class="nc" id="L227">			int t04 = a04 ^ (a05 | ~a06);</span>
+<span class="nc" id="L228">			int t05 = a05 ^ (a06 | ~a07);</span>
+<span class="nc" id="L229">			int t06 = a06 ^ (a07 | ~a08);</span>
+<span class="nc" id="L230">			int t07 = a07 ^ (a08 | ~a09);</span>
+<span class="nc" id="L231">			int t08 = a08 ^ (a09 | ~a10);</span>
+<span class="nc" id="L232">			int t09 = a09 ^ (a10 | ~a11);</span>
+<span class="nc" id="L233">			int t10 = a10 ^ (a11 | ~a12);</span>
+<span class="nc" id="L234">			int t11 = a11 ^ (a12 | ~a13);</span>
+<span class="nc" id="L235">			int t12 = a12 ^ (a13 | ~a14);</span>
+<span class="nc" id="L236">			int t13 = a13 ^ (a14 | ~a15);</span>
+<span class="nc" id="L237">			int t14 = a14 ^ (a15 | ~a16);</span>
+<span class="nc" id="L238">			int t15 = a15 ^ (a16 | ~a17);</span>
+<span class="nc" id="L239">			int t16 = a16 ^ (a17 | ~a18);</span>
+<span class="nc" id="L240">			int t17 = a17 ^ (a18 | ~a00);</span>
+<span class="nc" id="L241">			int t18 = a18 ^ (a00 | ~a01);</span>
+
+<span class="nc" id="L243">			a00 = t00;</span>
+<span class="nc" id="L244">			a01 = (t07 &lt;&lt; 31) | (t07 &gt;&gt;&gt;  1);</span>
+<span class="nc" id="L245">			a02 = (t14 &lt;&lt; 29) | (t14 &gt;&gt;&gt;  3);</span>
+<span class="nc" id="L246">			a03 = (t02 &lt;&lt; 26) | (t02 &gt;&gt;&gt;  6);</span>
+<span class="nc" id="L247">			a04 = (t09 &lt;&lt; 22) | (t09 &gt;&gt;&gt; 10);</span>
+<span class="nc" id="L248">			a05 = (t16 &lt;&lt; 17) | (t16 &gt;&gt;&gt; 15);</span>
+<span class="nc" id="L249">			a06 = (t04 &lt;&lt; 11) | (t04 &gt;&gt;&gt; 21);</span>
+<span class="nc" id="L250">			a07 = (t11 &lt;&lt;  4) | (t11 &gt;&gt;&gt; 28);</span>
+<span class="nc" id="L251">			a08 = (t18 &lt;&lt; 28) | (t18 &gt;&gt;&gt;  4);</span>
+<span class="nc" id="L252">			a09 = (t06 &lt;&lt; 19) | (t06 &gt;&gt;&gt; 13);</span>
+<span class="nc" id="L253">			a10 = (t13 &lt;&lt;  9) | (t13 &gt;&gt;&gt; 23);</span>
+<span class="nc" id="L254">			a11 = (t01 &lt;&lt; 30) | (t01 &gt;&gt;&gt;  2);</span>
+<span class="nc" id="L255">			a12 = (t08 &lt;&lt; 18) | (t08 &gt;&gt;&gt; 14);</span>
+<span class="nc" id="L256">			a13 = (t15 &lt;&lt;  5) | (t15 &gt;&gt;&gt; 27);</span>
+<span class="nc" id="L257">			a14 = (t03 &lt;&lt; 23) | (t03 &gt;&gt;&gt;  9);</span>
+<span class="nc" id="L258">			a15 = (t10 &lt;&lt;  8) | (t10 &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L259">			a16 = (t17 &lt;&lt; 24) | (t17 &gt;&gt;&gt;  8);</span>
+<span class="nc" id="L260">			a17 = (t05 &lt;&lt;  7) | (t05 &gt;&gt;&gt; 25);</span>
+<span class="nc" id="L261">			a18 = (t12 &lt;&lt; 21) | (t12 &gt;&gt;&gt; 11);</span>
+
+<span class="nc" id="L263">			t00 = a00 ^ a01 ^ a04;</span>
+<span class="nc" id="L264">			t01 = a01 ^ a02 ^ a05;</span>
+<span class="nc" id="L265">			t02 = a02 ^ a03 ^ a06;</span>
+<span class="nc" id="L266">			t03 = a03 ^ a04 ^ a07;</span>
+<span class="nc" id="L267">			t04 = a04 ^ a05 ^ a08;</span>
+<span class="nc" id="L268">			t05 = a05 ^ a06 ^ a09;</span>
+<span class="nc" id="L269">			t06 = a06 ^ a07 ^ a10;</span>
+<span class="nc" id="L270">			t07 = a07 ^ a08 ^ a11;</span>
+<span class="nc" id="L271">			t08 = a08 ^ a09 ^ a12;</span>
+<span class="nc" id="L272">			t09 = a09 ^ a10 ^ a13;</span>
+<span class="nc" id="L273">			t10 = a10 ^ a11 ^ a14;</span>
+<span class="nc" id="L274">			t11 = a11 ^ a12 ^ a15;</span>
+<span class="nc" id="L275">			t12 = a12 ^ a13 ^ a16;</span>
+<span class="nc" id="L276">			t13 = a13 ^ a14 ^ a17;</span>
+<span class="nc" id="L277">			t14 = a14 ^ a15 ^ a18;</span>
+<span class="nc" id="L278">			t15 = a15 ^ a16 ^ a00;</span>
+<span class="nc" id="L279">			t16 = a16 ^ a17 ^ a01;</span>
+<span class="nc" id="L280">			t17 = a17 ^ a18 ^ a02;</span>
+<span class="nc" id="L281">			t18 = a18 ^ a00 ^ a03;</span>
+
+<span class="nc" id="L283">			a00 = t00 ^ 1;</span>
+<span class="nc" id="L284">			a01 = t01;</span>
+<span class="nc" id="L285">			a02 = t02;</span>
+<span class="nc" id="L286">			a03 = t03;</span>
+<span class="nc" id="L287">			a04 = t04;</span>
+<span class="nc" id="L288">			a05 = t05;</span>
+<span class="nc" id="L289">			a06 = t06;</span>
+<span class="nc" id="L290">			a07 = t07;</span>
+<span class="nc" id="L291">			a08 = t08;</span>
+<span class="nc" id="L292">			a09 = t09;</span>
+<span class="nc" id="L293">			a10 = t10;</span>
+<span class="nc" id="L294">			a11 = t11;</span>
+<span class="nc" id="L295">			a12 = t12;</span>
+<span class="nc" id="L296">			a13 = t13;</span>
+<span class="nc" id="L297">			a14 = t14;</span>
+<span class="nc" id="L298">			a15 = t15;</span>
+<span class="nc" id="L299">			a16 = t16;</span>
+<span class="nc" id="L300">			a17 = t17;</span>
+<span class="nc" id="L301">			a18 = t18;</span>
+
+<span class="nc" id="L303">			bj = mk * 3;</span>
+<span class="nc" id="L304">			a13 ^= b[bj + 0];</span>
+<span class="nc" id="L305">			a14 ^= b[bj + 1];</span>
+<span class="nc" id="L306">			a15 ^= b[bj + 2];</span>
+		}
+
+<span class="nc" id="L309">		a[ 0] = a00;</span>
+<span class="nc" id="L310">		a[ 1] = a01;</span>
+<span class="nc" id="L311">		a[ 2] = a02;</span>
+<span class="nc" id="L312">		a[ 3] = a03;</span>
+<span class="nc" id="L313">		a[ 4] = a04;</span>
+<span class="nc" id="L314">		a[ 5] = a05;</span>
+<span class="nc" id="L315">		a[ 6] = a06;</span>
+<span class="nc" id="L316">		a[ 7] = a07;</span>
+<span class="nc" id="L317">		a[ 8] = a08;</span>
+<span class="nc" id="L318">		a[ 9] = a09;</span>
+<span class="nc" id="L319">		a[10] = a10;</span>
+<span class="nc" id="L320">		a[11] = a11;</span>
+<span class="nc" id="L321">		a[12] = a12;</span>
+<span class="nc" id="L322">		a[13] = a13;</span>
+<span class="nc" id="L323">		a[14] = a14;</span>
+<span class="nc" id="L324">		a[15] = a15;</span>
+<span class="nc" id="L325">		a[16] = a16;</span>
+<span class="nc" id="L326">		a[17] = a17;</span>
+<span class="nc" id="L327">		a[18] = a18;</span>
+<span class="nc" id="L328">	}</span>
+
+	/**
+	 * Run {@code num} blank rounds. For the last four rounds,
+	 * {@code a[1]} and {@code a[2]} are written out in {@code out},
+	 * beginning at offset {@code off}. This method does not write
+	 * back all the state; thus, it must be the final operation in a
+	 * given hash function computation.
+	 *
+	 * @param num   the number of blank rounds
+	 * @param out   the output buffer
+	 * @param off   the output offset
+	 */
+	private void blank(int num, byte[] out, int off)
+	{
+<span class="nc" id="L343">		int a00 = a[ 0];</span>
+<span class="nc" id="L344">		int a01 = a[ 1];</span>
+<span class="nc" id="L345">		int a02 = a[ 2];</span>
+<span class="nc" id="L346">		int a03 = a[ 3];</span>
+<span class="nc" id="L347">		int a04 = a[ 4];</span>
+<span class="nc" id="L348">		int a05 = a[ 5];</span>
+<span class="nc" id="L349">		int a06 = a[ 6];</span>
+<span class="nc" id="L350">		int a07 = a[ 7];</span>
+<span class="nc" id="L351">		int a08 = a[ 8];</span>
+<span class="nc" id="L352">		int a09 = a[ 9];</span>
+<span class="nc" id="L353">		int a10 = a[10];</span>
+<span class="nc" id="L354">		int a11 = a[11];</span>
+<span class="nc" id="L355">		int a12 = a[12];</span>
+<span class="nc" id="L356">		int a13 = a[13];</span>
+<span class="nc" id="L357">		int a14 = a[14];</span>
+<span class="nc" id="L358">		int a15 = a[15];</span>
+<span class="nc" id="L359">		int a16 = a[16];</span>
+<span class="nc" id="L360">		int a17 = a[17];</span>
+<span class="nc" id="L361">		int a18 = a[18];</span>
+
+<span class="nc bnc" id="L363" title="All 2 branches missed.">		while (num -- &gt; 0) {</span>
+<span class="nc" id="L364">			b[ 0] ^= a01;</span>
+<span class="nc" id="L365">			b[ 4] ^= a02;</span>
+<span class="nc" id="L366">			b[ 8] ^= a03;</span>
+<span class="nc" id="L367">			b[ 9] ^= a04;</span>
+<span class="nc" id="L368">			b[13] ^= a05;</span>
+<span class="nc" id="L369">			b[17] ^= a06;</span>
+<span class="nc" id="L370">			b[18] ^= a07;</span>
+<span class="nc" id="L371">			b[22] ^= a08;</span>
+<span class="nc" id="L372">			b[26] ^= a09;</span>
+<span class="nc" id="L373">			b[27] ^= a10;</span>
+<span class="nc" id="L374">			b[31] ^= a11;</span>
+<span class="nc" id="L375">			b[35] ^= a12;</span>
+
+<span class="nc" id="L377">			int t00 = a00 ^ (a01 | ~a02);</span>
+<span class="nc" id="L378">			int t01 = a01 ^ (a02 | ~a03);</span>
+<span class="nc" id="L379">			int t02 = a02 ^ (a03 | ~a04);</span>
+<span class="nc" id="L380">			int t03 = a03 ^ (a04 | ~a05);</span>
+<span class="nc" id="L381">			int t04 = a04 ^ (a05 | ~a06);</span>
+<span class="nc" id="L382">			int t05 = a05 ^ (a06 | ~a07);</span>
+<span class="nc" id="L383">			int t06 = a06 ^ (a07 | ~a08);</span>
+<span class="nc" id="L384">			int t07 = a07 ^ (a08 | ~a09);</span>
+<span class="nc" id="L385">			int t08 = a08 ^ (a09 | ~a10);</span>
+<span class="nc" id="L386">			int t09 = a09 ^ (a10 | ~a11);</span>
+<span class="nc" id="L387">			int t10 = a10 ^ (a11 | ~a12);</span>
+<span class="nc" id="L388">			int t11 = a11 ^ (a12 | ~a13);</span>
+<span class="nc" id="L389">			int t12 = a12 ^ (a13 | ~a14);</span>
+<span class="nc" id="L390">			int t13 = a13 ^ (a14 | ~a15);</span>
+<span class="nc" id="L391">			int t14 = a14 ^ (a15 | ~a16);</span>
+<span class="nc" id="L392">			int t15 = a15 ^ (a16 | ~a17);</span>
+<span class="nc" id="L393">			int t16 = a16 ^ (a17 | ~a18);</span>
+<span class="nc" id="L394">			int t17 = a17 ^ (a18 | ~a00);</span>
+<span class="nc" id="L395">			int t18 = a18 ^ (a00 | ~a01);</span>
+
+<span class="nc" id="L397">			a00 = t00;</span>
+<span class="nc" id="L398">			a01 = (t07 &lt;&lt; 31) | (t07 &gt;&gt;&gt;  1);</span>
+<span class="nc" id="L399">			a02 = (t14 &lt;&lt; 29) | (t14 &gt;&gt;&gt;  3);</span>
+<span class="nc" id="L400">			a03 = (t02 &lt;&lt; 26) | (t02 &gt;&gt;&gt;  6);</span>
+<span class="nc" id="L401">			a04 = (t09 &lt;&lt; 22) | (t09 &gt;&gt;&gt; 10);</span>
+<span class="nc" id="L402">			a05 = (t16 &lt;&lt; 17) | (t16 &gt;&gt;&gt; 15);</span>
+<span class="nc" id="L403">			a06 = (t04 &lt;&lt; 11) | (t04 &gt;&gt;&gt; 21);</span>
+<span class="nc" id="L404">			a07 = (t11 &lt;&lt;  4) | (t11 &gt;&gt;&gt; 28);</span>
+<span class="nc" id="L405">			a08 = (t18 &lt;&lt; 28) | (t18 &gt;&gt;&gt;  4);</span>
+<span class="nc" id="L406">			a09 = (t06 &lt;&lt; 19) | (t06 &gt;&gt;&gt; 13);</span>
+<span class="nc" id="L407">			a10 = (t13 &lt;&lt;  9) | (t13 &gt;&gt;&gt; 23);</span>
+<span class="nc" id="L408">			a11 = (t01 &lt;&lt; 30) | (t01 &gt;&gt;&gt;  2);</span>
+<span class="nc" id="L409">			a12 = (t08 &lt;&lt; 18) | (t08 &gt;&gt;&gt; 14);</span>
+<span class="nc" id="L410">			a13 = (t15 &lt;&lt;  5) | (t15 &gt;&gt;&gt; 27);</span>
+<span class="nc" id="L411">			a14 = (t03 &lt;&lt; 23) | (t03 &gt;&gt;&gt;  9);</span>
+<span class="nc" id="L412">			a15 = (t10 &lt;&lt;  8) | (t10 &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L413">			a16 = (t17 &lt;&lt; 24) | (t17 &gt;&gt;&gt;  8);</span>
+<span class="nc" id="L414">			a17 = (t05 &lt;&lt;  7) | (t05 &gt;&gt;&gt; 25);</span>
+<span class="nc" id="L415">			a18 = (t12 &lt;&lt; 21) | (t12 &gt;&gt;&gt; 11);</span>
+
+<span class="nc" id="L417">			t00 = a00 ^ a01 ^ a04;</span>
+<span class="nc" id="L418">			t01 = a01 ^ a02 ^ a05;</span>
+<span class="nc" id="L419">			t02 = a02 ^ a03 ^ a06;</span>
+<span class="nc" id="L420">			t03 = a03 ^ a04 ^ a07;</span>
+<span class="nc" id="L421">			t04 = a04 ^ a05 ^ a08;</span>
+<span class="nc" id="L422">			t05 = a05 ^ a06 ^ a09;</span>
+<span class="nc" id="L423">			t06 = a06 ^ a07 ^ a10;</span>
+<span class="nc" id="L424">			t07 = a07 ^ a08 ^ a11;</span>
+<span class="nc" id="L425">			t08 = a08 ^ a09 ^ a12;</span>
+<span class="nc" id="L426">			t09 = a09 ^ a10 ^ a13;</span>
+<span class="nc" id="L427">			t10 = a10 ^ a11 ^ a14;</span>
+<span class="nc" id="L428">			t11 = a11 ^ a12 ^ a15;</span>
+<span class="nc" id="L429">			t12 = a12 ^ a13 ^ a16;</span>
+<span class="nc" id="L430">			t13 = a13 ^ a14 ^ a17;</span>
+<span class="nc" id="L431">			t14 = a14 ^ a15 ^ a18;</span>
+<span class="nc" id="L432">			t15 = a15 ^ a16 ^ a00;</span>
+<span class="nc" id="L433">			t16 = a16 ^ a17 ^ a01;</span>
+<span class="nc" id="L434">			t17 = a17 ^ a18 ^ a02;</span>
+<span class="nc" id="L435">			t18 = a18 ^ a00 ^ a03;</span>
+
+<span class="nc" id="L437">			a00 = t00 ^ 1;</span>
+<span class="nc" id="L438">			a01 = t01;</span>
+<span class="nc" id="L439">			a02 = t02;</span>
+<span class="nc" id="L440">			a03 = t03;</span>
+<span class="nc" id="L441">			a04 = t04;</span>
+<span class="nc" id="L442">			a05 = t05;</span>
+<span class="nc" id="L443">			a06 = t06;</span>
+<span class="nc" id="L444">			a07 = t07;</span>
+<span class="nc" id="L445">			a08 = t08;</span>
+<span class="nc" id="L446">			a09 = t09;</span>
+<span class="nc" id="L447">			a10 = t10;</span>
+<span class="nc" id="L448">			a11 = t11;</span>
+<span class="nc" id="L449">			a12 = t12;</span>
+<span class="nc" id="L450">			a13 = t13;</span>
+<span class="nc" id="L451">			a14 = t14;</span>
+<span class="nc" id="L452">			a15 = t15;</span>
+<span class="nc" id="L453">			a16 = t16;</span>
+<span class="nc" id="L454">			a17 = t17;</span>
+<span class="nc" id="L455">			a18 = t18;</span>
+
+<span class="nc" id="L457">			int bt0 = b[36];</span>
+<span class="nc" id="L458">			int bt1 = b[37];</span>
+<span class="nc" id="L459">			int bt2 = b[38];</span>
+<span class="nc" id="L460">			a13 ^= bt0;</span>
+<span class="nc" id="L461">			a14 ^= bt1;</span>
+<span class="nc" id="L462">			a15 ^= bt2;</span>
+<span class="nc" id="L463">			System.arraycopy(b, 0, b, 3, 36);</span>
+<span class="nc" id="L464">			b[0] = bt0;</span>
+<span class="nc" id="L465">			b[1] = bt1;</span>
+<span class="nc" id="L466">			b[2] = bt2;</span>
+<span class="nc bnc" id="L467" title="All 2 branches missed.">			if (num &lt; 4) {</span>
+<span class="nc" id="L468">				encodeLEInt(a01, out, off + 0);</span>
+<span class="nc" id="L469">				encodeLEInt(a02, out, off + 4);</span>
+<span class="nc" id="L470">				off += 8;</span>
+			}
+<span class="nc" id="L472">		}</span>
+
+		/* not needed
+		a[ 0] = a00;
+		a[ 1] = a01;
+		a[ 2] = a02;
+		a[ 3] = a03;
+		a[ 4] = a04;
+		a[ 5] = a05;
+		a[ 6] = a06;
+		a[ 7] = a07;
+		a[ 8] = a08;
+		a[ 9] = a09;
+		a[10] = a10;
+		a[11] = a11;
+		a[12] = a12;
+		a[13] = a13;
+		a[14] = a14;
+		a[15] = a15;
+		a[16] = a16;
+		a[17] = a17;
+		a[18] = a18;
+		*/
+<span class="nc" id="L495">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L500">		return &quot;RadioGatun[32]&quot;;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

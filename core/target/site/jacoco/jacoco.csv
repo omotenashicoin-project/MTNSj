@@ -1,0 +1,667 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+mtnsj,site.mtnsj.utils,MonetaryFormat,572,586,68,36,76,90,52,23,12,11
+mtnsj,site.mtnsj.utils,BriefLogFormatter,78,35,3,1,19,11,4,4,2,4
+mtnsj,site.mtnsj.utils,BaseTaggableObject,56,8,7,1,14,3,7,2,3,2
+mtnsj,site.mtnsj.utils,DaemonThreadFactory,26,0,2,0,10,0,4,0,3,0
+mtnsj,site.mtnsj.utils,ExponentialBackoff,15,46,0,0,1,12,1,5,1,5
+mtnsj,site.mtnsj.utils,BtcFormat.Builder.Variant,58,0,0,0,5,0,5,0,5,0
+mtnsj,site.mtnsj.utils,BtcFormat.Builder.Variant.new BtcFormat.Builder.Variant() {...},14,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.utils,BtcAutoFormat.Style,38,0,0,0,3,0,4,0,4,0
+mtnsj,site.mtnsj.utils,BtcAutoFormat,152,0,16,0,32,0,14,0,6,0
+mtnsj,site.mtnsj.utils,BlockFileLoader,323,0,42,0,80,0,28,0,7,0
+mtnsj,site.mtnsj.utils,BtcFormat.ScaleMatcher,12,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.utils,VersionTally,4,119,1,13,1,28,2,10,1,4
+mtnsj,site.mtnsj.utils,ContextPropagatingThreadFactory.new Runnable() {...},8,20,0,0,3,5,0,2,0,2
+mtnsj,site.mtnsj.utils,Fiat,298,0,26,0,45,0,40,0,27,0
+mtnsj,site.mtnsj.utils,BtcFormat.Builder,216,0,22,0,46,0,23,0,12,0
+mtnsj,site.mtnsj.utils,ExponentialBackoff.Params,14,30,2,2,5,7,3,1,1,1
+mtnsj,site.mtnsj.utils,ContextPropagatingThreadFactory,3,45,1,1,1,14,1,4,0,4
+mtnsj,site.mtnsj.utils,ListenerRegistration,1,44,2,6,1,11,2,4,0,2
+mtnsj,site.mtnsj.utils,BtcFixedFormat,296,0,24,0,36,0,27,0,11,0
+mtnsj,site.mtnsj.utils,Threading,16,45,1,1,7,16,5,5,4,5
+mtnsj,site.mtnsj.utils,BtcFormat,1463,0,84,0,232,0,113,0,63,0
+mtnsj,site.mtnsj.utils,Threading.new Runnable() {...},0,10,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.utils,Threading.new Executor() {...},0,6,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.utils,Threading.new ThreadFactory() {...},13,3,0,0,4,1,1,1,1,1
+mtnsj,site.mtnsj.utils,BtcAutoFormat.Style.new BtcAutoFormat.Style() {...},21,0,0,0,6,0,2,0,2,0
+mtnsj,site.mtnsj.utils,BtcAutoFormat.Style.new BtcAutoFormat.Style() {...},15,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.utils,Threading.UserThread,18,41,3,1,7,15,2,4,0,4
+mtnsj,site.mtnsj.utils,Pair,103,0,22,0,22,0,19,0,8,0
+mtnsj,site.mtnsj.utils,ExchangeRate,179,0,20,0,29,0,16,0,6,0
+mtnsj,site.mtnsj.protocols.channels,StoredPaymentChannelServerStates.new TimerTask() {...},26,0,0,0,7,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,ClientState.new Descriptors.FileDescriptor.InternalDescriptorAssigner() {...},8,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClient.VersionSelector,90,0,14,0,13,0,15,0,7,0
+mtnsj,site.mtnsj.protocols.channels,ClientState.StoredClientPaymentChannel.new AbstractParser() {...},10,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,ClientState,101,0,0,0,12,0,4,0,4,0
+mtnsj,site.mtnsj.protocols.channels,ServerState.StoredServerPaymentChannel,685,0,76,0,170,0,88,0,46,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServer.new FutureCallback() {...},55,0,2,0,13,0,4,0,3,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServer.new FutureCallback() {...},38,0,2,0,7,0,4,0,3,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServer.new Object() {...},47,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.channels,ClientState.StoredClientPaymentChannel,862,0,103,0,212,0,109,0,52,0
+mtnsj,site.mtnsj.protocols.channels,ServerConnectionEventHandler,26,0,2,0,9,0,4,0,3,0
+mtnsj,site.mtnsj.protocols.channels,ServerState.StoredServerPaymentChannels,367,0,27,0,92,0,49,0,35,0
+mtnsj,site.mtnsj.protocols.channels,PaymentIncrementAck,15,0,0,0,6,0,3,0,3,0
+mtnsj,site.mtnsj.protocols.channels,ClientState.StoredClientPaymentChannels.new AbstractParser() {...},10,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClient,1134,0,97,0,278,0,72,0,19,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServerListener.new StreamConnectionFactory() {...},21,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,StoredClientChannel,168,0,7,0,23,0,7,0,3,0
+mtnsj,site.mtnsj.protocols.channels,ServerState.StoredServerPaymentChannels.Builder,611,0,74,0,167,0,73,0,36,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServerState.new FutureCallback() {...},59,0,0,0,13,0,3,0,3,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServer.InitStep,68,0,0,0,6,0,4,0,4,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServer.new Runnable() {...},21,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelV2ServerState.new FutureCallback() {...},39,0,0,0,9,0,3,0,3,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClient.InitStep,98,0,0,0,9,0,4,0,4,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelV2ClientState,399,0,16,0,84,0,24,0,16,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServerListener,55,0,0,0,14,0,3,0,3,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelV1ServerState,506,0,28,0,102,0,28,0,14,0
+mtnsj,site.mtnsj.protocols.channels,ServerState.StoredServerPaymentChannels.new AbstractParser() {...},10,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServerListener.ServerHandler,42,0,0,0,6,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.channels,ServerState.new Descriptors.FileDescriptor.InternalDescriptorAssigner() {...},8,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelV1ServerState.new FutureCallback() {...},39,0,0,0,9,0,3,0,3,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClientConnection.new IPaymentChannelClient.ClientConnection() {...},63,0,2,0,10,0,6,0,5,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClientConnection.new ProtobufConnection.Listener() {...},40,0,0,0,11,0,4,0,4,0
+mtnsj,site.mtnsj.protocols.channels,ClientState.StoredClientPaymentChannel.Builder,1032,0,106,0,267,0,113,0,60,0
+mtnsj,site.mtnsj.protocols.channels,ValueOutOfRangeException,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClient.new Object() {...},79,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.channels,ClientState.StoredClientPaymentChannels,367,0,27,0,92,0,49,0,35,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClient.new Runnable() {...},19,0,0,0,5,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelV2ServerState,402,0,18,0,85,0,24,0,15,0
+mtnsj,site.mtnsj.protocols.channels,ServerState.StoredServerPaymentChannel.Builder,781,0,78,0,204,0,87,0,48,0
+mtnsj,site.mtnsj.protocols.channels,ServerState,89,0,0,0,12,0,4,0,4,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServerState.State,98,0,0,0,9,0,4,0,4,0
+mtnsj,site.mtnsj.protocols.channels,StoredPaymentChannelClientStates.new TimerTask() {...},37,0,0,0,9,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClientState.State,108,0,0,0,10,0,4,0,4,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelCloseException,20,0,0,0,5,0,3,0,3,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServerListener.ServerHandler.new PaymentChannelServer.ServerConnection() {...},48,0,2,0,11,0,6,0,5,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServerListener.ServerHandler.new ProtobufConnection.Listener() {...},75,0,4,0,16,0,6,0,4,0
+mtnsj,site.mtnsj.protocols.channels,StoredPaymentChannelClientStates,800,0,62,0,168,0,52,0,21,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelV1ClientState,503,0,26,0,107,0,32,0,19,0
+mtnsj,site.mtnsj.protocols.channels,ServerState.StoredServerPaymentChannel.new AbstractParser() {...},10,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClientState,411,0,24,0,107,0,31,0,19,0
+mtnsj,site.mtnsj.protocols.channels,StateMachine,122,0,8,0,18,0,10,0,6,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClientConnection,114,0,0,0,23,0,10,0,10,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelCloseException.CloseReason,118,0,0,0,11,0,4,0,4,0
+mtnsj,site.mtnsj.protocols.channels,StoredPaymentChannelServerStates,555,0,32,0,123,0,33,0,17,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClientState.new WalletCoinsReceivedEventListener() {...},64,0,6,0,12,0,5,0,2,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClientState.new FutureCallback() {...},14,0,0,0,5,0,3,0,3,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelClientState.IncrementedPayment,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.channels,StoredServerChannel,182,0,15,0,39,0,15,0,7,0
+mtnsj,site.mtnsj.protocols.channels,ClientState.StoredClientPaymentChannels.Builder,611,0,74,0,167,0,73,0,36,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServer,985,0,86,0,245,0,63,0,17,0
+mtnsj,site.mtnsj.protocols.channels,PaymentChannelServerState,532,0,44,0,108,0,37,0,15,0
+mtnsj,org.darkcoinj,DarkSendPool,162,0,8,0,42,0,9,0,5,0
+mtnsj,org.darkcoinj,DarkSendEntry,119,0,14,0,27,0,11,0,4,0
+mtnsj,org.darkcoinj,DarkSend,7,0,0,0,2,0,2,0,2,0
+mtnsj,org.darkcoinj,DarkSendPool.new Runnable() {...},122,0,20,0,27,0,12,0,2,0
+mtnsj,org.darkcoinj,DarkSendSigner,221,0,4,0,38,0,9,0,7,0
+mtnsj,org.darkcoinj,ActiveMasterNode,28,0,2,0,10,0,4,0,3,0
+mtnsj,org.darkcoinj,InstantSend,2270,0,236,0,433,0,154,0,36,0
+mtnsj,org.darkcoinj,DarkSendSession,3,0,0,0,1,0,1,0,1,0
+mtnsj,org.darkcoinj,DarkSendEntryVin,14,0,0,0,4,0,1,0,1,0
+mtnsj,org.darkcoinj,DarkSendPool.ErrorMessage,238,0,0,0,23,0,4,0,4,0
+mtnsj,org.darkcoinj,DarkSendBroadcastTransaction,3,0,0,0,1,0,1,0,1,0
+mtnsj,org.darkcoinj,MasterNodePayments,12,0,0,0,5,0,1,0,1,0
+mtnsj,site.mtnsj.crypto,LinuxSecureRandom.LinuxSecureRandomProvider,12,0,0,0,3,0,1,0,1,0
+mtnsj,site.mtnsj.crypto,TrustStoreLoader.DefaultTrustStoreLoader,101,0,6,0,30,0,7,0,4,0
+mtnsj,site.mtnsj.crypto,HDKeyDerivation.new Object() {...},2,17,0,0,0,1,0,1,0,1
+mtnsj,site.mtnsj.crypto,HDKeyDerivation.RawKeyBytes,0,9,0,0,0,4,0,1,0,1
+mtnsj,site.mtnsj.crypto,ChildNumber,23,104,3,13,3,19,5,15,2,10
+mtnsj,site.mtnsj.crypto,BIP38PrivateKey.BadPassphraseException,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.crypto,HDKeyDerivation,93,369,15,16,17,73,18,11,3,10
+mtnsj,site.mtnsj.crypto,TrustStoreLoader.FileTrustStoreLoader,24,0,2,0,6,0,3,0,2,0
+mtnsj,site.mtnsj.crypto,MnemonicException.MnemonicWordException,6,0,0,0,3,0,1,0,1,0
+mtnsj,site.mtnsj.crypto,DeterministicKey,801,375,92,42,156,68,86,36,30,25
+mtnsj,site.mtnsj.crypto,PBKDF2SHA512,14,165,1,9,4,37,2,7,1,3
+mtnsj,site.mtnsj.crypto,MnemonicException.MnemonicChecksumException,3,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.crypto,DeterministicHierarchy,95,120,9,9,14,29,9,9,3,6
+mtnsj,site.mtnsj.crypto,EncryptedData,70,15,10,0,7,4,8,1,3,1
+mtnsj,site.mtnsj.crypto,MnemonicCode,199,265,30,20,41,56,21,14,3,7
+mtnsj,site.mtnsj.crypto,LinuxSecureRandom,89,0,4,0,29,0,7,0,5,0
+mtnsj,site.mtnsj.crypto,MnemonicException,7,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.crypto,TrustStoreLoader,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.crypto,DeterministicKey.new Comparator() {...},12,3,0,0,3,1,1,1,1,1
+mtnsj,site.mtnsj.crypto,HDDerivationException,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.crypto,MnemonicException.MnemonicLengthException,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.crypto,BIP38PrivateKey,622,0,64,0,97,0,41,0,9,0
+mtnsj,site.mtnsj.crypto,KeyCrypterException,4,5,0,0,2,2,1,1,1,1
+mtnsj,site.mtnsj.crypto,TransactionSignature,79,249,18,44,16,44,17,26,4,8
+mtnsj,site.mtnsj.crypto,HDKeyDerivation.PublicDeriveMode,5,33,0,0,0,3,1,3,1,3
+mtnsj,site.mtnsj.crypto,HDUtils,98,70,11,1,14,15,10,7,4,7
+mtnsj,site.mtnsj.crypto,DRMWorkaround,105,0,4,0,26,0,5,0,3,0
+mtnsj,site.mtnsj.crypto,LazyECPoint,116,114,4,16,26,25,30,14,26,8
+mtnsj,site.mtnsj.crypto,X509Utils,167,0,24,0,38,0,15,0,3,0
+mtnsj,site.mtnsj.crypto,KeyCrypterScrypt,99,254,13,9,27,50,17,8,7,7
+mtnsj,site.mtnsj.uri,BitcoinURIParseException,9,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.uri,OptionalFieldValidationException,9,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.uri,MtnsURI,612,0,64,0,123,0,48,0,16,0
+mtnsj,site.mtnsj.uri,RequiredFieldValidationException,9,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.params,UnitTestParams,98,0,2,0,28,0,4,0,3,0
+mtnsj,site.mtnsj.params,TestNet3Params,204,0,18,0,51,0,14,0,5,0
+mtnsj,site.mtnsj.params,RegTestParams,73,0,4,0,24,0,8,0,6,0
+mtnsj,site.mtnsj.params,MainNetParams,119,0,2,0,34,0,4,0,3,0
+mtnsj,site.mtnsj.params,AbstractBitcoinNetParams,211,20,20,0,42,7,15,6,5,6
+mtnsj,site.mtnsj.params,TestNet2Params,97,0,2,0,29,0,4,0,3,0
+mtnsj,site.mtnsj.params,Networks,33,30,6,0,10,9,5,4,2,4
+mtnsj,com.hashengineering.utils,ByteArrayUtils,21,0,2,0,5,0,3,0,2,0
+mtnsj,fr.cryptohash,Shabal224,8,0,0,0,3,0,2,0,2,0
+mtnsj,fr.cryptohash,Luffa384,4074,0,12,0,554,0,20,0,14,0
+mtnsj,fr.cryptohash,Groestl256,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,CubeHash224,145,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,BMWSmallCore,5841,0,10,0,277,0,18,0,13,0
+mtnsj,fr.cryptohash,Groestl224,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HMAC,276,0,18,0,67,0,22,0,13,0
+mtnsj,fr.cryptohash,Hamsi512,79,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,DigestEngine,244,0,12,0,65,0,20,0,14,0
+mtnsj,fr.cryptohash,HAVAL256_5,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL256_3,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL256_4,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,Hamsi224,47,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,SHAvite512,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Whirlpool,8280,0,0,0,13,0,4,0,4,0
+mtnsj,fr.cryptohash,Skein384,47,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Tiger2,12,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,CubeHashCore,2241,0,12,0,322,0,20,0,14,0
+mtnsj,fr.cryptohash,ECHOBigCore,5626,0,38,0,184,0,34,0,15,0
+mtnsj,fr.cryptohash,SIMD512,145,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Skein256,47,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Groestl384,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,CubeHash512,145,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,BMWBigCore,2738,0,16,0,157,0,21,0,13,0
+mtnsj,fr.cryptohash,Shabal512,8,0,0,0,3,0,2,0,2,0
+mtnsj,fr.cryptohash,SHA2Core,702,0,8,0,56,0,16,0,12,0
+mtnsj,fr.cryptohash,Hamsi384,79,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Hamsi256,47,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,WhirlpoolCore,1799,0,2,0,113,0,11,0,10,0
+mtnsj,fr.cryptohash,Skein224,47,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,JH384,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,BLAKE512,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,SHA256,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,SIMDSmallCore,9174,0,44,0,605,0,37,0,15,0
+mtnsj,fr.cryptohash,Groestl512,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,SHA384,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,LuffaSmallCore,2781,0,12,0,368,0,18,0,12,0
+mtnsj,fr.cryptohash,Shabal384,8,0,0,0,3,0,2,0,2,0
+mtnsj,fr.cryptohash,GroestlSmallCore,4280,0,22,0,143,0,25,0,14,0
+mtnsj,fr.cryptohash,Shabal256,8,0,0,0,3,0,2,0,2,0
+mtnsj,fr.cryptohash,Luffa224,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,Fugue512,2094,0,17,0,255,0,16,0,7,0
+mtnsj,fr.cryptohash,JH256,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,FugueCore,5037,0,22,0,158,0,30,0,19,0
+mtnsj,fr.cryptohash,ECHOSmallCore,5606,0,38,0,183,0,34,0,15,0
+mtnsj,fr.cryptohash,Luffa256,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,JH224,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Skein512,4,43,0,0,1,5,1,4,1,4
+mtnsj,fr.cryptohash,SIMD224,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,GroestlBigCore,4650,0,22,0,175,0,25,0,14,0
+mtnsj,fr.cryptohash,HamsiBigCore,10603,0,36,0,1036,0,33,0,15,0
+mtnsj,fr.cryptohash,SkeinBigCore,135,1276,11,17,30,181,15,13,6,8
+mtnsj,fr.cryptohash,SHA224,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Fugue384,2151,0,22,0,263,0,19,0,7,0
+mtnsj,fr.cryptohash,SIMD256,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,BLAKE384,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,ECHO224,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL160_3,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL160_4,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL160_5,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,SIMDBigCore,16210,0,52,0,1077,0,41,0,15,0
+mtnsj,fr.cryptohash,RadioGatun32,1854,0,40,0,331,0,33,0,13,0
+mtnsj,fr.cryptohash,BLAKE256,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,HamsiSmallCore,5164,0,32,0,717,0,31,0,15,0
+mtnsj,fr.cryptohash,PANAMA,1467,0,10,0,198,0,17,0,12,0
+mtnsj,fr.cryptohash,Fugue2Core,1910,0,29,0,237,0,19,0,3,0
+mtnsj,fr.cryptohash,SIMD384,145,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,BLAKE224,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,SHAvite384,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,BMW224,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,SHAvite256,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,ECHO256,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,ECHO384,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVALCore,5405,0,40,0,423,0,70,0,47,0
+mtnsj,fr.cryptohash,Keccak512,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,Fugue224,43,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,RIPEMD128,2558,0,20,0,116,0,23,0,13,0
+mtnsj,fr.cryptohash,BMW256,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,SHA2BigCore,876,0,8,0,67,0,16,0,12,0
+mtnsj,fr.cryptohash,SHA512,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Tiger,12,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,JHCore,2170,0,8,0,230,0,20,0,16,0
+mtnsj,fr.cryptohash,JH512,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,BMW384,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,Fugue256,47,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,SHAviteBigCore,6557,0,32,0,244,0,28,0,12,0
+mtnsj,fr.cryptohash,MDHelper,183,0,4,0,33,0,7,0,5,0
+mtnsj,fr.cryptohash,Shabal192,8,0,0,0,3,0,2,0,2,0
+mtnsj,fr.cryptohash,Luffa512,5607,0,14,0,772,0,21,0,14,0
+mtnsj,fr.cryptohash,RIPEMD160,2143,0,24,0,97,0,25,0,13,0
+mtnsj,fr.cryptohash,HAVAL224_3,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL224_4,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL224_5,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,SHAviteSmallCore,6049,0,32,0,182,0,28,0,12,0
+mtnsj,fr.cryptohash,Whirlpool0,8280,0,0,0,13,0,4,0,4,0
+mtnsj,fr.cryptohash,ECHO512,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,BLAKEBigCore,2423,0,24,0,202,0,24,0,12,0
+mtnsj,fr.cryptohash,Keccak384,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL192_5,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL192_4,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,Whirlpool1,8280,0,0,0,13,0,4,0,4,0
+mtnsj,fr.cryptohash,BMW512,81,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,HAVAL192_3,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL128_5,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL128_3,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,HAVAL128_4,13,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,ShabalGeneric,3312,0,34,0,361,0,35,0,18,0
+mtnsj,fr.cryptohash,RIPEMD,3630,0,4,0,236,0,15,0,13,0
+mtnsj,fr.cryptohash,RadioGatun64,1946,0,40,0,335,0,33,0,13,0
+mtnsj,fr.cryptohash,SHAvite224,49,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,MD2,1351,0,14,0,51,0,17,0,10,0
+mtnsj,fr.cryptohash,CubeHash256,145,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,BLAKESmallCore,2196,0,24,0,198,0,24,0,12,0
+mtnsj,fr.cryptohash,Keccak224,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,CubeHash384,145,0,0,0,6,0,5,0,5,0
+mtnsj,fr.cryptohash,MD4,1678,0,2,0,144,0,11,0,10,0
+mtnsj,fr.cryptohash,MD5,1418,0,4,0,105,0,18,0,16,0
+mtnsj,fr.cryptohash,SHA1,3748,0,2,0,339,0,12,0,11,0
+mtnsj,fr.cryptohash,SHA0,3236,0,2,0,275,0,12,0,11,0
+mtnsj,fr.cryptohash,Keccak256,11,0,0,0,4,0,3,0,3,0
+mtnsj,fr.cryptohash,SkeinSmallCore,3087,0,22,0,472,0,25,0,14,0
+mtnsj,fr.cryptohash,KeccakCore,3906,0,12,0,432,0,18,0,12,0
+mtnsj,fr.cryptohash,TigerCore,5127,0,0,0,106,0,13,0,13,0
+mtnsj,site.mtnsj.kits,WalletAppKit,930,0,114,0,203,0,91,0,34,0
+mtnsj,site.mtnsj.kits,LevelDBWalletAppKit,13,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.kits,WalletAppKit.new Thread() {...},21,0,0,0,7,0,2,0,2,0
+mtnsj,site.mtnsj.kits,WalletAppKit.new FutureCallback() {...},35,0,2,0,6,0,4,0,3,0
+mtnsj,site.mtnsj.core,VerificationException,4,9,0,0,2,4,1,2,1,2
+mtnsj,site.mtnsj.core,PeerGroup.FilterRecalculateMode,48,0,0,0,4,0,4,0,4,0
+mtnsj,site.mtnsj.core,CoinDefinition.UnspentAPIType,9,49,0,0,0,5,2,2,2,2
+mtnsj,site.mtnsj.core,Masternode.State,123,0,2,0,16,0,7,0,6,0
+mtnsj,site.mtnsj.core,TransactionLockRequest,196,0,20,0,35,0,19,0,9,0
+mtnsj,site.mtnsj.core,CoinDefinition.CoinPrecision,9,29,0,0,0,3,2,2,2,2
+mtnsj,site.mtnsj.core,Utils.Pair,16,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.core,SporkManager,608,0,106,0,129,0,79,0,15,0
+mtnsj,site.mtnsj.core,VersionedChecksummedBytes,43,129,9,7,4,24,11,6,3,6
+mtnsj,site.mtnsj.core,GetMasternodeVoteSyncMessage,42,0,0,0,14,0,6,0,6,0
+mtnsj,site.mtnsj.core,TransactionConfidence.IXType,5,43,0,0,0,4,1,3,1,3
+mtnsj,site.mtnsj.core,TransactionLockVote,347,0,14,0,69,0,23,0,16,0
+mtnsj,site.mtnsj.core,MasterNodeSystem.CompareValueOnly,36,0,4,0,8,0,4,0,2,0
+mtnsj,site.mtnsj.core,ECKey.ECDSASignature,25,160,7,13,6,32,7,11,0,8
+mtnsj,site.mtnsj.core,Peer.8.new FutureCallback() {...},22,0,0,0,5,0,3,0,3,0
+mtnsj,site.mtnsj.core,AbstractBlockChain.OrphanBlock,7,30,8,4,0,7,6,1,0,1
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},56,0,4,0,15,0,4,0,2,0
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},27,30,1,1,9,9,1,2,0,2
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},20,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},130,175,22,18,17,37,18,5,0,3
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},0,11,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.core,PeerGroup.new Comparator() {...},0,35,1,1,0,6,1,2,0,2
+mtnsj,site.mtnsj.core,PeerGroup.new WalletCoinsReceivedEventListener() {...},38,6,8,0,8,1,5,1,1,1
+mtnsj,site.mtnsj.core,PeerGroup.new KeyChainEventListener() {...},6,6,0,0,2,1,1,1,1,1
+mtnsj,site.mtnsj.core,PeerGroup.new ScriptsChangeEventListener() {...},6,6,0,0,2,1,1,1,1,1
+mtnsj,site.mtnsj.core,VerificationException.LargerThanMaxBlockSize,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,AddressFormatException,3,4,0,0,2,2,1,1,1,1
+mtnsj,site.mtnsj.core,InventoryItem.Type,9,189,0,0,0,19,2,2,2,2
+mtnsj,site.mtnsj.core,SendHeadersMessage,10,0,0,0,5,0,2,0,2,0
+mtnsj,site.mtnsj.core,VerificationException.EmptyInputsOrOutputs,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,UTXO,87,282,14,8,10,59,12,13,3,11
+mtnsj,site.mtnsj.core,DummySerializer,65,10,0,0,13,4,13,3,13,3
+mtnsj,site.mtnsj.core,Transaction.new Comparator() {...},23,3,2,0,4,1,2,1,1,1
+mtnsj,site.mtnsj.core,Transaction.new Comparator() {...},23,3,2,0,4,1,2,1,1,1
+mtnsj,site.mtnsj.core,Message,226,351,25,23,49,83,27,28,9,22
+mtnsj,site.mtnsj.core,NetAddress,141,0,10,0,38,0,16,0,11,0
+mtnsj,site.mtnsj.core,TransactionConfidence.new Object() {...},7,51,0,0,0,2,0,1,0,1
+mtnsj,site.mtnsj.core,Block.VerifyFlag,5,23,0,0,0,2,1,3,1,3
+mtnsj,site.mtnsj.core,Sha256Hash,47,184,4,12,12,39,7,25,4,20
+mtnsj,site.mtnsj.core,AbstractBlockChain.NewBlockType,9,29,0,0,0,3,2,2,2,2
+mtnsj,site.mtnsj.core,FilteredBlock,238,0,20,0,45,0,24,0,14,0
+mtnsj,site.mtnsj.core,Ping,56,0,4,0,21,0,9,0,7,0
+mtnsj,site.mtnsj.core,Utils,1655,0,128,0,279,0,120,0,56,0
+mtnsj,site.mtnsj.core,ECKey.new Comparator() {...},18,3,4,0,3,1,3,1,1,1
+mtnsj,site.mtnsj.core,ECKey.new Comparator() {...},8,6,0,0,1,2,1,1,1,1
+mtnsj,site.mtnsj.core,BlockChain,41,134,6,6,10,37,10,13,5,12
+mtnsj,site.mtnsj.core,CoinDefinition.CoinHash,9,49,0,0,0,5,2,2,2,2
+mtnsj,site.mtnsj.core,MasternodeSync,965,0,142,0,227,0,101,0,22,0
+mtnsj,site.mtnsj.core,Transaction.SigHash,9,104,0,0,0,13,2,3,2,3
+mtnsj,site.mtnsj.core,Peer,3303,298,401,6,742,73,294,17,80,16
+mtnsj,site.mtnsj.core,Masternode,1222,0,80,0,263,0,65,0,25,0
+mtnsj,site.mtnsj.core,TransactionConfidence,192,273,22,21,44,73,26,31,9,24
+mtnsj,site.mtnsj.core,BloomFilter.BloomUpdate,9,39,0,0,0,4,2,2,2,2
+mtnsj,site.mtnsj.core,RejectMessage,230,0,24,0,38,0,23,0,11,0
+mtnsj,site.mtnsj.core,TxConfidenceTable.WeakConfidenceReference,0,9,0,0,0,3,0,1,0,1
+mtnsj,site.mtnsj.core,NotFoundMessage,22,0,0,0,8,0,4,0,4,0
+mtnsj,site.mtnsj.core,PeerGroup.PeerStartupListener,5,12,0,0,2,3,1,2,1,2
+mtnsj,site.mtnsj.core,VarInt,40,142,3,15,6,31,3,13,0,6
+mtnsj,site.mtnsj.core,GetDataMessage,47,0,0,0,13,0,7,0,7,0
+mtnsj,site.mtnsj.core,MasterNodeVote,219,0,2,0,46,0,11,0,10,0
+mtnsj,site.mtnsj.core,PeerGroup.LocalhostCheckState,9,49,0,0,0,5,2,2,2,2
+mtnsj,site.mtnsj.core,DumpedPrivateKey,34,142,9,19,2,26,10,11,1,6
+mtnsj,site.mtnsj.core,VerificationException.BlockVersionOutOfDate,13,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,FullPrunedBlockChain.Verifier,3,46,0,2,2,10,0,3,0,2
+mtnsj,site.mtnsj.core,MasternodeManager.CompareScoreTxIn,33,0,4,0,8,0,4,0,2,0
+mtnsj,site.mtnsj.core,Peer.PendingPing,43,0,2,0,11,0,3,0,2,0
+mtnsj,site.mtnsj.core,VerificationException.NegativeValueOutput,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,Peer.new Runnable() {...},18,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,UnknownMessage,31,0,2,0,4,0,3,0,2,0
+mtnsj,site.mtnsj.core,Peer.new Runnable() {...},0,18,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.core,Peer.new Runnable() {...},22,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,Peer.new FutureCallback() {...},63,0,2,0,13,0,4,0,3,0
+mtnsj,site.mtnsj.core,BudgetManager,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.core,Peer.new FutureCallback() {...},114,0,8,0,15,0,7,0,3,0
+mtnsj,site.mtnsj.core,Peer.new FutureCallback() {...},25,0,0,0,5,0,3,0,3,0
+mtnsj,site.mtnsj.core,Coin,77,261,3,25,12,47,15,34,12,23
+mtnsj,site.mtnsj.core,Peer.new Runnable() {...},32,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,AlertMessage,104,170,6,6,28,38,20,11,14,11
+mtnsj,site.mtnsj.core,Peer.new Runnable() {...},4,6,0,0,2,1,1,1,1,1
+mtnsj,site.mtnsj.core,DarkCoinSystem,57,0,0,0,19,0,2,0,2,0
+mtnsj,site.mtnsj.core,Peer.new Function() {...},23,6,4,0,3,1,3,1,1,1
+mtnsj,site.mtnsj.core,CoinDefinition,270,0,32,0,76,0,24,0,8,0
+mtnsj,site.mtnsj.core,InventoryMessage,70,0,4,0,15,0,8,0,6,0
+mtnsj,site.mtnsj.core,TransactionOutputChanges,0,195,0,8,0,37,0,7,0,3
+mtnsj,site.mtnsj.core,TransactionBroadcast.EnoughAvailablePeers,161,0,8,0,26,0,6,0,2,0
+mtnsj,site.mtnsj.core,HeadersMessage,160,0,14,0,33,0,14,0,7,0
+mtnsj,site.mtnsj.core,TxConfidenceTable,157,73,13,3,40,18,11,4,4,3
+mtnsj,site.mtnsj.core,AbstractManager,58,0,2,0,15,0,4,0,3,0
+mtnsj,site.mtnsj.core,InventoryItem,45,23,10,0,5,5,7,2,2,2
+mtnsj,site.mtnsj.core,SyncStatusCount,52,0,0,0,15,0,6,0,6,0
+mtnsj,site.mtnsj.core,GetSporksMessage,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},141,0,20,0,30,0,14,0,3,0
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},39,22,6,2,11,5,4,2,0,2
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},25,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,Base58,6,310,3,41,2,61,4,25,1,6
+mtnsj,site.mtnsj.core,Peer.new Runnable() {...},65,0,2,0,12,0,3,0,2,0
+mtnsj,site.mtnsj.core,Peer.new Runnable() {...},22,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,Peer.new Object() {...},110,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.core,Address,79,135,7,17,20,30,10,16,5,9
+mtnsj,site.mtnsj.core,Peer.GetDataRequest,9,0,0,0,4,0,1,0,1,0
+mtnsj,site.mtnsj.core,StoredBlock,78,193,7,13,8,38,9,14,2,11
+mtnsj,site.mtnsj.core,DarkSendElectionEntryMessage,346,0,4,0,69,0,11,0,9,0
+mtnsj,site.mtnsj.core,PeerGroup.new Object() {...},26,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.core,PeerGroup.new PeerConnectedEventListener() {...},37,0,2,0,6,0,3,0,2,0
+mtnsj,site.mtnsj.core,PeerGroup.new Runnable() {...},25,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,PeerGroup.new FutureCallback() {...},49,0,2,0,11,0,4,0,3,0
+mtnsj,site.mtnsj.core,PeerGroup.new PeerConnectedEventListener() {...},37,0,2,0,6,0,3,0,2,0
+mtnsj,site.mtnsj.core,PartialMerkleTree,600,0,68,0,105,0,49,0,15,0
+mtnsj,site.mtnsj.core,ECKey.MissingPrivateKeyException,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.core,FullPrunedBlockChain,469,746,65,63,95,172,54,30,4,16
+mtnsj,site.mtnsj.core,AddressMessage,214,0,14,0,42,0,17,0,10,0
+mtnsj,site.mtnsj.core,ScriptException,5,4,0,0,2,2,1,1,1,1
+mtnsj,site.mtnsj.core,TransactionInput.ConnectMode,9,29,0,0,0,3,2,2,2,2
+mtnsj,site.mtnsj.core,TransactionBroadcast,274,0,14,0,60,0,19,0,12,0
+mtnsj,site.mtnsj.core,TransactionBroadcast.new TransactionBroadcast() {...},14,0,0,0,3,0,3,0,3,0
+mtnsj,site.mtnsj.core,VerificationException.UnexpectedCoinbaseInput,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,TransactionBroadcast.new PreMessageReceivedEventListener() {...},72,0,6,0,12,0,5,0,2,0
+mtnsj,site.mtnsj.core,TransactionBroadcast.new Runnable() {...},18,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,VerificationException.CoinbaseScriptSizeOutOfRange,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,MasternodeAddress,190,0,10,0,35,0,22,0,17,0
+mtnsj,site.mtnsj.core,TransactionLock,47,0,0,0,16,0,7,0,7,0
+mtnsj,site.mtnsj.core,TxConfidenceTable.new LinkedHashMap() {...},2,16,1,1,0,2,1,2,0,2
+mtnsj,site.mtnsj.core,MasternodeManager.new Runnable() {...},19,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,UTXOsMessage,345,70,32,8,49,14,25,6,9,2
+mtnsj,site.mtnsj.core,MasternodeSignature,147,0,4,0,32,0,14,0,12,0
+mtnsj,site.mtnsj.core,VerificationException.DuplicatedOutPoint,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,UnsafeByteArrayOutputStream,28,102,6,12,6,20,8,9,2,6
+mtnsj,site.mtnsj.core,PeerGroup.PeerListener,42,6,6,0,9,2,5,1,2,1
+mtnsj,site.mtnsj.core,TransactionConfidence.ConfidenceType,5,74,0,0,0,10,1,4,1,4
+mtnsj,site.mtnsj.core,VerificationException.ExcessiveValue,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,VersionMessage,557,127,53,1,82,24,39,2,12,2
+mtnsj,site.mtnsj.core,PeerGroup.ChainDownloadSpeedCalculator,411,0,34,0,63,0,22,0,5,0
+mtnsj,site.mtnsj.core,MasterNodeSystem,58,0,6,0,16,0,8,0,5,0
+mtnsj,site.mtnsj.core,SporkMessage,154,0,0,0,35,0,7,0,7,0
+mtnsj,site.mtnsj.core,TransactionInput.ConnectionResult,9,39,0,0,0,4,2,2,2,2
+mtnsj,site.mtnsj.core,ActiveMasternode,44,0,4,0,15,0,6,0,4,0
+mtnsj,site.mtnsj.core,PartialMerkleTree.ValuesUsed,9,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,MasterNodeSystem.MyEntry,26,0,0,0,9,0,4,0,4,0
+mtnsj,site.mtnsj.core,RejectMessage.RejectCode,144,0,4,0,15,0,7,0,5,0
+mtnsj,site.mtnsj.core,Context.new BlockChainListener() {...},16,6,2,0,7,1,6,1,5,1
+mtnsj,site.mtnsj.core,BitcoinSerializer.BitcoinPacketHeader,0,86,2,6,0,17,2,3,0,1
+mtnsj,site.mtnsj.core,GetMasternodePaymentRequestSyncMessage,43,0,0,0,14,0,6,0,6,0
+mtnsj,site.mtnsj.core,Context,152,164,12,10,42,53,16,15,7,13
+mtnsj,site.mtnsj.core,NetworkParameters.ProtocolVersion,68,0,0,0,9,0,5,0,5,0
+mtnsj,site.mtnsj.core,MasternodeInfo,3,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,NetworkParameters,402,0,46,0,101,0,66,0,43,0
+mtnsj,site.mtnsj.core,GetAddrMessage,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,Transaction.Purpose,5,93,0,0,0,9,1,3,1,3
+mtnsj,site.mtnsj.core,ListMessage,291,0,32,0,78,0,34,0,10,0
+mtnsj,site.mtnsj.core,GetBlocksMessage,217,0,22,0,36,0,20,0,9,0
+mtnsj,site.mtnsj.core,StoredUndoableBlock,38,30,6,0,6,12,7,4,4,4
+mtnsj,site.mtnsj.core,TransactionInput,345,451,45,27,54,101,37,38,9,30
+mtnsj,site.mtnsj.core,MasternodeBroadcast,1337,0,120,0,195,0,73,0,13,0
+mtnsj,site.mtnsj.core,BitcoinSerializer,469,426,64,26,78,89,47,16,7,11
+mtnsj,site.mtnsj.core,MasternodePing,594,0,42,0,111,0,37,0,16,0
+mtnsj,site.mtnsj.core,MasterNodePaymentWinner,173,0,4,0,40,0,9,0,7,0
+mtnsj,site.mtnsj.core,MasternodePayments,20,0,2,0,7,0,6,0,5,0
+mtnsj,site.mtnsj.core,MessageSerializer,0,29,0,0,0,5,0,5,0,5
+mtnsj,site.mtnsj.core,PeerAddress,285,145,20,8,64,28,31,11,18,10
+mtnsj,site.mtnsj.core,TransactionBroadcast.ConfidenceChange,92,0,8,0,12,0,6,0,2,0
+mtnsj,site.mtnsj.core,TransactionLockCandidate,134,0,18,0,30,0,18,0,9,0
+mtnsj,site.mtnsj.core,BloomFilter,535,291,79,9,86,46,54,11,13,7
+mtnsj,site.mtnsj.core,PeerException,13,0,0,0,6,0,3,0,3,0
+mtnsj,site.mtnsj.core,TransactionConfidence.Listener.ChangeReason,9,49,0,0,0,5,2,2,2,2
+mtnsj,site.mtnsj.core,TransactionOutPointLock,60,0,4,0,13,0,9,0,7,0
+mtnsj,site.mtnsj.core,AbstractBlockChain.new Runnable() {...},36,0,0,0,6,0,2,0,2,0
+mtnsj,site.mtnsj.core,ECKey,546,1250,98,94,117,263,96,80,16,64
+mtnsj,site.mtnsj.core,AbstractBlockChain.new NewBestBlockListener() {...},15,12,2,0,4,1,2,1,1,1
+mtnsj,site.mtnsj.core,AbstractBlockChain.new Runnable() {...},54,0,0,0,7,0,2,0,2,0
+mtnsj,site.mtnsj.core,AbstractBlockChain.new Runnable() {...},33,0,2,0,7,0,3,0,2,0
+mtnsj,site.mtnsj.core,MasternodeManager,2185,0,196,0,456,0,143,0,45,0
+mtnsj,site.mtnsj.core,DarkSendElectionEntryPingMessage,258,0,8,0,51,0,13,0,9,0
+mtnsj,site.mtnsj.core,ECKey.KeyIsEncryptedException,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.core,UTXOProviderException,16,0,0,0,8,0,4,0,4,0
+mtnsj,site.mtnsj.core,Pong,28,0,0,0,11,0,5,0,5,0
+mtnsj,site.mtnsj.core,Block,397,1366,61,93,59,306,60,92,12,63
+mtnsj,site.mtnsj.core,TransactionConfidence.new Runnable() {...},0,22,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.core,TransactionConfidence.new TransactionConfidence.Listener() {...},29,0,2,0,5,0,3,0,2,0
+mtnsj,site.mtnsj.core,AbstractBlockChain,2020,1210,270,98,417,254,172,65,22,31
+mtnsj,site.mtnsj.core,VersionAck,6,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.core,TransactionOutput,338,273,51,19,57,63,44,24,13,20
+mtnsj,site.mtnsj.core,Transaction,753,1531,103,141,150,306,87,114,18,61
+mtnsj,site.mtnsj.core,ProtocolException,9,4,0,0,4,2,2,1,2,1
+mtnsj,site.mtnsj.core,WrongNetworkException,0,22,0,0,0,5,0,1,0,1
+mtnsj,site.mtnsj.core,DarkSendEntryGetMessage,153,0,4,0,35,0,11,0,9,0
+mtnsj,site.mtnsj.core,MasternodeSync.new Runnable() {...},25,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.core,ChildMessage,19,67,0,10,5,23,2,13,2,8
+mtnsj,site.mtnsj.core,RejectedTransactionException,17,0,0,0,6,0,3,0,3,0
+mtnsj,site.mtnsj.core,InsufficientMoneyException,6,22,0,0,3,5,1,2,1,2
+mtnsj,site.mtnsj.core,EmptyMessage,27,0,0,0,12,0,6,0,6,0
+mtnsj,site.mtnsj.core,VerificationException.CoinbaseHeightMismatch,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.core,TransactionOutPoint,139,189,14,14,25,47,16,18,6,14
+mtnsj,site.mtnsj.core,CheckpointManager,486,0,42,0,103,0,31,0,10,0
+mtnsj,site.mtnsj.core,GetUTXOsMessage,165,0,18,0,29,0,17,0,8,0
+mtnsj,site.mtnsj.core,PublicKey,245,0,10,0,51,0,22,0,17,0
+mtnsj,site.mtnsj.core,GovernanceSyncMessage,10,0,0,0,5,0,2,0,2,0
+mtnsj,site.mtnsj.core,PrunedException,11,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.core,PeerGroup,2978,837,237,27,610,181,225,26,94,25
+mtnsj,site.mtnsj.core,GetHeadersMessage,98,0,16,0,13,0,13,0,5,0
+mtnsj,site.mtnsj.core,DarkSendQueue,240,0,12,0,56,0,15,0,9,0
+mtnsj,site.mtnsj.core,PeerSocketHandler,331,88,32,4,73,31,23,7,5,7
+mtnsj,site.mtnsj.core,TransactionConfidence.Source,5,43,0,0,0,4,1,3,1,3
+mtnsj,site.mtnsj.core,MasternodeManager.CompareScoreMn,33,0,4,0,8,0,4,0,2,0
+mtnsj,site.mtnsj.core,MemoryPoolMessage,5,0,0,0,3,0,3,0,3,0
+mtnsj,site.mtnsj.wallet.listeners,AbstractWalletEventListener,25,0,0,0,16,0,9,0,9,0
+mtnsj,site.mtnsj.wallet.listeners,AbstractKeyChainEventListener,4,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.net.discovery,DnsDiscovery.DnsSeedDiscovery,65,0,4,0,15,0,6,0,4,0
+mtnsj,site.mtnsj.net.discovery,TorDiscovery,516,0,46,0,108,0,33,0,10,0
+mtnsj,site.mtnsj.net.discovery,DnsDiscovery,66,0,6,0,12,0,7,0,4,0
+mtnsj,site.mtnsj.net.discovery,HttpDiscovery.Details,9,0,0,0,4,0,1,0,1,0
+mtnsj,site.mtnsj.net.discovery,MultiplexingDiscovery.new Callable() {...},28,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.net.discovery,TorDiscovery.Lookup,9,0,0,0,4,0,1,0,1,0
+mtnsj,site.mtnsj.net.discovery,PeerDiscoveryException,16,0,0,0,8,0,4,0,4,0
+mtnsj,site.mtnsj.net.discovery,SeedPeers,160,0,10,0,30,0,13,0,8,0
+mtnsj,site.mtnsj.net.discovery,HttpDiscovery,219,0,14,0,46,0,14,0,7,0
+mtnsj,site.mtnsj.net.discovery,TorDiscovery.new Callable() {...},23,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.net.discovery,TorDiscovery.new FutureCallback() {...},17,0,0,0,5,0,3,0,3,0
+mtnsj,site.mtnsj.net.discovery,TorDiscovery.new Callable() {...},27,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.net.discovery,MultiplexingDiscovery,243,0,22,0,51,0,17,0,6,0
+mtnsj,site.mtnsj.script,Script.ScriptType,9,49,0,0,0,5,2,2,2,2
+mtnsj,site.mtnsj.script,Script.VerifyFlag,5,113,0,0,0,11,1,3,1,3
+mtnsj,site.mtnsj.script,ScriptBuilder,527,379,61,31,109,74,58,25,19,18
+mtnsj,site.mtnsj.script,ScriptOpCodes,32,926,4,2,6,229,5,3,2,3
+mtnsj,site.mtnsj.script,ScriptChunk,254,148,56,22,39,30,37,14,5,7
+mtnsj,site.mtnsj.script,Script,2778,1162,501,165,578,241,355,70,27,34
+mtnsj,site.mtnsj.net,NioClient.new FutureCallback() {...},18,0,0,0,4,0,3,0,3,0
+mtnsj,site.mtnsj.net,NioClientManager,235,158,22,8,46,43,16,8,3,6
+mtnsj,site.mtnsj.net,AbstractTimeoutHandler.new TimerTask() {...},0,10,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.net,AbstractTimeoutHandler,11,47,3,3,5,12,4,4,1,4
+mtnsj,site.mtnsj.net,NioClient,50,0,0,0,12,0,4,0,4,0
+mtnsj,site.mtnsj.net,NioClientManager.PendingConnect,0,18,0,0,0,2,0,1,0,1
+mtnsj,site.mtnsj.net,NioClientManager.new Executor() {...},0,14,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.net,NioClient.Handler,75,0,6,0,26,0,10,0,7,0
+mtnsj,site.mtnsj.net,BlockingClientManager,131,0,10,0,30,0,13,0,8,0
+mtnsj,site.mtnsj.net,ProtobufConnection,338,0,24,0,75,0,23,0,11,0
+mtnsj,site.mtnsj.net,BlockingClient,149,0,8,0,40,0,10,0,6,0
+mtnsj,site.mtnsj.net,FilterMerger.Result,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.net,BlockingClient.new Thread() {...},138,0,10,0,22,0,7,0,2,0
+mtnsj,site.mtnsj.net,FilterMerger,180,12,22,0,33,4,15,1,4,1
+mtnsj,site.mtnsj.net,ConnectionHandler,288,127,35,9,75,37,25,7,5,5
+mtnsj,site.mtnsj.net,NioServer,285,0,14,0,57,0,12,0,5,0
+mtnsj,fr.cryptohash.test,TestDigest,63862,0,28,0,10939,0,105,0,91,0
+mtnsj,fr.cryptohash.test,Speed,1083,0,72,0,160,0,49,0,13,0
+mtnsj,site.mtnsj.store,LevelDBFullPrunedBlockStore.LRUCache,2,19,1,1,0,5,1,2,0,2
+mtnsj,site.mtnsj.store,H2FullPrunedBlockStore,42,70,0,0,11,17,3,5,3,5
+mtnsj,site.mtnsj.store,SPVBlockStore.new LinkedHashMap() {...},14,0,2,0,2,0,3,0,2,0
+mtnsj,site.mtnsj.store,SPVBlockStore.new LinkedHashMap() {...},14,0,2,0,2,0,3,0,2,0
+mtnsj,site.mtnsj.store,MasternodeDB,320,0,14,0,87,0,17,0,10,0
+mtnsj,site.mtnsj.store,TransactionalHashMap,251,0,36,0,53,0,26,0,8,0
+mtnsj,site.mtnsj.store,MasternodeDB.ReadResult,98,0,0,0,9,0,4,0,4,0
+mtnsj,site.mtnsj.store,MySQLFullPrunedBlockStore,82,0,0,0,22,0,10,0,10,0
+mtnsj,site.mtnsj.store,FlatDB.ReadResult,98,0,0,0,9,0,4,0,4,0
+mtnsj,site.mtnsj.store,PostgresFullPrunedBlockStore,390,0,18,0,88,0,18,0,9,0
+mtnsj,site.mtnsj.store,WindowsMMapHack,12,0,2,0,4,0,3,0,2,0
+mtnsj,site.mtnsj.store,DatabaseFullPrunedBlockStore,1140,1381,96,76,234,366,79,65,12,46
+mtnsj,site.mtnsj.store,ChainFileLockedException,8,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.store,MemoryFullPrunedBlockStore,380,0,22,0,90,0,32,0,21,0
+mtnsj,site.mtnsj.store,MemoryFullPrunedBlockStore.StoredBlockAndWasUndoableFlag,9,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.store,StoredTransactionOutPoint,89,0,10,0,16,0,12,0,7,0
+mtnsj,site.mtnsj.store,MemoryBlockStore.new LinkedHashMap() {...},2,14,1,1,0,2,1,2,0,2
+mtnsj,site.mtnsj.store,LevelDBFullPrunedBlockStore.BloomFilter,48,230,6,6,13,41,5,9,0,8
+mtnsj,site.mtnsj.store,MemoryBlockStore,39,67,4,4,7,20,6,5,2,5
+mtnsj,site.mtnsj.store,LevelDBFullPrunedBlockStore.KeyType,9,99,0,0,0,2,2,2,2,2
+mtnsj,site.mtnsj.store,LevelDBFullPrunedBlockStore,1232,1119,126,72,289,279,101,39,12,29
+mtnsj,site.mtnsj.store,LevelDBBlockStore,291,0,18,0,73,0,22,0,13,0
+mtnsj,site.mtnsj.store,TransactionalMultiKeyHashMap,91,0,6,0,25,0,11,0,8,0
+mtnsj,site.mtnsj.store,FlatDB,379,0,22,0,101,0,21,0,10,0
+mtnsj,site.mtnsj.store,HashStore,198,0,30,0,51,0,20,0,5,0
+mtnsj,site.mtnsj.store,HashStore.new LinkedHashMap() {...},14,0,2,0,2,0,3,0,2,0
+mtnsj,site.mtnsj.store,SPVBlockStore,609,0,50,0,140,0,38,0,13,0
+mtnsj,site.mtnsj.store,BlockStoreException,13,0,0,0,6,0,3,0,3,0
+mtnsj,com.hashengineering.crypto,HashFunction,19,0,0,0,10,0,3,0,3,0
+mtnsj,com.hashengineering.crypto,Skein,44,62,1,1,14,18,3,5,2,5
+mtnsj,com.hashengineering.crypto,X11,240,0,4,0,43,0,7,0,5,0
+mtnsj,com.hashengineering.crypto,Hash9,218,0,10,0,41,0,11,0,6,0
+mtnsj,com.hashengineering.crypto,Sha512Hash,181,0,12,0,32,0,19,0,13,0
+mtnsj,site.mtnsj.signers,LocalTransactionSigner,37,96,3,5,11,24,3,5,0,4
+mtnsj,site.mtnsj.signers,CustomTransactionSigner.SignatureAndKey,12,0,0,0,4,0,1,0,1,0
+mtnsj,site.mtnsj.signers,CustomTransactionSigner,121,0,8,0,30,0,8,0,4,0
+mtnsj,site.mtnsj.signers,MissingSigResolutionSigner,85,64,19,7,19,16,14,4,2,3
+mtnsj,site.mtnsj.signers,TransactionSigner.ProposedTransaction,0,11,0,0,0,4,0,1,0,1
+mtnsj,site.mtnsj.signers,TransactionSigner.MissingSignatureException,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.signers,StatelessTransactionSigner,4,3,0,0,2,1,2,1,2,1
+mtnsj,site.mtnsj.wallet,AllowUnconfirmedCoinSelector,0,13,1,1,0,5,1,3,0,3
+mtnsj,site.mtnsj.wallet,DefaultKeyChainFactory,59,14,7,1,12,4,6,2,2,2
+mtnsj,site.mtnsj.wallet,Wallet.FreeStandingTransactionOutput,40,0,0,0,9,0,5,0,5,0
+mtnsj,site.mtnsj.wallet,UnreadableWalletException.BadPassword,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,Wallet.MultipleOpReturnRequested,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,KeyChain.KeyPurpose,5,53,0,0,0,5,1,3,1,3
+mtnsj,site.mtnsj.wallet,Wallet.BalanceFutureRequest,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,Wallet.FeeCalculation,0,3,0,0,0,1,0,1,0,1
+mtnsj,site.mtnsj.wallet,WalletProtobufSerializer.new WalletProtobufSerializer.WalletFactory() {...},0,9,0,0,0,2,0,2,0,2
+mtnsj,site.mtnsj.wallet,WalletProtobufSerializer.new Object() {...},42,289,0,0,0,9,0,1,0,1
+mtnsj,site.mtnsj.wallet,Wallet.CompletionException,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,DeterministicKeyChain,1521,1239,138,96,283,293,130,70,43,39
+mtnsj,site.mtnsj.wallet,RedeemData,11,52,4,6,2,11,5,4,1,3
+mtnsj,site.mtnsj.wallet,DefaultRiskAnalysis.RuleViolation,78,0,0,0,7,0,4,0,4,0
+mtnsj,site.mtnsj.wallet,DeterministicUpgradeRequiresPassword,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,Wallet.BalanceType,9,49,0,0,0,5,2,2,2,2
+mtnsj,site.mtnsj.wallet,BasicKeyChain.new Runnable() {...},20,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.wallet,UnreadableWalletException.FutureVersion,4,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,Wallet.MissingSigsMode,9,39,0,0,0,4,2,2,2,2
+mtnsj,site.mtnsj.wallet,DefaultRiskAnalysis.Analyzer,8,3,0,0,1,1,1,1,1,1
+mtnsj,site.mtnsj.wallet,DefaultCoinSelector,3,103,3,17,1,23,3,12,0,5
+mtnsj,site.mtnsj.wallet,AllRandomKeysRotating,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,DeterministicUpgradeRequiredException,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,Wallet.TxOffsetPair,0,15,0,0,0,5,0,2,0,2
+mtnsj,site.mtnsj.wallet,SendRequest,252,63,18,0,52,18,18,2,9,2
+mtnsj,site.mtnsj.wallet,Wallet.ExceededMaxTransactionSize,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,Wallet.DustySendRequested,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,MarriedKeyChain.Builder,129,0,16,0,23,0,13,0,5,0
+mtnsj,site.mtnsj.wallet,UnreadableWalletException,9,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.wallet,WalletProtobufSerializer,808,985,107,100,185,232,101,40,5,19
+mtnsj,site.mtnsj.wallet,DecryptingKeyBag,48,32,6,2,10,9,6,4,2,4
+mtnsj,site.mtnsj.wallet,BasicKeyChain.State,48,0,0,0,4,0,4,0,4,0
+mtnsj,site.mtnsj.wallet,DeterministicSeed,219,173,30,8,39,35,32,14,14,13
+mtnsj,site.mtnsj.wallet,WalletFiles.new Callable() {...},53,0,4,0,10,0,4,0,2,0
+mtnsj,site.mtnsj.wallet,WalletTransaction.Pool,5,73,0,0,0,7,1,3,1,3
+mtnsj,site.mtnsj.wallet,DefaultRiskAnalysis,363,10,68,0,92,3,44,1,10,1
+mtnsj,site.mtnsj.wallet,CoinSelection,0,9,0,0,0,4,0,1,0,1
+mtnsj,site.mtnsj.wallet,Wallet,5532,4167,603,421,1168,957,513,253,145,103
+mtnsj,site.mtnsj.wallet,Wallet.SendResult,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,UnreadableWalletException.WrongNetwork,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,DeterministicKeyChain.new Object() {...},6,45,0,0,0,2,0,1,0,1
+mtnsj,site.mtnsj.wallet,RiskAnalysis.Result,48,0,0,0,4,0,4,0,4,0
+mtnsj,site.mtnsj.wallet,KeyTimeCoinSelector,116,0,14,0,30,0,11,0,4,0
+mtnsj,site.mtnsj.wallet,DefaultCoinSelector.new Comparator() {...},56,3,4,0,13,1,3,1,1,1
+mtnsj,site.mtnsj.wallet,KeyChainGroup,1069,553,147,57,226,126,120,45,36,27
+mtnsj,site.mtnsj.wallet,MarriedKeyChain,543,0,40,0,111,0,40,0,20,0
+mtnsj,site.mtnsj.wallet,DeterministicKeyChain.Builder,148,0,20,0,32,0,21,0,11,0
+mtnsj,site.mtnsj.wallet,InstantXCoinSelector,60,0,18,0,14,0,13,0,4,0
+mtnsj,site.mtnsj.wallet,Wallet.new Runnable() {...},0,32,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.wallet,Wallet.new Runnable() {...},0,17,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.wallet,Wallet.new Runnable() {...},0,22,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.wallet,Wallet.new TransactionConfidence.Listener() {...},33,10,1,1,7,3,1,2,0,2
+mtnsj,site.mtnsj.wallet,Wallet.new LinkedHashMap() {...},8,6,2,0,1,1,2,1,1,1
+mtnsj,site.mtnsj.wallet,BasicKeyChain,932,364,113,31,182,88,86,26,22,18
+mtnsj,site.mtnsj.wallet,Wallet.new Runnable() {...},20,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.wallet,Wallet.new Runnable() {...},27,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.wallet,Wallet.new Runnable() {...},0,17,0,0,0,3,0,2,0,2
+mtnsj,site.mtnsj.wallet,Wallet.new Runnable() {...},32,0,0,0,3,0,2,0,2,0
+mtnsj,site.mtnsj.wallet,WalletTransaction,0,17,0,0,0,6,0,3,0,3
+mtnsj,site.mtnsj.wallet,WalletFiles,175,0,8,0,43,0,11,0,7,0
+mtnsj,site.mtnsj.wallet,Wallet.new FutureCallback() {...},16,0,0,0,5,0,3,0,3,0
+mtnsj,site.mtnsj.wallet,Wallet.CouldNotAdjustDownwards,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.wallet,Wallet.new Object() {...},4,29,0,0,0,1,0,1,0,1
+mtnsj,site.mtnsj.wallet,DeterministicKeyChain.KeyChainType,5,33,0,0,0,2,1,3,1,3
+mtnsj,site.mtnsj.wallet,FilteringCoinSelector,55,0,6,0,14,0,6,0,3,0
+mtnsj,site.mtnsj.core.listeners,DownloadProgressTracker,168,0,20,0,40,0,19,0,9,0
+mtnsj,site.mtnsj.core.listeners,AbstractPeerConnectionEventListener,6,0,0,0,4,0,4,0,4,0
+mtnsj,site.mtnsj.core.listeners,AbstractPeerEventListener,13,0,0,0,9,0,9,0,9,0
+mtnsj,site.mtnsj.core.listeners,AbstractPeerDataEventListener,9,0,0,0,5,0,5,0,5,0
+mtnsj,site.mtnsj.core.listeners,AbstractBlockChainListener,8,0,0,0,5,0,5,0,5,0
+mtnsj,site.mtnsj.jni,NativeFutureCallback,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeKeyChainEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeWalletCoinsReceivedEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeWalletCoinsSentEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativePeerEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeScriptsChangeEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeWalletEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativePaymentChannelHandlerFactory,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeWalletChangeEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeTransactionConfidenceListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeWalletReorganizeEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativePaymentChannelServerConnectionEventHandler,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeBlockChainListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,site.mtnsj.jni,NativeTransactionConfidenceEventListener,3,0,0,0,1,0,1,0,1,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.SignedPeerSeeds,422,0,39,0,112,0,57,0,36,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.PeerSeedData.Builder,432,0,46,0,126,0,53,0,30,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.PeerSeeds,526,0,51,0,136,0,67,0,40,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.SignedPeerSeeds.Builder,394,0,42,0,110,0,49,0,28,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos,98,0,0,0,14,0,4,0,4,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.new Descriptors.FileDescriptor.InternalDescriptorAssigner() {...},8,0,0,0,3,0,2,0,2,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.PeerSeeds.Builder,844,0,100,0,232,0,96,0,46,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.PeerSeedData,462,0,45,0,127,0,61,0,37,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.PeerSeeds.new AbstractParser() {...},10,0,0,0,2,0,2,0,2,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.PeerSeedData.new AbstractParser() {...},10,0,0,0,2,0,2,0,2,0
+mtnsj,org.bitcoin.crawler,PeerSeedProtos.SignedPeerSeeds.new AbstractParser() {...},10,0,0,0,2,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.Expired,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.InvalidPkiData,8,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentSession,529,0,58,0,107,0,57,0,28,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocol,536,0,52,0,125,0,38,0,12,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.InvalidPkiType,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocol.Output,12,0,0,0,5,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.InvalidNetwork,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocol.PkiVerificationData,45,0,0,0,15,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.InvalidPaymentURL,8,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.PkiVerificationException,15,0,0,0,7,0,3,0,3,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocol.Ack,9,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentSession.new Callable() {...},38,0,0,0,6,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentSession.new Callable() {...},65,0,0,0,15,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException,8,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.InvalidOutputs,4,0,0,0,2,0,1,0,1,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.InvalidPaymentRequestURL,8,0,0,0,4,0,2,0,2,0
+mtnsj,site.mtnsj.protocols.payments,PaymentProtocolException.InvalidVersion,4,0,0,0,2,0,1,0,1,0

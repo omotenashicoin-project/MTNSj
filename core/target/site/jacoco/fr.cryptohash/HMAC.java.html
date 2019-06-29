@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>HMAC.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">HMAC.java</span></div><h1>HMAC.java</h1><pre class="source lang-java linenums">// $Id: HMAC.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the HMAC message authentication algorithm,
+ * under the {@link Digest} API, using the {@link DigestEngine} class.
+ * HMAC is defined in RFC 2104 (also FIPS 198a). This implementation
+ * uses an underlying digest algorithm, provided as parameter to the
+ * constructor.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class HMAC extends DigestEngine {
+
+	/**
+	 * Build the object. The provided digest algorithm will be used
+	 * internally; it MUST NOT be directly accessed afterwards. The
+	 * {@code key} array holds the MAC key; the key is copied
+	 * internally, which means that the caller may modify the {@code
+	 * key} array afterwards.
+	 *
+	 * @param dig   the underlying hash function
+	 * @param key   the MAC key
+	 */
+	public HMAC(Digest dig, byte[] key)
+<span class="nc" id="L56">	{</span>
+<span class="nc" id="L57">		dig.reset();</span>
+<span class="nc" id="L58">		this.dig = dig;</span>
+<span class="nc" id="L59">		int B = dig.getBlockLength();</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">		if (B &lt; 0) {</span>
+			/*
+			 * Virtual block length: inferred from the key
+			 * length, with rounding (used for Fugue-xxx).
+			 */
+<span class="nc" id="L65">			int n = -B;</span>
+<span class="nc" id="L66">			B = n * ((key.length + (n - 1)) / n);</span>
+		}
+<span class="nc" id="L68">		byte[] keyB = new byte[B];</span>
+<span class="nc" id="L69">		int len = key.length;</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">		if (len &gt; B) {</span>
+<span class="nc" id="L71">			key = dig.digest(key);</span>
+<span class="nc" id="L72">			len = key.length;</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">			if (len &gt; B)</span>
+<span class="nc" id="L74">				len = B;</span>
+		}
+<span class="nc" id="L76">		System.arraycopy(key, 0, keyB, 0, len);</span>
+		/*
+		 * Newly created arrays are guaranteed filled with zeroes,
+		 * hence the key padding is already done.
+		 */
+<span class="nc" id="L81">		processKey(keyB);</span>
+
+<span class="nc" id="L83">		outputLength = -1;</span>
+<span class="nc" id="L84">		tmpOut = new byte[dig.getDigestLength()];</span>
+<span class="nc" id="L85">		reset();</span>
+<span class="nc" id="L86">	}</span>
+
+	/**
+	 * Build the object. The provided digest algorithm will be used
+	 * internally; it MUST NOT be directly accessed afterwards. The
+	 * {@code key} array holds the MAC key; the key is copied
+	 * internally, which means that the caller may modify the
+	 * {@code key} array afterwards. The provided output length
+	 * is the maximum HMAC output length, in bytes: the digest
+	 * output will be truncated, if needed, to respect that limit.
+	 *
+	 * @param dig            the underlying hash function
+	 * @param key            the MAC key
+	 * @param outputLength   the HMAC output length (in bytes)
+	 */
+	public HMAC(Digest dig, byte[] key, int outputLength)
+	{
+<span class="nc" id="L103">		this(dig, key);</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">		if (outputLength &lt; dig.getDigestLength())</span>
+<span class="nc" id="L105">			this.outputLength = outputLength;</span>
+<span class="nc" id="L106">	}</span>
+
+	/**
+	 * Internal constructor, used for cloning. The key is referenced,
+	 * not copied.
+	 *
+	 * @param dig            the digest
+	 * @param kipad          the (internal) ipad key
+	 * @param kopad          the (internal) opad key
+	 * @param outputLength   the output length, or -1
+	 */
+	private HMAC(Digest dig, byte[] kipad, byte[] kopad, int outputLength)
+<span class="nc" id="L118">	{</span>
+<span class="nc" id="L119">		this.dig = dig;</span>
+<span class="nc" id="L120">		this.kipad = kipad;</span>
+<span class="nc" id="L121">		this.kopad = kopad;</span>
+<span class="nc" id="L122">		this.outputLength = outputLength;</span>
+<span class="nc" id="L123">		tmpOut = new byte[dig.getDigestLength()];</span>
+<span class="nc" id="L124">	}</span>
+
+	private Digest dig;
+	private byte[] kipad, kopad;
+	private int outputLength;
+	private byte[] tmpOut;
+
+	private void processKey(byte[] keyB)
+	{
+<span class="nc" id="L133">		int B = keyB.length;</span>
+<span class="nc" id="L134">		kipad = new byte[B];</span>
+<span class="nc" id="L135">		kopad = new byte[B];</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">		for (int i = 0; i &lt; B; i ++) {</span>
+<span class="nc" id="L137">			int x = keyB[i];</span>
+<span class="nc" id="L138">			kipad[i] = (byte)(x ^ 0x36);</span>
+<span class="nc" id="L139">			kopad[i] = (byte)(x ^ 0x5C);</span>
+		}
+<span class="nc" id="L141">	}</span>
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L146">		HMAC h = new HMAC(dig.copy(), kipad, kopad, outputLength);</span>
+<span class="nc" id="L147">		return copyState(h);</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+		/*
+		 * At construction time, outputLength is first set to 0,
+		 * which means that this method will return 0, which is
+		 * appropriate since at that time &quot;dig&quot; has not yet been
+		 * set.
+		 */
+<span class="nc bnc" id="L159" title="All 2 branches missed.">		return outputLength &lt; 0 ? dig.getDigestLength() : outputLength;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+		/*
+		 * Internal block length is not defined for HMAC, which
+		 * is not, stricto-sensu, an iterated hash function.
+		 * The value 64 should provide correct buffering. Do NOT
+		 * change this value without checking doPadding().
+		 */
+<span class="nc" id="L171">		return 64;</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L177">		dig.reset();</span>
+<span class="nc" id="L178">		dig.update(kipad);</span>
+<span class="nc" id="L179">	}</span>
+
+<span class="nc" id="L181">	private int onlyThis = 0;</span>
+<span class="nc" id="L182">	private static final byte[] zeroPad = new byte[64];</span>
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc bnc" id="L187" title="All 2 branches missed.">		if (onlyThis &gt; 0) {</span>
+<span class="nc" id="L188">			dig.update(data, 0, onlyThis);</span>
+<span class="nc" id="L189">			onlyThis = 0;</span>
+		} else {
+<span class="nc" id="L191">			dig.update(data);</span>
+		}
+<span class="nc" id="L193">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+		/*
+		 * This is slightly ugly... we need to get the still
+		 * buffered data, but the only way to get it from
+		 * DigestEngine is to input some more bytes and wait
+		 * for the processBlock() call. We set a variable
+		 * with the count of actual data bytes, so that
+		 * processBlock() knows what to do.
+		 */
+<span class="nc" id="L206">		onlyThis = flush();</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">		if (onlyThis &gt; 0)</span>
+<span class="nc" id="L208">			update(zeroPad, 0, 64 - onlyThis);</span>
+
+<span class="nc" id="L210">		int olen = tmpOut.length;</span>
+<span class="nc" id="L211">		dig.digest(tmpOut, 0, olen);</span>
+<span class="nc" id="L212">		dig.update(kopad);</span>
+<span class="nc" id="L213">		dig.update(tmpOut);</span>
+<span class="nc" id="L214">		dig.digest(tmpOut, 0, olen);</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">		if (outputLength &gt;= 0)</span>
+<span class="nc" id="L216">			olen = outputLength;</span>
+<span class="nc" id="L217">		System.arraycopy(tmpOut, 0, output, outputOffset, olen);</span>
+<span class="nc" id="L218">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+		/*
+		 * Empty: we do not want to do anything here because
+		 * it would prevent correct cloning. The initialization
+		 * job is done in the constructor.
+		 */
+<span class="nc" id="L228">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L233">		return &quot;HMAC/&quot; + dig.toString();</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

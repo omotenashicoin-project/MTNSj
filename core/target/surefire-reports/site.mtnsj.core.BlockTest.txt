@@ -1,0 +1,28 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.BlockTest
+-------------------------------------------------------------------------------
+Tests run: 12, Failures: 3, Errors: 3, Skipped: 0, Time elapsed: 0.08 sec <<< FAILURE! - in site.mtnsj.core.BlockTest
+testReceiveCoinbaseTransaction(site.mtnsj.core.BlockTest)  Time elapsed: 0 sec  <<< ERROR!
+java.lang.NullPointerException
+	at site.mtnsj.core.BlockTest.testReceiveCoinbaseTransaction(BlockTest.java:224)
+
+isBIPs(site.mtnsj.core.BlockTest)  Time elapsed: 0 sec  <<< ERROR!
+java.lang.NullPointerException
+	at site.mtnsj.core.BlockTest.isBIPs(BlockTest.java:263)
+
+testProofOfWork(site.mtnsj.core.BlockTest)  Time elapsed: 0.014 sec  <<< FAILURE!
+java.lang.AssertionError
+	at site.mtnsj.core.BlockTest.testProofOfWork(BlockTest.java:95)
+
+testWork(site.mtnsj.core.BlockTest)  Time elapsed: 0 sec  <<< FAILURE!
+java.lang.AssertionError: expected:<536879104> but was:<1048577>
+	at site.mtnsj.core.BlockTest.testWork(BlockTest.java:70)
+
+testCoinbaseHeightTestnet(site.mtnsj.core.BlockTest)  Time elapsed: 0 sec  <<< ERROR!
+java.lang.NullPointerException
+	at site.mtnsj.core.BlockTest.testCoinbaseHeightTestnet(BlockTest.java:192)
+
+testBlockVerification(site.mtnsj.core.BlockTest)  Time elapsed: 0.011 sec  <<< FAILURE!
+org.junit.ComparisonFailure: expected:<[00000000a6e5eb79dcec11897af55e90cd571a4335383a3ccfbc12ec81085935]> but was:<[a3b59aa2e018b01697e362be9c854ce482e9e8d56a66e3392f2ea53bda6fb046]>
+	at site.mtnsj.core.BlockTest.testBlockVerification(BlockTest.java:77)
+

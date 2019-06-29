@@ -1,0 +1,546 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasternodeBroadcast.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">MasternodeBroadcast.java</span></div><h1>MasternodeBroadcast.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+import site.mtnsj.script.Script;
+import site.mtnsj.script.ScriptBuilder;
+import org.darkcoinj.DarkSendSigner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongycastle.util.encoders.Base64;
+
+
+import java.io.IOException;
+import java.io.OutputStream;
+
+/**
+ * Created by Hash Engineering on 2/20/2015.
+ * Mod OmotenashiCoin Project 1/2/2019 by kani
+ */
+public class MasternodeBroadcast extends Masternode {
+<span class="nc" id="L19">    private static final Logger log = LoggerFactory.getLogger(MasternodeBroadcast.class);</span>
+
+    public MasternodeBroadcast(NetworkParameters params, byte [] payloadBytes)
+    {
+<span class="nc" id="L23">        super(params, payloadBytes, 0);</span>
+<span class="nc" id="L24">    }</span>
+
+    public MasternodeBroadcast(NetworkParameters params, byte [] payloadBytes, int cursor)
+    {
+<span class="nc" id="L28">        super(params, payloadBytes, cursor);</span>
+<span class="nc" id="L29">    }</span>
+
+    public MasternodeBroadcast(Masternode masternode)
+    {
+<span class="nc" id="L33">       super(masternode);</span>
+<span class="nc" id="L34">    }</span>
+
+
+    private transient int optimalEncodingMessageSize;
+
+
+    protected static int calcLength(byte[] buf, int offset) {
+        VarInt varint;
+
+<span class="nc" id="L43">        int cursor = offset;</span>
+
+        //vin
+<span class="nc" id="L46">        cursor += 36;</span>
+<span class="nc" id="L47">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L48">        long scriptLen = varint.value;</span>
+        // 4 = length of sequence field (uint32)
+<span class="nc" id="L50">        cursor += scriptLen + 4 + varint.getOriginalSizeInBytes();</span>
+
+<span class="nc" id="L52">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L53">        long size = varint.value;</span>
+<span class="nc" id="L54">        cursor += varint.getOriginalSizeInBytes();</span>
+<span class="nc" id="L55">        cursor += size;</span>
+
+<span class="nc" id="L57">        return cursor - offset;</span>
+    }
+
+    @Override
+    protected void parse() throws ProtocolException {
+
+<span class="nc" id="L63">        vin = new TransactionInput(params, null, payload, cursor);</span>
+<span class="nc" id="L64">        cursor += vin.getMessageSize();</span>
+
+<span class="nc" id="L66">        address = new MasternodeAddress(params, payload, cursor, 0);</span>
+<span class="nc" id="L67">        cursor += address.getMessageSize();</span>
+
+<span class="nc" id="L69">        pubKeyCollateralAddress = new PublicKey(params, payload, cursor);</span>
+<span class="nc" id="L70">        cursor += pubKeyCollateralAddress.getMessageSize();</span>
+
+<span class="nc" id="L72">        pubKeyMasternode = new PublicKey(params, payload, cursor);</span>
+<span class="nc" id="L73">        cursor += pubKeyMasternode.getMessageSize();</span>
+
+<span class="nc" id="L75">        sig = new MasternodeSignature(params, payload, cursor);</span>
+<span class="nc" id="L76">        cursor += sig.getMessageSize();</span>
+
+<span class="nc" id="L78">        sigTime = readInt64();</span>
+
+<span class="nc" id="L80">        protocolVersion = (int)readUint32();</span>
+
+<span class="nc" id="L82">        lastPing = new MasternodePing(params, payload, cursor);</span>
+<span class="nc" id="L83">        cursor += lastPing.getMessageSize();</span>
+
+        //nLastDsq = readInt64();
+
+<span class="nc" id="L87">        length = cursor - offset;</span>
+
+<span class="nc" id="L89">    }</span>
+
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+
+<span class="nc" id="L94">        vin.bitcoinSerialize(stream);</span>
+<span class="nc" id="L95">        address.bitcoinSerialize(stream);</span>
+<span class="nc" id="L96">        pubKeyCollateralAddress.bitcoinSerialize(stream);</span>
+<span class="nc" id="L97">        pubKeyMasternode.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L99">        sig.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L101">        Utils.int64ToByteStreamLE(sigTime, stream);</span>
+<span class="nc" id="L102">        Utils.uint32ToByteStreamLE(protocolVersion, stream);</span>
+
+<span class="nc" id="L104">        lastPing.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L106">        Utils.int64ToByteStreamLE(nLastDsq, stream);</span>
+
+<span class="nc" id="L108">    }</span>
+
+    public Sha256Hash getHash()
+    {
+<span class="nc" id="L112">        byte [] dataToHash = new byte[pubKeyCollateralAddress.getBytes().length+8];</span>
+<span class="nc" id="L113">        Utils.uint32ToByteArrayLE(sigTime, dataToHash, 0);</span>
+<span class="nc" id="L114">        System.arraycopy(pubKeyCollateralAddress.getBytes(), 0, dataToHash, 8, pubKeyCollateralAddress.getBytes().length);</span>
+        try {
+<span class="nc" id="L116">            UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream(8 + vin.getMessageSize() + pubKeyCollateralAddress.calculateMessageSizeInBytes());</span>
+<span class="nc" id="L117">            vin.bitcoinSerialize(bos);</span>
+<span class="nc" id="L118">            Utils.int64ToByteStreamLE(sigTime, bos);</span>
+<span class="nc" id="L119">            pubKeyCollateralAddress.bitcoinSerialize(bos);</span>
+<span class="nc" id="L120">            return Sha256Hash.wrapReversed(Sha256Hash.hashTwice((bos.toByteArray())));</span>
+        }
+<span class="nc" id="L122">        catch (IOException e)</span>
+        {
+<span class="nc" id="L124">            throw new RuntimeException(e); // Cannot happen.</span>
+        }
+    }
+
+    boolean checkAndUpdate()//int&amp; nDos
+    {
+        // make sure signature isn't in the future (past is OK)
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        if (sigTime &gt; Utils.currentTimeSeconds() + 60 * 60) {</span>
+<span class="nc" id="L132">            log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - Signature rejected, too far into the future &quot; + vin.toString());</span>
+            //nDos = 1;
+<span class="nc" id="L134">            return false;</span>
+        }
+
+        // incorrect ping or its sigTime
+<span class="nc bnc" id="L138" title="All 4 branches missed.">        if(lastPing.equals(MasternodePing.EMPTY) || !lastPing.checkAndUpdate(false, true))</span>
+<span class="nc" id="L139">            return false;</span>
+
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        if (protocolVersion &lt; context.masternodePayments.getMinMasternodePaymentsProto()) {</span>
+<span class="nc" id="L142">            log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - ignoring outdated Masternode &quot; + vin.toString() + &quot; protocol version &quot; + protocolVersion);</span>
+<span class="nc" id="L143">            return false;</span>
+        }
+
+        Script pubkeyScript;
+        //pubkeyScript = GetScriptForDestination(pubKeyCollateralAddress.GetID());
+<span class="nc" id="L148">        pubkeyScript = ScriptBuilder.createOutputScript(new Address(params, pubKeyCollateralAddress.getId()));</span>
+
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (pubkeyScript.getProgram().length != 25) {</span>
+<span class="nc" id="L151">            log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - pubKeyCollateralAddress the wrong size&quot;);</span>
+            //nDos = 100;
+<span class="nc" id="L153">            return false;</span>
+        }
+
+        Script pubkeyScript2;
+        //pubkeyScript2 = GetScriptForDestination(pubKeyMasternode.GetID());
+<span class="nc" id="L158">        pubkeyScript2 = ScriptBuilder.createOutputScript(new Address(params, pubKeyMasternode.getId()));</span>
+
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        if (pubkeyScript2.getProgram().length != 25) {</span>
+<span class="nc" id="L161">            log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - pubKeyMasternode the wrong size\n&quot;);</span>
+            //nDos = 100;
+<span class="nc" id="L163">            return false;</span>
+        }
+
+        //if(!vin.scriptSig.empty()) {
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        if (!vin.getScriptSig().getChunks().isEmpty()) {</span>
+<span class="nc" id="L168">            log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - Ignore Not Empty ScriptSig &quot; + vin.toString());</span>
+<span class="nc" id="L169">            return false;</span>
+        }
+
+<span class="nc" id="L172">        StringBuilder errorMessage = new StringBuilder();</span>
+
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (!verifySignature()) {</span>
+            //if(!DarkSendSigner.verifyMessage(pubKeyCollateralAddress, sig, strMessage, errorMessage)){
+<span class="nc" id="L176">            log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - VerifySignature failed: &quot; + vin.toString());</span>
+            //nDos = 100;
+<span class="nc" id="L178">            return false;</span>
+        }
+
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        if (params.getId().equals(NetworkParameters.ID_MAINNET)) {</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">            if (address.getPort() != 16181) return false;</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        } else if (address.getPort() == 16181) return false;</span>
+
+
+        //search existing Masternode list, this is where we update existing Masternodes with new mnb broadcasts
+<span class="nc" id="L187">        Masternode pmn = context.masternodeManager.find(vin);</span>
+
+        // no such masternode or it's not enabled already, nothing to update
+<span class="nc bnc" id="L190" title="All 6 branches missed.">        if (pmn == null || (pmn != null &amp;&amp; !pmn.isEnabled())) return true;</span>
+
+         // this broadcast is older or equal than the one that we already have - it's bad and should never happen
+         // unless someone is doing something fishy
+         // (mapSeenMasternodeBroadcast in CMasternodeMan::ProcessMessage should filter legit duplicates)
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        if(pmn.sigTime &gt;= sigTime) {</span>
+<span class="nc" id="L196">             log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - Bad sigTime &quot;+sigTime+&quot; for Masternode &quot;+address+&quot; &quot;+vin+&quot; (existing broadcast is at &quot; + pmn.sigTime);</span>
+<span class="nc" id="L197">             return false;</span>
+        }
+
+         // masternode is not enabled yet/already, nothing to update
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if(!pmn.isEnabled()) return true;</span>
+
+        // mn.pubKeyCollateralAddress = pubKeyCollateralAddress, IsVinAssociatedWithPubkey is validated once below,
+        //   after that they just need to match
+<span class="nc bnc" id="L205" title="All 4 branches missed.">        if (pmn.pubKeyCollateralAddress.equals(pubKeyCollateralAddress) &amp;&amp; !pmn.isBroadcastedWithin(MASTERNODE_MIN_MNB_SECONDS)) {</span>
+            //take the newest entry
+<span class="nc" id="L207">            log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - Got updated entry for &quot; + address.toString());</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            if (pmn.updateFromNewBroadcast(this)) {</span>
+<span class="nc" id="L209">                pmn.check();</span>
+                // normally masternode should be in pre-enabled status after update, if not - do not relay
+<span class="nc bnc" id="L211" title="All 2 branches missed.">                if (pmn.isEnabled()) relay();</span>
+            }
+<span class="nc" id="L213">            context.masternodeSync.addedMasternodeList(getHash());</span>
+        }
+
+<span class="nc" id="L216">        return true;</span>
+
+    }
+
+    boolean checkAndUpdate_old()//int&amp; nDos
+    {
+        // make sure signature isn't in the future (past is OK)
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        if (sigTime &gt; Utils.currentTimeSeconds() + 60 * 60) {</span>
+<span class="nc" id="L224">            log.info(&quot;CMasternodeBroadcast::CheckAndUpdate - Signature rejected, too far into the future &quot; + vin.toString());</span>
+            //nDos = 1;
+<span class="nc" id="L226">            return false;</span>
+        }
+
+        // incorrect ping or its sigTime
+<span class="nc bnc" id="L230" title="All 4 branches missed.">        if(lastPing.equals(MasternodePing.EMPTY) || !lastPing.checkAndUpdate(false, true))</span>
+<span class="nc" id="L231">            return false;</span>
+
+        //String vchPubKey = new String(pubKeyCollateralAddress.getBytes(), StandardCharsets.US_ASCII);
+        //String vchPubKey2 = new String(pubKeyMasternode.getBytes(), StandardCharsets.US_ASCII);
+        //std::string strMessage = addr.ToString() + boost::lexical_cast&lt;std::string&gt;(sigTime) + vchPubKey + vchPubKey2 + boost::lexical_cast&lt;std::string&gt;(protocolVersion);
+        //String strMessage = address.toString() + sigTime + vchPubKey + vchPubKey2 + protocolVersion;
+        try {
+<span class="nc" id="L238">            byte [] message = null;</span>
+<span class="nc" id="L239">            String strMessage = &quot;&quot;;</span>
+
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            if(protocolVersion &lt; 70201) {</span>
+<span class="nc" id="L242">                UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream((address.toString() + sigTime).length() + pubKeyCollateralAddress.getBytes().length + pubKeyMasternode.getBytes().length + ((Integer) protocolVersion).toString().getBytes().length);</span>
+<span class="nc" id="L243">                bos.write((address.toString() + sigTime).getBytes());</span>
+<span class="nc" id="L244">                bos.write(pubKeyCollateralAddress.getBytes());</span>
+<span class="nc" id="L245">                bos.write(pubKeyMasternode.getBytes());</span>
+<span class="nc" id="L246">                bos.write(((Integer) protocolVersion).toString().getBytes());</span>
+
+<span class="nc" id="L248">                message = bos.toByteArray();</span>
+<span class="nc" id="L249">            }</span>
+            else
+            {
+                /*UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream((address.toString() + sigTime).length() + pubKeyCollateralAddress.getBytes().length + pubKeyMasternode.getBytes().length + ((Integer) protocolVersion).toString().getBytes().length);
+                bos.write((address.toString() + sigTime).getBytes());
+                bos.write(pubKeyCollateralAddress.getId());
+                bos.write(pubKeyMasternode.getId());
+                bos.write(((Integer) protocolVersion).toString().getBytes());
+*/
+                // message = bos.toByteArray();
+<span class="nc" id="L259">                strMessage = address.toString() + sigTime + Utils.HEX.encode(Utils.reverseBytes(pubKeyCollateralAddress.getId())) + Utils.HEX.encode(Utils.reverseBytes(pubKeyMasternode.getId())) + protocolVersion;</span>
+<span class="nc" id="L260">                message = strMessage.getBytes();</span>
+<span class="nc" id="L261">                log.info(&quot;CMasternodeBroadcast::VerifySignature - sanitized strMessage: &quot;+Utils.sanitizeString(strMessage)+&quot;, pubKeyCollateralAddress address: &quot;+new Address(params, pubKeyCollateralAddress.getId()).toString()+&quot;, sig: %s\n&quot; +</span>
+<span class="nc" id="L262">                        Base64.toBase64String(sig.getBytes()));</span>
+            }
+
+<span class="nc bnc" id="L265" title="All 2 branches missed.">            if (protocolVersion &lt; context.masternodePayments.getMinMasternodePaymentsProto()) {</span>
+<span class="nc" id="L266">                log.info(&quot;mnb - ignoring outdated Masternode &quot; + vin.toString() + &quot; protocol version &quot; + protocolVersion);</span>
+<span class="nc" id="L267">                return false;</span>
+            }
+
+            Script pubkeyScript;
+            //pubkeyScript = GetScriptForDestination(pubKeyCollateralAddress.GetID());
+<span class="nc" id="L272">            pubkeyScript = ScriptBuilder.createOutputScript(new Address(params, pubKeyCollateralAddress.getId()));</span>
+
+<span class="nc bnc" id="L274" title="All 2 branches missed.">            if (pubkeyScript.getProgram().length != 25) {</span>
+<span class="nc" id="L275">                log.info(&quot;mnb - pubKeyCollateralAddress the wrong size&quot;);</span>
+                //nDos = 100;
+<span class="nc" id="L277">                return false;</span>
+            }
+
+            Script pubkeyScript2;
+            //pubkeyScript2 = GetScriptForDestination(pubKeyMasternode.GetID());
+<span class="nc" id="L282">            pubkeyScript2 = ScriptBuilder.createOutputScript(new Address(params, pubKeyMasternode.getId()));</span>
+
+<span class="nc bnc" id="L284" title="All 2 branches missed.">            if (pubkeyScript2.getProgram().length != 25) {</span>
+<span class="nc" id="L285">                log.info(&quot;mnb - pubKeyMasternode the wrong size\n&quot;);</span>
+                //nDos = 100;
+<span class="nc" id="L287">                return false;</span>
+            }
+
+            //if(!vin.scriptSig.empty()) {
+<span class="nc bnc" id="L291" title="All 2 branches missed.">            if (!vin.getScriptSig().getChunks().isEmpty()) {</span>
+<span class="nc" id="L292">                log.info(&quot;mnb - Ignore Not Empty ScriptSig &quot; + vin.toString());</span>
+<span class="nc" id="L293">                return false;</span>
+            }
+
+<span class="nc" id="L296">            StringBuilder errorMessage = new StringBuilder();</span>
+
+<span class="nc bnc" id="L298" title="All 2 branches missed.">            if (!DarkSendSigner.verifyMessage1(pubKeyCollateralAddress, sig, message, errorMessage)) {</span>
+                //if(!DarkSendSigner.verifyMessage(pubKeyCollateralAddress, sig, strMessage, errorMessage)){
+<span class="nc" id="L300">                log.info(&quot;mnb - Got bad Masternode address signature: &quot; + errorMessage);</span>
+                //nDos = 100;
+<span class="nc" id="L302">                return false;</span>
+            }
+
+<span class="nc bnc" id="L305" title="All 2 branches missed.">            if (params.getId().equals(NetworkParameters.ID_MAINNET)) {</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">                if (address.getPort() != 16181) return false;</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">            } else if (address.getPort() == 16181) return false;</span>
+
+
+            //search existing Masternode list, this is where we update existing Masternodes with new mnb broadcasts
+<span class="nc" id="L311">            Masternode pmn = context.masternodeManager.find(vin);</span>
+
+            // no such masternode or it's not enabled already, nothing to update
+<span class="nc bnc" id="L314" title="All 6 branches missed.">            if (pmn == null || (pmn != null &amp;&amp; !pmn.isEnabled())) return true;</span>
+
+            // mn.pubKeyCollateralAddress = pubKeyCollateralAddress, IsVinAssociatedWithPubkey is validated once below,
+            //   after that they just need to match
+<span class="nc bnc" id="L318" title="All 4 branches missed.">            if (pmn.pubKeyCollateralAddress.equals(pubKeyCollateralAddress) &amp;&amp; !pmn.isBroadcastedWithin(MASTERNODE_MIN_MNB_SECONDS)) {</span>
+                //take the newest entry
+<span class="nc" id="L320">                log.info(&quot;mnb - Got updated entry for &quot; + address.toString());</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">                if (pmn.updateFromNewBroadcast(this)) {</span>
+<span class="nc" id="L322">                    pmn.check();</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">                    if (pmn.isEnabled()) relay();</span>
+                }
+<span class="nc" id="L325">                context.masternodeSync.addedMasternodeList(getHash());</span>
+            }
+
+<span class="nc" id="L328">            return true;</span>
+<span class="nc" id="L329">        } catch (IOException x){</span>
+<span class="nc" id="L330">            return false;</span>
+        }
+    }
+
+    void relay()
+    {
+        //for SPV, do not relay
+        //CInv inv(MSG_MASTERNODE_ANNOUNCE, GetHash());
+        //RelayInv(inv);
+<span class="nc" id="L339">    }</span>
+
+    boolean checkInputsAndAdd()
+    {
+        // we are a masternode with the same vin (i.e. already activated) and this mnb is ours (matches our Masternode privkey)
+        // so nothing to do here for us
+<span class="nc bnc" id="L345" title="All 6 branches missed.">        if(DarkCoinSystem.fMasterNode &amp;&amp; vin.getOutpoint().equals(context.activeMasternode.vin.getOutpoint()) &amp;&amp; pubKeyMasternode.equals(context.activeMasternode.pubKeyMasternode))</span>
+<span class="nc" id="L346">            return true;</span>
+
+        // incorrect ping or its sigTime
+<span class="nc bnc" id="L349" title="All 4 branches missed.">        if(lastPing == MasternodePing.EMPTY || !lastPing.checkAndUpdate(false, true))</span>
+<span class="nc" id="L350">            return false;</span>
+
+        // search existing Masternode list
+<span class="nc" id="L353">        Masternode pmn = context.masternodeManager.find(vin);</span>
+
+<span class="nc bnc" id="L355" title="All 2 branches missed.">        if(pmn != null) {</span>
+            // nothing to do here if we already know about this masternode and it's enabled
+<span class="nc bnc" id="L357" title="All 4 branches missed.">            if(pmn.isEnabled() || pmn.isPreEnabled()) return true;</span>
+                // if it's not enabled, remove old MN first and continue
+<span class="nc" id="L359">            else context.masternodeManager.remove(pmn.vin);</span>
+        }
+
+        /*  TODO:  Will this work?
+
+         if(GetInputAge(vin) &lt; Params().GetConsensus().nMasternodeMinimumConfirmations){
+            LogPrintf(&quot;CMasternodeBroadcast::CheckInputsAndAdd - Input must have at least %d confirmations\n&quot;, Params().GetConsensus().nMasternodeMinimumConfirmations);
+            // maybe we miss few blocks, let this mnb to be checked again later
+            mnodeman.mapSeenMasternodeBroadcast.erase(GetHash());
+            masternodeSync.mapSeenSyncMNB.erase(GetHash());
+            return false;
+        }
+        CValidationState state;
+        CMutableTransaction tx = CMutableTransaction();
+        TransactionOutput vout = new TransactionOutput(context, Coin.valueOf(999,99), context.darkSendPool.collateralPubKey);
+        tx.vin.push_back(vin);
+        tx.vout.push_back(vout);
+
+        {
+            TRY_LOCK(cs_main, lockMain);
+            if(!lockMain) {
+                // not mnb fault, let it to be checked again later
+                context.masternodeManager.mapSeenMasternodeBroadcast.remove(getHash());
+                context.masternodeSync.mapSeenSyncMNB.remove(getHash());
+                return false;
+            }
+
+            if(!AcceptableInputs(mempool, state, CTransaction(tx), false, NULL)) {
+                //set nDos
+                state.IsInvalid(nDoS);
+                return false;
+            }
+        }
+        */
+
+<span class="nc" id="L394">        log.info(&quot;masternode - mnb - Accepted Masternode entry\n&quot;);</span>
+
+        /* TODO:  Will this work?
+        if(GetInputAge(vin) &lt; MASTERNODE_MIN_CONFIRMATIONS){
+            log.info(&quot;mnb - Input must have at least {1} confirmations&quot;, MASTERNODE_MIN_CONFIRMATIONS);
+            // maybe we miss few blocks, let this mnb to be checked again later
+            mnodeman.mapSeenMasternodeBroadcast.erase(GetHash());
+            masternodeSync.mapSeenSyncMNB.erase(GetHash());
+            return false;
+        }
+        */
+
+        // make sure the vout that was signed is related to the transaction that spawned the Masternode
+        //  - this is expensive, so it's only done once per Masternode
+<span class="nc bnc" id="L408" title="All 2 branches missed.">        if(!DarkSendSigner.isVinAssociatedWithPubkey(params, vin, pubKeyCollateralAddress)) {</span>
+<span class="nc" id="L409">            log.info(&quot;CMasternodeMan::CheckInputsAndAdd - Got mismatched pubKeyCollateralAddress and vin&quot;);</span>
+            //nDos = 33;
+<span class="nc" id="L411">            return false;</span>
+        }
+
+        // verify that sig time is legit in past
+        // should be at least not earlier than block when 1000 DASH tx got MASTERNODE_MIN_CONFIRMATIONS
+        /*
+        uint256 hashBlock = 0;
+        CTransaction tx2;
+        GetTransaction(vin.prevout.hash, tx2, hashBlock, true);
+        BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+        if (mi != mapBlockIndex.end() &amp;&amp; (*mi).second)
+        {
+            CBlockIndex* pMNIndex = (*mi).second; // block for 1000 DASH tx -&gt; 1 confirmation
+            CBlockIndex* pConfIndex = chainActive[pMNIndex-&gt;nHeight + MASTERNODE_MIN_CONFIRMATIONS - 1]; // block where tx got MASTERNODE_MIN_CONFIRMATIONS
+            if(pConfIndex-&gt;GetBlockTime() &gt; sigTime)
+            {
+                LogPrintf(&quot;mnb - Bad sigTime %d for Masternode %20s %105s (%i conf block is at %d)\n&quot;,
+                        sigTime, addr.ToString(), vin.ToString(), MASTERNODE_MIN_CONFIRMATIONS, pConfIndex-&gt;GetBlockTime());
+                return false;
+            }
+        }
+
+        */
+
+
+        // if it matches our Masternode privkey...
+<span class="nc bnc" id="L437" title="All 4 branches missed.">        if(DarkCoinSystem.fMasterNode &amp;&amp; pubKeyMasternode == context.activeMasternode.pubKeyMasternode) {</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">            if(protocolVersion == params.getProtocolVersionNum(NetworkParameters.ProtocolVersion.CURRENT)) {</span>
+                // ... and PROTOCOL_VERSION, then we've been remotely activated ...
+<span class="nc" id="L440">                context.activeMasternode.enableHotColdMasterNode(vin, address);</span>
+            } else {
+                // ... otherwise we need to reactivate our node, don not add it to the list and do not relay
+                // but also do not ban the node we get this message from
+<span class="nc" id="L444">                log.info(&quot;CMasternodeBroadcast::CheckInputsAndAdd - wrong PROTOCOL_VERSION, announce message: &quot;+protocolVersion+&quot; MN: &quot;+params.getProtocolVersionNum(NetworkParameters.ProtocolVersion.CURRENT)+&quot; - re-activate your MN&quot;);</span>
+<span class="nc" id="L445">                return false;</span>
+            }
+        }
+
+<span class="nc" id="L449">        log.info(&quot;mnb - Got NEW Masternode entry - {} - {} - {} - {} &quot;, getHash().toString(), address.toString(), vin.toString(), sigTime);</span>
+<span class="nc" id="L450">        Masternode mn = new Masternode(this);</span>
+<span class="nc" id="L451">        context.masternodeManager.add(mn);</span>
+
+        // if it matches our Masternode privkey, then we've been remotely activated
+<span class="nc bnc" id="L454" title="All 4 branches missed.">        if(pubKeyMasternode.equals(context.activeMasternode.pubKeyMasternode) &amp;&amp; protocolVersion == CoinDefinition.PROTOCOL_VERSION){</span>
+<span class="nc" id="L455">            context.activeMasternode.enableHotColdMasterNode(vin, address);</span>
+        }
+
+<span class="nc bnc" id="L458" title="All 4 branches missed.">        boolean isLocal = address.getAddr().isSiteLocalAddress() || address.getAddr().isLoopbackAddress();</span>
+
+<span class="nc bnc" id="L460" title="All 2 branches missed.">        if(params.getId().equals(NetworkParameters.ID_REGTEST)) isLocal = false;</span>
+<span class="nc bnc" id="L461" title="All 2 branches missed.">        if(!isLocal) relay();</span>
+
+<span class="nc" id="L463">        return true;</span>
+    }
+
+    boolean verifySignature()
+    {
+        String strMessage;
+<span class="nc" id="L469">        StringBuilder errorMessage = new StringBuilder();</span>
+        //nDos = 0;
+
+        //
+        // REMOVE AFTER MIGRATION TO 12.1
+        //
+<span class="nc bnc" id="L475" title="All 2 branches missed.">        if(protocolVersion &lt; 70201) {</span>
+            byte [] message;
+            try {
+<span class="nc" id="L478">                UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream((address.toString() + sigTime).length() + pubKeyCollateralAddress.getBytes().length + pubKeyMasternode.getBytes().length + ((Integer) protocolVersion).toString().getBytes().length);</span>
+<span class="nc" id="L479">                bos.write((address.toString() + sigTime).getBytes());</span>
+<span class="nc" id="L480">                bos.write(pubKeyCollateralAddress.getBytes());</span>
+<span class="nc" id="L481">                bos.write(pubKeyMasternode.getBytes());</span>
+<span class="nc" id="L482">                bos.write(((Integer) protocolVersion).toString().getBytes());</span>
+<span class="nc" id="L483">                message = bos.toByteArray();</span>
+            }
+<span class="nc" id="L485">            catch (Exception x)</span>
+            {
+<span class="nc" id="L487">                return false;</span>
+<span class="nc" id="L488">            }</span>
+
+
+            /*log.info(&quot;masternode&quot;, &quot;CMasternodeBroadcast::VerifySignature - sanitized strMessage: &quot;+Utils.sanitizeString(String.valueOf(message))+&quot;, pubKeyCollateralAddress address: &quot;+new Address(params, pubKeyCollateralAddress.getId()).toString()+&quot;, sig: %s&quot; +
+                    Base64.toBase64String(sig.getBytes()));*/
+<span class="nc" id="L493">            log.info(&quot;CMasternodeBroadcast::VerifySignature - sanitized strMessage: &quot;+Utils.sanitizeString(String.valueOf(message))+&quot;, pubKeyCollateralAddress address: &quot;+new Address(params, pubKeyCollateralAddress.getId()).toString()+&quot;, sig: %s&quot; +</span>
+<span class="nc" id="L494">                    Base64.toBase64String(sig.getBytes()));</span>
+
+<span class="nc bnc" id="L496" title="All 2 branches missed.">            if(!DarkSendSigner.verifyMessage1(pubKeyCollateralAddress, sig, message, errorMessage)){</span>
+                /*if (addr.ToString() != addr.ToString(false))
+                {
+                    // maybe it's wrong format, try again with the old one
+                    strMessage = addr.ToString() + boost::lexical_cast&lt;std::string&gt;(sigTime) +
+                            vchPubKey + vchPubKey2 + boost::lexical_cast&lt;std::string&gt;(protocolVersion);
+
+                    LogPrint(&quot;masternode&quot;, &quot;CMasternodeBroadcast::VerifySignature - second try, sanitized strMessage: %s, pubKeyCollateralAddress address: %s, sig: %s\n&quot;,
+                            SanitizeString(strMessage), CBitcoinAddress(pubKeyCollateralAddress.GetID()).ToString(),
+                            EncodeBase64(&amp;vchSig[0], vchSig.size()));
+
+                    if(!darkSendSigner.VerifyMessage(pubKeyCollateralAddress, vchSig, strMessage, errorMessage)){
+                        // didn't work either
+                        LogPrintf(&quot;CMasternodeBroadcast::VerifySignature - Got bad Masternode address signature, second try, sanitized error: %s\n&quot;,
+                                SanitizeString(errorMessage));
+                        // don't ban for old masternodes, their sigs could be broken because of the bug
+                        return false;
+                    }
+                } else {*/
+                    // nope, sig is actually wrong
+<span class="nc" id="L516">                    log.warn(&quot;CMasternodeBroadcast::VerifySignature - Got bad Masternode address signature, sanitized error: %s\n&quot;,</span>
+<span class="nc" id="L517">                            Utils.sanitizeString(errorMessage.toString()));</span>
+                    // don't ban for old masternodes, their sigs could be broken because of the bug
+<span class="nc" id="L519">                    return false;</span>
+                //}
+            }
+<span class="nc" id="L522">        } else {</span>
+            //
+            // END REMOVE
+            //
+
+
+<span class="nc" id="L528">            strMessage = address.toString() + sigTime + Utils.HEX.encode(Utils.reverseBytes(pubKeyCollateralAddress.getId())) + Utils.HEX.encode(Utils.reverseBytes(pubKeyMasternode.getId())) + protocolVersion;</span>
+
+<span class="nc" id="L530">            log.info(&quot;CMasternodeBroadcast::VerifySignature - sanitized strMessage: &quot;+Utils.sanitizeString(strMessage)+&quot;, pubKeyCollateralAddress address: &quot;+new Address(params, pubKeyCollateralAddress.getId()).toString()+&quot;, sig: %s\n&quot; +</span>
+<span class="nc" id="L531">                    Base64.toBase64String(sig.getBytes()));</span>
+
+            //LogPrint(&quot;masternode&quot;, &quot;CMasternodeBroadcast::VerifySignature - strMessage: %s, pubKeyCollateralAddress address: %s, sig: %s\n&quot;, strMessage, CBitcoinAddress(pubKeyCollateralAddress.GetID()).ToString(), EncodeBase64(&amp;vchSig[0], vchSig.size()));
+
+<span class="nc bnc" id="L535" title="All 2 branches missed.">            if(!DarkSendSigner.verifyMessage(pubKeyCollateralAddress, sig, strMessage, errorMessage)){</span>
+<span class="nc" id="L536">                log.warn(&quot;CMasternodeBroadcast::VerifySignature - Got bad Masternode address signature, error: &quot; + errorMessage);</span>
+                //nDos = 100;
+<span class="nc" id="L538">                return false;</span>
+            }
+        }
+
+<span class="nc" id="L542">        return true;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

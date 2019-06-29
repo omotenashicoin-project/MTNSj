@@ -1,0 +1,966 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Luffa512.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">Luffa512.java</span></div><h1>Luffa512.java</h1><pre class="source lang-java linenums">// $Id: Luffa512.java 235 2010-06-18 15:31:36Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements Luffa-512 digest algorithm under the
+ * {@link Digest} API.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 235 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class Luffa512 extends DigestEngine {
+
+<span class="nc" id="L42">	private static final int[] IV = {</span>
+		0x6d251e69, 0x44b051e0, 0x4eaa6fb4, 0xdbf78465,
+		0x6e292011, 0x90152df4, 0xee058139, 0xdef610bb,
+		0xc3b44b95, 0xd9d2f256, 0x70eee9a0, 0xde099fa3,
+		0x5d9b0557, 0x8fc944b3, 0xcf1ccf0e, 0x746cd581,
+		0xf7efc89d, 0x5dba5781, 0x04016ce5, 0xad659c05,
+		0x0306194f, 0x666d1836, 0x24aa230a, 0x8b264ae7,
+		0x858075d5, 0x36d79cce, 0xe571f7d7, 0x204b1f67,
+		0x35870c6a, 0x57e9e923, 0x14bcb808, 0x7cde72ce,
+		0x6c68e9be, 0x5ec41e22, 0xc825b7c7, 0xaffb4363,
+		0xf5df3999, 0x0fc688f1, 0xb07224cc, 0x03e86cea
+	};
+
+<span class="nc" id="L55">	private static final int[] RC00 = {</span>
+		0x303994a6, 0xc0e65299, 0x6cc33a12, 0xdc56983e,
+		0x1e00108f, 0x7800423d, 0x8f5b7882, 0x96e1db12
+	};
+
+<span class="nc" id="L60">	private static final int[] RC04 = {</span>
+		0xe0337818, 0x441ba90d, 0x7f34d442, 0x9389217f,
+		0xe5a8bce6, 0x5274baf4, 0x26889ba7, 0x9a226e9d
+	};
+
+<span class="nc" id="L65">	private static final int[] RC10 = {</span>
+		0xb6de10ed, 0x70f47aae, 0x0707a3d4, 0x1c1e8f51,
+		0x707a3d45, 0xaeb28562, 0xbaca1589, 0x40a46f3e
+	};
+
+<span class="nc" id="L70">	private static final int[] RC14 = {</span>
+		0x01685f3d, 0x05a17cf4, 0xbd09caca, 0xf4272b28,
+		0x144ae5cc, 0xfaa7ae2b, 0x2e48f1c1, 0xb923c704
+	};
+
+<span class="nc" id="L75">	private static final int[] RC20 = {</span>
+		0xfc20d9d2, 0x34552e25, 0x7ad8818f, 0x8438764a,
+		0xbb6de032, 0xedb780c8, 0xd9847356, 0xa2c78434
+	};
+
+<span class="nc" id="L80">	private static final int[] RC24 = {</span>
+		0xe25e72c1, 0xe623bb72, 0x5c58a4a4, 0x1e38e2e7,
+		0x78e38b9d, 0x27586719, 0x36eda57f, 0x703aace7
+	};
+
+<span class="nc" id="L85">	private static final int[] RC30 = {</span>
+		0xb213afa5, 0xc84ebe95, 0x4e608a22, 0x56d858fe,
+		0x343b138f, 0xd0ec4e3d, 0x2ceb4882, 0xb3ad2208
+	};
+
+<span class="nc" id="L90">	private static final int[] RC34 = {</span>
+		0xe028c9bf, 0x44756f91, 0x7e8fce32, 0x956548be,
+		0xfe191be2, 0x3cb226e5, 0x5944a28e, 0xa1c4c355
+	};
+
+<span class="nc" id="L95">	private static final int[] RC40 = {</span>
+		0xf0d2e9e3, 0xac11d7fa, 0x1bcb66f2, 0x6f2d9bc9,
+		0x78602649, 0x8edae952, 0x3b6ba548, 0xedae9520
+	};
+
+<span class="nc" id="L100">	private static final int[] RC44 = {</span>
+		0x5090d577, 0x2d1925ab, 0xb46496ac, 0xd1925ab0,
+		0x29131ab6, 0x0fc053c3, 0x3f014f0c, 0xfc053c31
+	};
+
+	private int V00, V01, V02, V03, V04, V05, V06, V07;
+	private int V10, V11, V12, V13, V14, V15, V16, V17;
+	private int V20, V21, V22, V23, V24, V25, V26, V27;
+	private int V30, V31, V32, V33, V34, V35, V36, V37;
+	private int V40, V41, V42, V43, V44, V45, V46, V47;
+	private byte[] tmpBuf;
+
+	/**
+	 * Create the engine.
+	 */
+	public Luffa512()
+	{
+<span class="nc" id="L117">		super();</span>
+<span class="nc" id="L118">	}</span>
+
+	/** @see DigestEngine */
+	public int getInternalBlockLength()
+	{
+<span class="nc" id="L123">		return 32;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+		/*
+		 * Private communication for Luffa designer Watanabe Dai:
+		 *
+		 * &lt;&lt; I think that there is no problem to use the same
+		 *    setting as CubeHash, namely B = 256*ceil(k / 256). &gt;&gt;
+		 */
+<span class="nc" id="L135">		return -32;</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L141">		return 64;</span>
+	}
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L147">		return copyState(new Luffa512());</span>
+	}
+
+	/** @see DigestEngine */
+	protected Digest copyState(Luffa512 dst)
+	{
+<span class="nc" id="L153">		dst.V00 = V00;</span>
+<span class="nc" id="L154">		dst.V01 = V01;</span>
+<span class="nc" id="L155">		dst.V02 = V02;</span>
+<span class="nc" id="L156">		dst.V03 = V03;</span>
+<span class="nc" id="L157">		dst.V04 = V04;</span>
+<span class="nc" id="L158">		dst.V05 = V05;</span>
+<span class="nc" id="L159">		dst.V06 = V06;</span>
+<span class="nc" id="L160">		dst.V07 = V07;</span>
+<span class="nc" id="L161">		dst.V10 = V10;</span>
+<span class="nc" id="L162">		dst.V11 = V11;</span>
+<span class="nc" id="L163">		dst.V12 = V12;</span>
+<span class="nc" id="L164">		dst.V13 = V13;</span>
+<span class="nc" id="L165">		dst.V14 = V14;</span>
+<span class="nc" id="L166">		dst.V15 = V15;</span>
+<span class="nc" id="L167">		dst.V16 = V16;</span>
+<span class="nc" id="L168">		dst.V17 = V17;</span>
+<span class="nc" id="L169">		dst.V20 = V20;</span>
+<span class="nc" id="L170">		dst.V21 = V21;</span>
+<span class="nc" id="L171">		dst.V22 = V22;</span>
+<span class="nc" id="L172">		dst.V23 = V23;</span>
+<span class="nc" id="L173">		dst.V24 = V24;</span>
+<span class="nc" id="L174">		dst.V25 = V25;</span>
+<span class="nc" id="L175">		dst.V26 = V26;</span>
+<span class="nc" id="L176">		dst.V27 = V27;</span>
+<span class="nc" id="L177">		dst.V30 = V30;</span>
+<span class="nc" id="L178">		dst.V31 = V31;</span>
+<span class="nc" id="L179">		dst.V32 = V32;</span>
+<span class="nc" id="L180">		dst.V33 = V33;</span>
+<span class="nc" id="L181">		dst.V34 = V34;</span>
+<span class="nc" id="L182">		dst.V35 = V35;</span>
+<span class="nc" id="L183">		dst.V36 = V36;</span>
+<span class="nc" id="L184">		dst.V37 = V37;</span>
+<span class="nc" id="L185">		dst.V40 = V40;</span>
+<span class="nc" id="L186">		dst.V41 = V41;</span>
+<span class="nc" id="L187">		dst.V42 = V42;</span>
+<span class="nc" id="L188">		dst.V43 = V43;</span>
+<span class="nc" id="L189">		dst.V44 = V44;</span>
+<span class="nc" id="L190">		dst.V45 = V45;</span>
+<span class="nc" id="L191">		dst.V46 = V46;</span>
+<span class="nc" id="L192">		dst.V47 = V47;</span>
+<span class="nc" id="L193">		return super.copyState(dst);</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L199">		V00 = IV[ 0];</span>
+<span class="nc" id="L200">		V01 = IV[ 1];</span>
+<span class="nc" id="L201">		V02 = IV[ 2];</span>
+<span class="nc" id="L202">		V03 = IV[ 3];</span>
+<span class="nc" id="L203">		V04 = IV[ 4];</span>
+<span class="nc" id="L204">		V05 = IV[ 5];</span>
+<span class="nc" id="L205">		V06 = IV[ 6];</span>
+<span class="nc" id="L206">		V07 = IV[ 7];</span>
+<span class="nc" id="L207">		V10 = IV[ 8];</span>
+<span class="nc" id="L208">		V11 = IV[ 9];</span>
+<span class="nc" id="L209">		V12 = IV[10];</span>
+<span class="nc" id="L210">		V13 = IV[11];</span>
+<span class="nc" id="L211">		V14 = IV[12];</span>
+<span class="nc" id="L212">		V15 = IV[13];</span>
+<span class="nc" id="L213">		V16 = IV[14];</span>
+<span class="nc" id="L214">		V17 = IV[15];</span>
+<span class="nc" id="L215">		V20 = IV[16];</span>
+<span class="nc" id="L216">		V21 = IV[17];</span>
+<span class="nc" id="L217">		V22 = IV[18];</span>
+<span class="nc" id="L218">		V23 = IV[19];</span>
+<span class="nc" id="L219">		V24 = IV[20];</span>
+<span class="nc" id="L220">		V25 = IV[21];</span>
+<span class="nc" id="L221">		V26 = IV[22];</span>
+<span class="nc" id="L222">		V27 = IV[23];</span>
+<span class="nc" id="L223">		V30 = IV[24];</span>
+<span class="nc" id="L224">		V31 = IV[25];</span>
+<span class="nc" id="L225">		V32 = IV[26];</span>
+<span class="nc" id="L226">		V33 = IV[27];</span>
+<span class="nc" id="L227">		V34 = IV[28];</span>
+<span class="nc" id="L228">		V35 = IV[29];</span>
+<span class="nc" id="L229">		V36 = IV[30];</span>
+<span class="nc" id="L230">		V37 = IV[31];</span>
+<span class="nc" id="L231">		V40 = IV[32];</span>
+<span class="nc" id="L232">		V41 = IV[33];</span>
+<span class="nc" id="L233">		V42 = IV[34];</span>
+<span class="nc" id="L234">		V43 = IV[35];</span>
+<span class="nc" id="L235">		V44 = IV[36];</span>
+<span class="nc" id="L236">		V45 = IV[37];</span>
+<span class="nc" id="L237">		V46 = IV[38];</span>
+<span class="nc" id="L238">		V47 = IV[39];</span>
+<span class="nc" id="L239">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] out, int off)
+	{
+<span class="nc" id="L244">		int ptr = flush();</span>
+<span class="nc" id="L245">		tmpBuf[ptr] = (byte)0x80;</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">		for (int i = ptr + 1; i &lt; 32; i ++)</span>
+<span class="nc" id="L247">			tmpBuf[i] = 0x00;</span>
+<span class="nc" id="L248">		update(tmpBuf, ptr, 32 - ptr);</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">		for (int i = 0; i &lt; ptr + 1; i ++)</span>
+<span class="nc" id="L250">			tmpBuf[i] = 0x00;</span>
+<span class="nc" id="L251">		update(tmpBuf, 0, 32);</span>
+<span class="nc" id="L252">		encodeBEInt(V00 ^ V10 ^ V20 ^ V30 ^ V40, out, off +  0);</span>
+<span class="nc" id="L253">		encodeBEInt(V01 ^ V11 ^ V21 ^ V31 ^ V41, out, off +  4);</span>
+<span class="nc" id="L254">		encodeBEInt(V02 ^ V12 ^ V22 ^ V32 ^ V42, out, off +  8);</span>
+<span class="nc" id="L255">		encodeBEInt(V03 ^ V13 ^ V23 ^ V33 ^ V43, out, off + 12);</span>
+<span class="nc" id="L256">		encodeBEInt(V04 ^ V14 ^ V24 ^ V34 ^ V44, out, off + 16);</span>
+<span class="nc" id="L257">		encodeBEInt(V05 ^ V15 ^ V25 ^ V35 ^ V45, out, off + 20);</span>
+<span class="nc" id="L258">		encodeBEInt(V06 ^ V16 ^ V26 ^ V36 ^ V46, out, off + 24);</span>
+<span class="nc" id="L259">		encodeBEInt(V07 ^ V17 ^ V27 ^ V37 ^ V47, out, off + 28);</span>
+<span class="nc" id="L260">		update(tmpBuf, 0, 32);</span>
+<span class="nc" id="L261">		encodeBEInt(V00 ^ V10 ^ V20 ^ V30 ^ V40, out, off + 32);</span>
+<span class="nc" id="L262">		encodeBEInt(V01 ^ V11 ^ V21 ^ V31 ^ V41, out, off + 36);</span>
+<span class="nc" id="L263">		encodeBEInt(V02 ^ V12 ^ V22 ^ V32 ^ V42, out, off + 40);</span>
+<span class="nc" id="L264">		encodeBEInt(V03 ^ V13 ^ V23 ^ V33 ^ V43, out, off + 44);</span>
+<span class="nc" id="L265">		encodeBEInt(V04 ^ V14 ^ V24 ^ V34 ^ V44, out, off + 48);</span>
+<span class="nc" id="L266">		encodeBEInt(V05 ^ V15 ^ V25 ^ V35 ^ V45, out, off + 52);</span>
+<span class="nc" id="L267">		encodeBEInt(V06 ^ V16 ^ V26 ^ V36 ^ V46, out, off + 56);</span>
+<span class="nc" id="L268">		encodeBEInt(V07 ^ V17 ^ V27 ^ V37 ^ V47, out, off + 60);</span>
+<span class="nc" id="L269">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L274">		tmpBuf = new byte[32];</span>
+<span class="nc" id="L275">		engineReset();</span>
+<span class="nc" id="L276">	}</span>
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in big-endian
+	 * convention (most significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeBEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L289">		buf[off + 0] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L290">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L291">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L292">		buf[off + 3] = (byte)val;</span>
+<span class="nc" id="L293">	}</span>
+
+	/**
+	 * Decode a 32-bit big-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final int decodeBEInt(byte[] buf, int off)
+	{
+<span class="nc" id="L305">		return ((buf[off] &amp; 0xFF) &lt;&lt; 24)</span>
+			| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+			| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+			| (buf[off + 3] &amp; 0xFF);
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+		int tmp;
+		int a0, a1, a2, a3, a4, a5, a6, a7;
+		int b0, b1, b2, b3, b4, b5, b6, b7;
+<span class="nc" id="L317">		int M0 = decodeBEInt(data, 0);</span>
+<span class="nc" id="L318">		int M1 = decodeBEInt(data, 4);</span>
+<span class="nc" id="L319">		int M2 = decodeBEInt(data, 8);</span>
+<span class="nc" id="L320">		int M3 = decodeBEInt(data, 12);</span>
+<span class="nc" id="L321">		int M4 = decodeBEInt(data, 16);</span>
+<span class="nc" id="L322">		int M5 = decodeBEInt(data, 20);</span>
+<span class="nc" id="L323">		int M6 = decodeBEInt(data, 24);</span>
+<span class="nc" id="L324">		int M7 = decodeBEInt(data, 28);</span>
+<span class="nc" id="L325">		a0 = V00 ^ V10;</span>
+<span class="nc" id="L326">		a1 = V01 ^ V11;</span>
+<span class="nc" id="L327">		a2 = V02 ^ V12;</span>
+<span class="nc" id="L328">		a3 = V03 ^ V13;</span>
+<span class="nc" id="L329">		a4 = V04 ^ V14;</span>
+<span class="nc" id="L330">		a5 = V05 ^ V15;</span>
+<span class="nc" id="L331">		a6 = V06 ^ V16;</span>
+<span class="nc" id="L332">		a7 = V07 ^ V17;</span>
+<span class="nc" id="L333">		b0 = V20 ^ V30;</span>
+<span class="nc" id="L334">		b1 = V21 ^ V31;</span>
+<span class="nc" id="L335">		b2 = V22 ^ V32;</span>
+<span class="nc" id="L336">		b3 = V23 ^ V33;</span>
+<span class="nc" id="L337">		b4 = V24 ^ V34;</span>
+<span class="nc" id="L338">		b5 = V25 ^ V35;</span>
+<span class="nc" id="L339">		b6 = V26 ^ V36;</span>
+<span class="nc" id="L340">		b7 = V27 ^ V37;</span>
+<span class="nc" id="L341">		a0 = a0 ^ b0;</span>
+<span class="nc" id="L342">		a1 = a1 ^ b1;</span>
+<span class="nc" id="L343">		a2 = a2 ^ b2;</span>
+<span class="nc" id="L344">		a3 = a3 ^ b3;</span>
+<span class="nc" id="L345">		a4 = a4 ^ b4;</span>
+<span class="nc" id="L346">		a5 = a5 ^ b5;</span>
+<span class="nc" id="L347">		a6 = a6 ^ b6;</span>
+<span class="nc" id="L348">		a7 = a7 ^ b7;</span>
+<span class="nc" id="L349">		a0 = a0 ^ V40;</span>
+<span class="nc" id="L350">		a1 = a1 ^ V41;</span>
+<span class="nc" id="L351">		a2 = a2 ^ V42;</span>
+<span class="nc" id="L352">		a3 = a3 ^ V43;</span>
+<span class="nc" id="L353">		a4 = a4 ^ V44;</span>
+<span class="nc" id="L354">		a5 = a5 ^ V45;</span>
+<span class="nc" id="L355">		a6 = a6 ^ V46;</span>
+<span class="nc" id="L356">		a7 = a7 ^ V47;</span>
+<span class="nc" id="L357">		tmp = a7;</span>
+<span class="nc" id="L358">		a7 = a6;</span>
+<span class="nc" id="L359">		a6 = a5;</span>
+<span class="nc" id="L360">		a5 = a4;</span>
+<span class="nc" id="L361">		a4 = a3 ^ tmp;</span>
+<span class="nc" id="L362">		a3 = a2 ^ tmp;</span>
+<span class="nc" id="L363">		a2 = a1;</span>
+<span class="nc" id="L364">		a1 = a0 ^ tmp;</span>
+<span class="nc" id="L365">		a0 = tmp;</span>
+<span class="nc" id="L366">		V00 = a0 ^ V00;</span>
+<span class="nc" id="L367">		V01 = a1 ^ V01;</span>
+<span class="nc" id="L368">		V02 = a2 ^ V02;</span>
+<span class="nc" id="L369">		V03 = a3 ^ V03;</span>
+<span class="nc" id="L370">		V04 = a4 ^ V04;</span>
+<span class="nc" id="L371">		V05 = a5 ^ V05;</span>
+<span class="nc" id="L372">		V06 = a6 ^ V06;</span>
+<span class="nc" id="L373">		V07 = a7 ^ V07;</span>
+<span class="nc" id="L374">		V10 = a0 ^ V10;</span>
+<span class="nc" id="L375">		V11 = a1 ^ V11;</span>
+<span class="nc" id="L376">		V12 = a2 ^ V12;</span>
+<span class="nc" id="L377">		V13 = a3 ^ V13;</span>
+<span class="nc" id="L378">		V14 = a4 ^ V14;</span>
+<span class="nc" id="L379">		V15 = a5 ^ V15;</span>
+<span class="nc" id="L380">		V16 = a6 ^ V16;</span>
+<span class="nc" id="L381">		V17 = a7 ^ V17;</span>
+<span class="nc" id="L382">		V20 = a0 ^ V20;</span>
+<span class="nc" id="L383">		V21 = a1 ^ V21;</span>
+<span class="nc" id="L384">		V22 = a2 ^ V22;</span>
+<span class="nc" id="L385">		V23 = a3 ^ V23;</span>
+<span class="nc" id="L386">		V24 = a4 ^ V24;</span>
+<span class="nc" id="L387">		V25 = a5 ^ V25;</span>
+<span class="nc" id="L388">		V26 = a6 ^ V26;</span>
+<span class="nc" id="L389">		V27 = a7 ^ V27;</span>
+<span class="nc" id="L390">		V30 = a0 ^ V30;</span>
+<span class="nc" id="L391">		V31 = a1 ^ V31;</span>
+<span class="nc" id="L392">		V32 = a2 ^ V32;</span>
+<span class="nc" id="L393">		V33 = a3 ^ V33;</span>
+<span class="nc" id="L394">		V34 = a4 ^ V34;</span>
+<span class="nc" id="L395">		V35 = a5 ^ V35;</span>
+<span class="nc" id="L396">		V36 = a6 ^ V36;</span>
+<span class="nc" id="L397">		V37 = a7 ^ V37;</span>
+<span class="nc" id="L398">		V40 = a0 ^ V40;</span>
+<span class="nc" id="L399">		V41 = a1 ^ V41;</span>
+<span class="nc" id="L400">		V42 = a2 ^ V42;</span>
+<span class="nc" id="L401">		V43 = a3 ^ V43;</span>
+<span class="nc" id="L402">		V44 = a4 ^ V44;</span>
+<span class="nc" id="L403">		V45 = a5 ^ V45;</span>
+<span class="nc" id="L404">		V46 = a6 ^ V46;</span>
+<span class="nc" id="L405">		V47 = a7 ^ V47;</span>
+<span class="nc" id="L406">		tmp = V07;</span>
+<span class="nc" id="L407">		b7 = V06;</span>
+<span class="nc" id="L408">		b6 = V05;</span>
+<span class="nc" id="L409">		b5 = V04;</span>
+<span class="nc" id="L410">		b4 = V03 ^ tmp;</span>
+<span class="nc" id="L411">		b3 = V02 ^ tmp;</span>
+<span class="nc" id="L412">		b2 = V01;</span>
+<span class="nc" id="L413">		b1 = V00 ^ tmp;</span>
+<span class="nc" id="L414">		b0 = tmp;</span>
+<span class="nc" id="L415">		b0 = b0 ^ V10;</span>
+<span class="nc" id="L416">		b1 = b1 ^ V11;</span>
+<span class="nc" id="L417">		b2 = b2 ^ V12;</span>
+<span class="nc" id="L418">		b3 = b3 ^ V13;</span>
+<span class="nc" id="L419">		b4 = b4 ^ V14;</span>
+<span class="nc" id="L420">		b5 = b5 ^ V15;</span>
+<span class="nc" id="L421">		b6 = b6 ^ V16;</span>
+<span class="nc" id="L422">		b7 = b7 ^ V17;</span>
+<span class="nc" id="L423">		tmp = V17;</span>
+<span class="nc" id="L424">		V17 = V16;</span>
+<span class="nc" id="L425">		V16 = V15;</span>
+<span class="nc" id="L426">		V15 = V14;</span>
+<span class="nc" id="L427">		V14 = V13 ^ tmp;</span>
+<span class="nc" id="L428">		V13 = V12 ^ tmp;</span>
+<span class="nc" id="L429">		V12 = V11;</span>
+<span class="nc" id="L430">		V11 = V10 ^ tmp;</span>
+<span class="nc" id="L431">		V10 = tmp;</span>
+<span class="nc" id="L432">		V10 = V10 ^ V20;</span>
+<span class="nc" id="L433">		V11 = V11 ^ V21;</span>
+<span class="nc" id="L434">		V12 = V12 ^ V22;</span>
+<span class="nc" id="L435">		V13 = V13 ^ V23;</span>
+<span class="nc" id="L436">		V14 = V14 ^ V24;</span>
+<span class="nc" id="L437">		V15 = V15 ^ V25;</span>
+<span class="nc" id="L438">		V16 = V16 ^ V26;</span>
+<span class="nc" id="L439">		V17 = V17 ^ V27;</span>
+<span class="nc" id="L440">		tmp = V27;</span>
+<span class="nc" id="L441">		V27 = V26;</span>
+<span class="nc" id="L442">		V26 = V25;</span>
+<span class="nc" id="L443">		V25 = V24;</span>
+<span class="nc" id="L444">		V24 = V23 ^ tmp;</span>
+<span class="nc" id="L445">		V23 = V22 ^ tmp;</span>
+<span class="nc" id="L446">		V22 = V21;</span>
+<span class="nc" id="L447">		V21 = V20 ^ tmp;</span>
+<span class="nc" id="L448">		V20 = tmp;</span>
+<span class="nc" id="L449">		V20 = V20 ^ V30;</span>
+<span class="nc" id="L450">		V21 = V21 ^ V31;</span>
+<span class="nc" id="L451">		V22 = V22 ^ V32;</span>
+<span class="nc" id="L452">		V23 = V23 ^ V33;</span>
+<span class="nc" id="L453">		V24 = V24 ^ V34;</span>
+<span class="nc" id="L454">		V25 = V25 ^ V35;</span>
+<span class="nc" id="L455">		V26 = V26 ^ V36;</span>
+<span class="nc" id="L456">		V27 = V27 ^ V37;</span>
+<span class="nc" id="L457">		tmp = V37;</span>
+<span class="nc" id="L458">		V37 = V36;</span>
+<span class="nc" id="L459">		V36 = V35;</span>
+<span class="nc" id="L460">		V35 = V34;</span>
+<span class="nc" id="L461">		V34 = V33 ^ tmp;</span>
+<span class="nc" id="L462">		V33 = V32 ^ tmp;</span>
+<span class="nc" id="L463">		V32 = V31;</span>
+<span class="nc" id="L464">		V31 = V30 ^ tmp;</span>
+<span class="nc" id="L465">		V30 = tmp;</span>
+<span class="nc" id="L466">		V30 = V30 ^ V40;</span>
+<span class="nc" id="L467">		V31 = V31 ^ V41;</span>
+<span class="nc" id="L468">		V32 = V32 ^ V42;</span>
+<span class="nc" id="L469">		V33 = V33 ^ V43;</span>
+<span class="nc" id="L470">		V34 = V34 ^ V44;</span>
+<span class="nc" id="L471">		V35 = V35 ^ V45;</span>
+<span class="nc" id="L472">		V36 = V36 ^ V46;</span>
+<span class="nc" id="L473">		V37 = V37 ^ V47;</span>
+<span class="nc" id="L474">		tmp = V47;</span>
+<span class="nc" id="L475">		V47 = V46;</span>
+<span class="nc" id="L476">		V46 = V45;</span>
+<span class="nc" id="L477">		V45 = V44;</span>
+<span class="nc" id="L478">		V44 = V43 ^ tmp;</span>
+<span class="nc" id="L479">		V43 = V42 ^ tmp;</span>
+<span class="nc" id="L480">		V42 = V41;</span>
+<span class="nc" id="L481">		V41 = V40 ^ tmp;</span>
+<span class="nc" id="L482">		V40 = tmp;</span>
+<span class="nc" id="L483">		V40 = V40 ^ V00;</span>
+<span class="nc" id="L484">		V41 = V41 ^ V01;</span>
+<span class="nc" id="L485">		V42 = V42 ^ V02;</span>
+<span class="nc" id="L486">		V43 = V43 ^ V03;</span>
+<span class="nc" id="L487">		V44 = V44 ^ V04;</span>
+<span class="nc" id="L488">		V45 = V45 ^ V05;</span>
+<span class="nc" id="L489">		V46 = V46 ^ V06;</span>
+<span class="nc" id="L490">		V47 = V47 ^ V07;</span>
+<span class="nc" id="L491">		tmp = b7;</span>
+<span class="nc" id="L492">		V07 = b6;</span>
+<span class="nc" id="L493">		V06 = b5;</span>
+<span class="nc" id="L494">		V05 = b4;</span>
+<span class="nc" id="L495">		V04 = b3 ^ tmp;</span>
+<span class="nc" id="L496">		V03 = b2 ^ tmp;</span>
+<span class="nc" id="L497">		V02 = b1;</span>
+<span class="nc" id="L498">		V01 = b0 ^ tmp;</span>
+<span class="nc" id="L499">		V00 = tmp;</span>
+<span class="nc" id="L500">		V00 = V00 ^ V40;</span>
+<span class="nc" id="L501">		V01 = V01 ^ V41;</span>
+<span class="nc" id="L502">		V02 = V02 ^ V42;</span>
+<span class="nc" id="L503">		V03 = V03 ^ V43;</span>
+<span class="nc" id="L504">		V04 = V04 ^ V44;</span>
+<span class="nc" id="L505">		V05 = V05 ^ V45;</span>
+<span class="nc" id="L506">		V06 = V06 ^ V46;</span>
+<span class="nc" id="L507">		V07 = V07 ^ V47;</span>
+<span class="nc" id="L508">		tmp = V47;</span>
+<span class="nc" id="L509">		V47 = V46;</span>
+<span class="nc" id="L510">		V46 = V45;</span>
+<span class="nc" id="L511">		V45 = V44;</span>
+<span class="nc" id="L512">		V44 = V43 ^ tmp;</span>
+<span class="nc" id="L513">		V43 = V42 ^ tmp;</span>
+<span class="nc" id="L514">		V42 = V41;</span>
+<span class="nc" id="L515">		V41 = V40 ^ tmp;</span>
+<span class="nc" id="L516">		V40 = tmp;</span>
+<span class="nc" id="L517">		V40 = V40 ^ V30;</span>
+<span class="nc" id="L518">		V41 = V41 ^ V31;</span>
+<span class="nc" id="L519">		V42 = V42 ^ V32;</span>
+<span class="nc" id="L520">		V43 = V43 ^ V33;</span>
+<span class="nc" id="L521">		V44 = V44 ^ V34;</span>
+<span class="nc" id="L522">		V45 = V45 ^ V35;</span>
+<span class="nc" id="L523">		V46 = V46 ^ V36;</span>
+<span class="nc" id="L524">		V47 = V47 ^ V37;</span>
+<span class="nc" id="L525">		tmp = V37;</span>
+<span class="nc" id="L526">		V37 = V36;</span>
+<span class="nc" id="L527">		V36 = V35;</span>
+<span class="nc" id="L528">		V35 = V34;</span>
+<span class="nc" id="L529">		V34 = V33 ^ tmp;</span>
+<span class="nc" id="L530">		V33 = V32 ^ tmp;</span>
+<span class="nc" id="L531">		V32 = V31;</span>
+<span class="nc" id="L532">		V31 = V30 ^ tmp;</span>
+<span class="nc" id="L533">		V30 = tmp;</span>
+<span class="nc" id="L534">		V30 = V30 ^ V20;</span>
+<span class="nc" id="L535">		V31 = V31 ^ V21;</span>
+<span class="nc" id="L536">		V32 = V32 ^ V22;</span>
+<span class="nc" id="L537">		V33 = V33 ^ V23;</span>
+<span class="nc" id="L538">		V34 = V34 ^ V24;</span>
+<span class="nc" id="L539">		V35 = V35 ^ V25;</span>
+<span class="nc" id="L540">		V36 = V36 ^ V26;</span>
+<span class="nc" id="L541">		V37 = V37 ^ V27;</span>
+<span class="nc" id="L542">		tmp = V27;</span>
+<span class="nc" id="L543">		V27 = V26;</span>
+<span class="nc" id="L544">		V26 = V25;</span>
+<span class="nc" id="L545">		V25 = V24;</span>
+<span class="nc" id="L546">		V24 = V23 ^ tmp;</span>
+<span class="nc" id="L547">		V23 = V22 ^ tmp;</span>
+<span class="nc" id="L548">		V22 = V21;</span>
+<span class="nc" id="L549">		V21 = V20 ^ tmp;</span>
+<span class="nc" id="L550">		V20 = tmp;</span>
+<span class="nc" id="L551">		V20 = V20 ^ V10;</span>
+<span class="nc" id="L552">		V21 = V21 ^ V11;</span>
+<span class="nc" id="L553">		V22 = V22 ^ V12;</span>
+<span class="nc" id="L554">		V23 = V23 ^ V13;</span>
+<span class="nc" id="L555">		V24 = V24 ^ V14;</span>
+<span class="nc" id="L556">		V25 = V25 ^ V15;</span>
+<span class="nc" id="L557">		V26 = V26 ^ V16;</span>
+<span class="nc" id="L558">		V27 = V27 ^ V17;</span>
+<span class="nc" id="L559">		tmp = V17;</span>
+<span class="nc" id="L560">		V17 = V16;</span>
+<span class="nc" id="L561">		V16 = V15;</span>
+<span class="nc" id="L562">		V15 = V14;</span>
+<span class="nc" id="L563">		V14 = V13 ^ tmp;</span>
+<span class="nc" id="L564">		V13 = V12 ^ tmp;</span>
+<span class="nc" id="L565">		V12 = V11;</span>
+<span class="nc" id="L566">		V11 = V10 ^ tmp;</span>
+<span class="nc" id="L567">		V10 = tmp;</span>
+<span class="nc" id="L568">		V10 = V10 ^ b0;</span>
+<span class="nc" id="L569">		V11 = V11 ^ b1;</span>
+<span class="nc" id="L570">		V12 = V12 ^ b2;</span>
+<span class="nc" id="L571">		V13 = V13 ^ b3;</span>
+<span class="nc" id="L572">		V14 = V14 ^ b4;</span>
+<span class="nc" id="L573">		V15 = V15 ^ b5;</span>
+<span class="nc" id="L574">		V16 = V16 ^ b6;</span>
+<span class="nc" id="L575">		V17 = V17 ^ b7;</span>
+<span class="nc" id="L576">		V00 = V00 ^ M0;</span>
+<span class="nc" id="L577">		V01 = V01 ^ M1;</span>
+<span class="nc" id="L578">		V02 = V02 ^ M2;</span>
+<span class="nc" id="L579">		V03 = V03 ^ M3;</span>
+<span class="nc" id="L580">		V04 = V04 ^ M4;</span>
+<span class="nc" id="L581">		V05 = V05 ^ M5;</span>
+<span class="nc" id="L582">		V06 = V06 ^ M6;</span>
+<span class="nc" id="L583">		V07 = V07 ^ M7;</span>
+<span class="nc" id="L584">		tmp = M7;</span>
+<span class="nc" id="L585">		M7 = M6;</span>
+<span class="nc" id="L586">		M6 = M5;</span>
+<span class="nc" id="L587">		M5 = M4;</span>
+<span class="nc" id="L588">		M4 = M3 ^ tmp;</span>
+<span class="nc" id="L589">		M3 = M2 ^ tmp;</span>
+<span class="nc" id="L590">		M2 = M1;</span>
+<span class="nc" id="L591">		M1 = M0 ^ tmp;</span>
+<span class="nc" id="L592">		M0 = tmp;</span>
+<span class="nc" id="L593">		V10 = V10 ^ M0;</span>
+<span class="nc" id="L594">		V11 = V11 ^ M1;</span>
+<span class="nc" id="L595">		V12 = V12 ^ M2;</span>
+<span class="nc" id="L596">		V13 = V13 ^ M3;</span>
+<span class="nc" id="L597">		V14 = V14 ^ M4;</span>
+<span class="nc" id="L598">		V15 = V15 ^ M5;</span>
+<span class="nc" id="L599">		V16 = V16 ^ M6;</span>
+<span class="nc" id="L600">		V17 = V17 ^ M7;</span>
+<span class="nc" id="L601">		tmp = M7;</span>
+<span class="nc" id="L602">		M7 = M6;</span>
+<span class="nc" id="L603">		M6 = M5;</span>
+<span class="nc" id="L604">		M5 = M4;</span>
+<span class="nc" id="L605">		M4 = M3 ^ tmp;</span>
+<span class="nc" id="L606">		M3 = M2 ^ tmp;</span>
+<span class="nc" id="L607">		M2 = M1;</span>
+<span class="nc" id="L608">		M1 = M0 ^ tmp;</span>
+<span class="nc" id="L609">		M0 = tmp;</span>
+<span class="nc" id="L610">		V20 = V20 ^ M0;</span>
+<span class="nc" id="L611">		V21 = V21 ^ M1;</span>
+<span class="nc" id="L612">		V22 = V22 ^ M2;</span>
+<span class="nc" id="L613">		V23 = V23 ^ M3;</span>
+<span class="nc" id="L614">		V24 = V24 ^ M4;</span>
+<span class="nc" id="L615">		V25 = V25 ^ M5;</span>
+<span class="nc" id="L616">		V26 = V26 ^ M6;</span>
+<span class="nc" id="L617">		V27 = V27 ^ M7;</span>
+<span class="nc" id="L618">		tmp = M7;</span>
+<span class="nc" id="L619">		M7 = M6;</span>
+<span class="nc" id="L620">		M6 = M5;</span>
+<span class="nc" id="L621">		M5 = M4;</span>
+<span class="nc" id="L622">		M4 = M3 ^ tmp;</span>
+<span class="nc" id="L623">		M3 = M2 ^ tmp;</span>
+<span class="nc" id="L624">		M2 = M1;</span>
+<span class="nc" id="L625">		M1 = M0 ^ tmp;</span>
+<span class="nc" id="L626">		M0 = tmp;</span>
+<span class="nc" id="L627">		V30 = V30 ^ M0;</span>
+<span class="nc" id="L628">		V31 = V31 ^ M1;</span>
+<span class="nc" id="L629">		V32 = V32 ^ M2;</span>
+<span class="nc" id="L630">		V33 = V33 ^ M3;</span>
+<span class="nc" id="L631">		V34 = V34 ^ M4;</span>
+<span class="nc" id="L632">		V35 = V35 ^ M5;</span>
+<span class="nc" id="L633">		V36 = V36 ^ M6;</span>
+<span class="nc" id="L634">		V37 = V37 ^ M7;</span>
+<span class="nc" id="L635">		tmp = M7;</span>
+<span class="nc" id="L636">		M7 = M6;</span>
+<span class="nc" id="L637">		M6 = M5;</span>
+<span class="nc" id="L638">		M5 = M4;</span>
+<span class="nc" id="L639">		M4 = M3 ^ tmp;</span>
+<span class="nc" id="L640">		M3 = M2 ^ tmp;</span>
+<span class="nc" id="L641">		M2 = M1;</span>
+<span class="nc" id="L642">		M1 = M0 ^ tmp;</span>
+<span class="nc" id="L643">		M0 = tmp;</span>
+<span class="nc" id="L644">		V40 = V40 ^ M0;</span>
+<span class="nc" id="L645">		V41 = V41 ^ M1;</span>
+<span class="nc" id="L646">		V42 = V42 ^ M2;</span>
+<span class="nc" id="L647">		V43 = V43 ^ M3;</span>
+<span class="nc" id="L648">		V44 = V44 ^ M4;</span>
+<span class="nc" id="L649">		V45 = V45 ^ M5;</span>
+<span class="nc" id="L650">		V46 = V46 ^ M6;</span>
+<span class="nc" id="L651">		V47 = V47 ^ M7;</span>
+<span class="nc" id="L652">		V14 = (V14 &lt;&lt; 1) | (V14 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L653">		V15 = (V15 &lt;&lt; 1) | (V15 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L654">		V16 = (V16 &lt;&lt; 1) | (V16 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L655">		V17 = (V17 &lt;&lt; 1) | (V17 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L656">		V24 = (V24 &lt;&lt; 2) | (V24 &gt;&gt;&gt; 30);</span>
+<span class="nc" id="L657">		V25 = (V25 &lt;&lt; 2) | (V25 &gt;&gt;&gt; 30);</span>
+<span class="nc" id="L658">		V26 = (V26 &lt;&lt; 2) | (V26 &gt;&gt;&gt; 30);</span>
+<span class="nc" id="L659">		V27 = (V27 &lt;&lt; 2) | (V27 &gt;&gt;&gt; 30);</span>
+<span class="nc" id="L660">		V34 = (V34 &lt;&lt; 3) | (V34 &gt;&gt;&gt; 29);</span>
+<span class="nc" id="L661">		V35 = (V35 &lt;&lt; 3) | (V35 &gt;&gt;&gt; 29);</span>
+<span class="nc" id="L662">		V36 = (V36 &lt;&lt; 3) | (V36 &gt;&gt;&gt; 29);</span>
+<span class="nc" id="L663">		V37 = (V37 &lt;&lt; 3) | (V37 &gt;&gt;&gt; 29);</span>
+<span class="nc" id="L664">		V44 = (V44 &lt;&lt; 4) | (V44 &gt;&gt;&gt; 28);</span>
+<span class="nc" id="L665">		V45 = (V45 &lt;&lt; 4) | (V45 &gt;&gt;&gt; 28);</span>
+<span class="nc" id="L666">		V46 = (V46 &lt;&lt; 4) | (V46 &gt;&gt;&gt; 28);</span>
+<span class="nc" id="L667">		V47 = (V47 &lt;&lt; 4) | (V47 &gt;&gt;&gt; 28);</span>
+<span class="nc bnc" id="L668" title="All 2 branches missed.">		for (int r = 0; r &lt; 8; r++) {</span>
+<span class="nc" id="L669">			tmp = V00;</span>
+<span class="nc" id="L670">			V00 |= V01;</span>
+<span class="nc" id="L671">			V02 ^= V03;</span>
+<span class="nc" id="L672">			V01 = ~V01;</span>
+<span class="nc" id="L673">			V00 ^= V03;</span>
+<span class="nc" id="L674">			V03 &amp;= tmp;</span>
+<span class="nc" id="L675">			V01 ^= V03;</span>
+<span class="nc" id="L676">			V03 ^= V02;</span>
+<span class="nc" id="L677">			V02 &amp;= V00;</span>
+<span class="nc" id="L678">			V00 = ~V00;</span>
+<span class="nc" id="L679">			V02 ^= V01;</span>
+<span class="nc" id="L680">			V01 |= V03;</span>
+<span class="nc" id="L681">			tmp ^= V01;</span>
+<span class="nc" id="L682">			V03 ^= V02;</span>
+<span class="nc" id="L683">			V02 &amp;= V01;</span>
+<span class="nc" id="L684">			V01 ^= V00;</span>
+<span class="nc" id="L685">			V00 = tmp;</span>
+<span class="nc" id="L686">			tmp = V05;</span>
+<span class="nc" id="L687">			V05 |= V06;</span>
+<span class="nc" id="L688">			V07 ^= V04;</span>
+<span class="nc" id="L689">			V06 = ~V06;</span>
+<span class="nc" id="L690">			V05 ^= V04;</span>
+<span class="nc" id="L691">			V04 &amp;= tmp;</span>
+<span class="nc" id="L692">			V06 ^= V04;</span>
+<span class="nc" id="L693">			V04 ^= V07;</span>
+<span class="nc" id="L694">			V07 &amp;= V05;</span>
+<span class="nc" id="L695">			V05 = ~V05;</span>
+<span class="nc" id="L696">			V07 ^= V06;</span>
+<span class="nc" id="L697">			V06 |= V04;</span>
+<span class="nc" id="L698">			tmp ^= V06;</span>
+<span class="nc" id="L699">			V04 ^= V07;</span>
+<span class="nc" id="L700">			V07 &amp;= V06;</span>
+<span class="nc" id="L701">			V06 ^= V05;</span>
+<span class="nc" id="L702">			V05 = tmp;</span>
+<span class="nc" id="L703">			V04 ^= V00;</span>
+<span class="nc" id="L704">			V00 = ((V00 &lt;&lt; 2) | (V00 &gt;&gt;&gt; 30)) ^ V04;</span>
+<span class="nc" id="L705">			V04 = ((V04 &lt;&lt; 14) | (V04 &gt;&gt;&gt; 18)) ^ V00;</span>
+<span class="nc" id="L706">			V00 = ((V00 &lt;&lt; 10) | (V00 &gt;&gt;&gt; 22)) ^ V04;</span>
+<span class="nc" id="L707">			V04 = (V04 &lt;&lt; 1) | (V04 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L708">			V05 ^= V01;</span>
+<span class="nc" id="L709">			V01 = ((V01 &lt;&lt; 2) | (V01 &gt;&gt;&gt; 30)) ^ V05;</span>
+<span class="nc" id="L710">			V05 = ((V05 &lt;&lt; 14) | (V05 &gt;&gt;&gt; 18)) ^ V01;</span>
+<span class="nc" id="L711">			V01 = ((V01 &lt;&lt; 10) | (V01 &gt;&gt;&gt; 22)) ^ V05;</span>
+<span class="nc" id="L712">			V05 = (V05 &lt;&lt; 1) | (V05 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L713">			V06 ^= V02;</span>
+<span class="nc" id="L714">			V02 = ((V02 &lt;&lt; 2) | (V02 &gt;&gt;&gt; 30)) ^ V06;</span>
+<span class="nc" id="L715">			V06 = ((V06 &lt;&lt; 14) | (V06 &gt;&gt;&gt; 18)) ^ V02;</span>
+<span class="nc" id="L716">			V02 = ((V02 &lt;&lt; 10) | (V02 &gt;&gt;&gt; 22)) ^ V06;</span>
+<span class="nc" id="L717">			V06 = (V06 &lt;&lt; 1) | (V06 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L718">			V07 ^= V03;</span>
+<span class="nc" id="L719">			V03 = ((V03 &lt;&lt; 2) | (V03 &gt;&gt;&gt; 30)) ^ V07;</span>
+<span class="nc" id="L720">			V07 = ((V07 &lt;&lt; 14) | (V07 &gt;&gt;&gt; 18)) ^ V03;</span>
+<span class="nc" id="L721">			V03 = ((V03 &lt;&lt; 10) | (V03 &gt;&gt;&gt; 22)) ^ V07;</span>
+<span class="nc" id="L722">			V07 = (V07 &lt;&lt; 1) | (V07 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L723">			V00 ^= RC00[r];</span>
+<span class="nc" id="L724">			V04 ^= RC04[r];</span>
+		}
+<span class="nc bnc" id="L726" title="All 2 branches missed.">		for (int r = 0; r &lt; 8; r++) {</span>
+<span class="nc" id="L727">			tmp = V10;</span>
+<span class="nc" id="L728">			V10 |= V11;</span>
+<span class="nc" id="L729">			V12 ^= V13;</span>
+<span class="nc" id="L730">			V11 = ~V11;</span>
+<span class="nc" id="L731">			V10 ^= V13;</span>
+<span class="nc" id="L732">			V13 &amp;= tmp;</span>
+<span class="nc" id="L733">			V11 ^= V13;</span>
+<span class="nc" id="L734">			V13 ^= V12;</span>
+<span class="nc" id="L735">			V12 &amp;= V10;</span>
+<span class="nc" id="L736">			V10 = ~V10;</span>
+<span class="nc" id="L737">			V12 ^= V11;</span>
+<span class="nc" id="L738">			V11 |= V13;</span>
+<span class="nc" id="L739">			tmp ^= V11;</span>
+<span class="nc" id="L740">			V13 ^= V12;</span>
+<span class="nc" id="L741">			V12 &amp;= V11;</span>
+<span class="nc" id="L742">			V11 ^= V10;</span>
+<span class="nc" id="L743">			V10 = tmp;</span>
+<span class="nc" id="L744">			tmp = V15;</span>
+<span class="nc" id="L745">			V15 |= V16;</span>
+<span class="nc" id="L746">			V17 ^= V14;</span>
+<span class="nc" id="L747">			V16 = ~V16;</span>
+<span class="nc" id="L748">			V15 ^= V14;</span>
+<span class="nc" id="L749">			V14 &amp;= tmp;</span>
+<span class="nc" id="L750">			V16 ^= V14;</span>
+<span class="nc" id="L751">			V14 ^= V17;</span>
+<span class="nc" id="L752">			V17 &amp;= V15;</span>
+<span class="nc" id="L753">			V15 = ~V15;</span>
+<span class="nc" id="L754">			V17 ^= V16;</span>
+<span class="nc" id="L755">			V16 |= V14;</span>
+<span class="nc" id="L756">			tmp ^= V16;</span>
+<span class="nc" id="L757">			V14 ^= V17;</span>
+<span class="nc" id="L758">			V17 &amp;= V16;</span>
+<span class="nc" id="L759">			V16 ^= V15;</span>
+<span class="nc" id="L760">			V15 = tmp;</span>
+<span class="nc" id="L761">			V14 ^= V10;</span>
+<span class="nc" id="L762">			V10 = ((V10 &lt;&lt; 2) | (V10 &gt;&gt;&gt; 30)) ^ V14;</span>
+<span class="nc" id="L763">			V14 = ((V14 &lt;&lt; 14) | (V14 &gt;&gt;&gt; 18)) ^ V10;</span>
+<span class="nc" id="L764">			V10 = ((V10 &lt;&lt; 10) | (V10 &gt;&gt;&gt; 22)) ^ V14;</span>
+<span class="nc" id="L765">			V14 = (V14 &lt;&lt; 1) | (V14 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L766">			V15 ^= V11;</span>
+<span class="nc" id="L767">			V11 = ((V11 &lt;&lt; 2) | (V11 &gt;&gt;&gt; 30)) ^ V15;</span>
+<span class="nc" id="L768">			V15 = ((V15 &lt;&lt; 14) | (V15 &gt;&gt;&gt; 18)) ^ V11;</span>
+<span class="nc" id="L769">			V11 = ((V11 &lt;&lt; 10) | (V11 &gt;&gt;&gt; 22)) ^ V15;</span>
+<span class="nc" id="L770">			V15 = (V15 &lt;&lt; 1) | (V15 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L771">			V16 ^= V12;</span>
+<span class="nc" id="L772">			V12 = ((V12 &lt;&lt; 2) | (V12 &gt;&gt;&gt; 30)) ^ V16;</span>
+<span class="nc" id="L773">			V16 = ((V16 &lt;&lt; 14) | (V16 &gt;&gt;&gt; 18)) ^ V12;</span>
+<span class="nc" id="L774">			V12 = ((V12 &lt;&lt; 10) | (V12 &gt;&gt;&gt; 22)) ^ V16;</span>
+<span class="nc" id="L775">			V16 = (V16 &lt;&lt; 1) | (V16 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L776">			V17 ^= V13;</span>
+<span class="nc" id="L777">			V13 = ((V13 &lt;&lt; 2) | (V13 &gt;&gt;&gt; 30)) ^ V17;</span>
+<span class="nc" id="L778">			V17 = ((V17 &lt;&lt; 14) | (V17 &gt;&gt;&gt; 18)) ^ V13;</span>
+<span class="nc" id="L779">			V13 = ((V13 &lt;&lt; 10) | (V13 &gt;&gt;&gt; 22)) ^ V17;</span>
+<span class="nc" id="L780">			V17 = (V17 &lt;&lt; 1) | (V17 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L781">			V10 ^= RC10[r];</span>
+<span class="nc" id="L782">			V14 ^= RC14[r];</span>
+		}
+<span class="nc bnc" id="L784" title="All 2 branches missed.">		for (int r = 0; r &lt; 8; r++) {</span>
+<span class="nc" id="L785">			tmp = V20;</span>
+<span class="nc" id="L786">			V20 |= V21;</span>
+<span class="nc" id="L787">			V22 ^= V23;</span>
+<span class="nc" id="L788">			V21 = ~V21;</span>
+<span class="nc" id="L789">			V20 ^= V23;</span>
+<span class="nc" id="L790">			V23 &amp;= tmp;</span>
+<span class="nc" id="L791">			V21 ^= V23;</span>
+<span class="nc" id="L792">			V23 ^= V22;</span>
+<span class="nc" id="L793">			V22 &amp;= V20;</span>
+<span class="nc" id="L794">			V20 = ~V20;</span>
+<span class="nc" id="L795">			V22 ^= V21;</span>
+<span class="nc" id="L796">			V21 |= V23;</span>
+<span class="nc" id="L797">			tmp ^= V21;</span>
+<span class="nc" id="L798">			V23 ^= V22;</span>
+<span class="nc" id="L799">			V22 &amp;= V21;</span>
+<span class="nc" id="L800">			V21 ^= V20;</span>
+<span class="nc" id="L801">			V20 = tmp;</span>
+<span class="nc" id="L802">			tmp = V25;</span>
+<span class="nc" id="L803">			V25 |= V26;</span>
+<span class="nc" id="L804">			V27 ^= V24;</span>
+<span class="nc" id="L805">			V26 = ~V26;</span>
+<span class="nc" id="L806">			V25 ^= V24;</span>
+<span class="nc" id="L807">			V24 &amp;= tmp;</span>
+<span class="nc" id="L808">			V26 ^= V24;</span>
+<span class="nc" id="L809">			V24 ^= V27;</span>
+<span class="nc" id="L810">			V27 &amp;= V25;</span>
+<span class="nc" id="L811">			V25 = ~V25;</span>
+<span class="nc" id="L812">			V27 ^= V26;</span>
+<span class="nc" id="L813">			V26 |= V24;</span>
+<span class="nc" id="L814">			tmp ^= V26;</span>
+<span class="nc" id="L815">			V24 ^= V27;</span>
+<span class="nc" id="L816">			V27 &amp;= V26;</span>
+<span class="nc" id="L817">			V26 ^= V25;</span>
+<span class="nc" id="L818">			V25 = tmp;</span>
+<span class="nc" id="L819">			V24 ^= V20;</span>
+<span class="nc" id="L820">			V20 = ((V20 &lt;&lt; 2) | (V20 &gt;&gt;&gt; 30)) ^ V24;</span>
+<span class="nc" id="L821">			V24 = ((V24 &lt;&lt; 14) | (V24 &gt;&gt;&gt; 18)) ^ V20;</span>
+<span class="nc" id="L822">			V20 = ((V20 &lt;&lt; 10) | (V20 &gt;&gt;&gt; 22)) ^ V24;</span>
+<span class="nc" id="L823">			V24 = (V24 &lt;&lt; 1) | (V24 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L824">			V25 ^= V21;</span>
+<span class="nc" id="L825">			V21 = ((V21 &lt;&lt; 2) | (V21 &gt;&gt;&gt; 30)) ^ V25;</span>
+<span class="nc" id="L826">			V25 = ((V25 &lt;&lt; 14) | (V25 &gt;&gt;&gt; 18)) ^ V21;</span>
+<span class="nc" id="L827">			V21 = ((V21 &lt;&lt; 10) | (V21 &gt;&gt;&gt; 22)) ^ V25;</span>
+<span class="nc" id="L828">			V25 = (V25 &lt;&lt; 1) | (V25 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L829">			V26 ^= V22;</span>
+<span class="nc" id="L830">			V22 = ((V22 &lt;&lt; 2) | (V22 &gt;&gt;&gt; 30)) ^ V26;</span>
+<span class="nc" id="L831">			V26 = ((V26 &lt;&lt; 14) | (V26 &gt;&gt;&gt; 18)) ^ V22;</span>
+<span class="nc" id="L832">			V22 = ((V22 &lt;&lt; 10) | (V22 &gt;&gt;&gt; 22)) ^ V26;</span>
+<span class="nc" id="L833">			V26 = (V26 &lt;&lt; 1) | (V26 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L834">			V27 ^= V23;</span>
+<span class="nc" id="L835">			V23 = ((V23 &lt;&lt; 2) | (V23 &gt;&gt;&gt; 30)) ^ V27;</span>
+<span class="nc" id="L836">			V27 = ((V27 &lt;&lt; 14) | (V27 &gt;&gt;&gt; 18)) ^ V23;</span>
+<span class="nc" id="L837">			V23 = ((V23 &lt;&lt; 10) | (V23 &gt;&gt;&gt; 22)) ^ V27;</span>
+<span class="nc" id="L838">			V27 = (V27 &lt;&lt; 1) | (V27 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L839">			V20 ^= RC20[r];</span>
+<span class="nc" id="L840">			V24 ^= RC24[r];</span>
+		}
+<span class="nc bnc" id="L842" title="All 2 branches missed.">		for (int r = 0; r &lt; 8; r++) {</span>
+<span class="nc" id="L843">			tmp = V30;</span>
+<span class="nc" id="L844">			V30 |= V31;</span>
+<span class="nc" id="L845">			V32 ^= V33;</span>
+<span class="nc" id="L846">			V31 = ~V31;</span>
+<span class="nc" id="L847">			V30 ^= V33;</span>
+<span class="nc" id="L848">			V33 &amp;= tmp;</span>
+<span class="nc" id="L849">			V31 ^= V33;</span>
+<span class="nc" id="L850">			V33 ^= V32;</span>
+<span class="nc" id="L851">			V32 &amp;= V30;</span>
+<span class="nc" id="L852">			V30 = ~V30;</span>
+<span class="nc" id="L853">			V32 ^= V31;</span>
+<span class="nc" id="L854">			V31 |= V33;</span>
+<span class="nc" id="L855">			tmp ^= V31;</span>
+<span class="nc" id="L856">			V33 ^= V32;</span>
+<span class="nc" id="L857">			V32 &amp;= V31;</span>
+<span class="nc" id="L858">			V31 ^= V30;</span>
+<span class="nc" id="L859">			V30 = tmp;</span>
+<span class="nc" id="L860">			tmp = V35;</span>
+<span class="nc" id="L861">			V35 |= V36;</span>
+<span class="nc" id="L862">			V37 ^= V34;</span>
+<span class="nc" id="L863">			V36 = ~V36;</span>
+<span class="nc" id="L864">			V35 ^= V34;</span>
+<span class="nc" id="L865">			V34 &amp;= tmp;</span>
+<span class="nc" id="L866">			V36 ^= V34;</span>
+<span class="nc" id="L867">			V34 ^= V37;</span>
+<span class="nc" id="L868">			V37 &amp;= V35;</span>
+<span class="nc" id="L869">			V35 = ~V35;</span>
+<span class="nc" id="L870">			V37 ^= V36;</span>
+<span class="nc" id="L871">			V36 |= V34;</span>
+<span class="nc" id="L872">			tmp ^= V36;</span>
+<span class="nc" id="L873">			V34 ^= V37;</span>
+<span class="nc" id="L874">			V37 &amp;= V36;</span>
+<span class="nc" id="L875">			V36 ^= V35;</span>
+<span class="nc" id="L876">			V35 = tmp;</span>
+<span class="nc" id="L877">			V34 ^= V30;</span>
+<span class="nc" id="L878">			V30 = ((V30 &lt;&lt; 2) | (V30 &gt;&gt;&gt; 30)) ^ V34;</span>
+<span class="nc" id="L879">			V34 = ((V34 &lt;&lt; 14) | (V34 &gt;&gt;&gt; 18)) ^ V30;</span>
+<span class="nc" id="L880">			V30 = ((V30 &lt;&lt; 10) | (V30 &gt;&gt;&gt; 22)) ^ V34;</span>
+<span class="nc" id="L881">			V34 = (V34 &lt;&lt; 1) | (V34 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L882">			V35 ^= V31;</span>
+<span class="nc" id="L883">			V31 = ((V31 &lt;&lt; 2) | (V31 &gt;&gt;&gt; 30)) ^ V35;</span>
+<span class="nc" id="L884">			V35 = ((V35 &lt;&lt; 14) | (V35 &gt;&gt;&gt; 18)) ^ V31;</span>
+<span class="nc" id="L885">			V31 = ((V31 &lt;&lt; 10) | (V31 &gt;&gt;&gt; 22)) ^ V35;</span>
+<span class="nc" id="L886">			V35 = (V35 &lt;&lt; 1) | (V35 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L887">			V36 ^= V32;</span>
+<span class="nc" id="L888">			V32 = ((V32 &lt;&lt; 2) | (V32 &gt;&gt;&gt; 30)) ^ V36;</span>
+<span class="nc" id="L889">			V36 = ((V36 &lt;&lt; 14) | (V36 &gt;&gt;&gt; 18)) ^ V32;</span>
+<span class="nc" id="L890">			V32 = ((V32 &lt;&lt; 10) | (V32 &gt;&gt;&gt; 22)) ^ V36;</span>
+<span class="nc" id="L891">			V36 = (V36 &lt;&lt; 1) | (V36 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L892">			V37 ^= V33;</span>
+<span class="nc" id="L893">			V33 = ((V33 &lt;&lt; 2) | (V33 &gt;&gt;&gt; 30)) ^ V37;</span>
+<span class="nc" id="L894">			V37 = ((V37 &lt;&lt; 14) | (V37 &gt;&gt;&gt; 18)) ^ V33;</span>
+<span class="nc" id="L895">			V33 = ((V33 &lt;&lt; 10) | (V33 &gt;&gt;&gt; 22)) ^ V37;</span>
+<span class="nc" id="L896">			V37 = (V37 &lt;&lt; 1) | (V37 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L897">			V30 ^= RC30[r];</span>
+<span class="nc" id="L898">			V34 ^= RC34[r];</span>
+		}
+<span class="nc bnc" id="L900" title="All 2 branches missed.">		for (int r = 0; r &lt; 8; r++) {</span>
+<span class="nc" id="L901">			tmp = V40;</span>
+<span class="nc" id="L902">			V40 |= V41;</span>
+<span class="nc" id="L903">			V42 ^= V43;</span>
+<span class="nc" id="L904">			V41 = ~V41;</span>
+<span class="nc" id="L905">			V40 ^= V43;</span>
+<span class="nc" id="L906">			V43 &amp;= tmp;</span>
+<span class="nc" id="L907">			V41 ^= V43;</span>
+<span class="nc" id="L908">			V43 ^= V42;</span>
+<span class="nc" id="L909">			V42 &amp;= V40;</span>
+<span class="nc" id="L910">			V40 = ~V40;</span>
+<span class="nc" id="L911">			V42 ^= V41;</span>
+<span class="nc" id="L912">			V41 |= V43;</span>
+<span class="nc" id="L913">			tmp ^= V41;</span>
+<span class="nc" id="L914">			V43 ^= V42;</span>
+<span class="nc" id="L915">			V42 &amp;= V41;</span>
+<span class="nc" id="L916">			V41 ^= V40;</span>
+<span class="nc" id="L917">			V40 = tmp;</span>
+<span class="nc" id="L918">			tmp = V45;</span>
+<span class="nc" id="L919">			V45 |= V46;</span>
+<span class="nc" id="L920">			V47 ^= V44;</span>
+<span class="nc" id="L921">			V46 = ~V46;</span>
+<span class="nc" id="L922">			V45 ^= V44;</span>
+<span class="nc" id="L923">			V44 &amp;= tmp;</span>
+<span class="nc" id="L924">			V46 ^= V44;</span>
+<span class="nc" id="L925">			V44 ^= V47;</span>
+<span class="nc" id="L926">			V47 &amp;= V45;</span>
+<span class="nc" id="L927">			V45 = ~V45;</span>
+<span class="nc" id="L928">			V47 ^= V46;</span>
+<span class="nc" id="L929">			V46 |= V44;</span>
+<span class="nc" id="L930">			tmp ^= V46;</span>
+<span class="nc" id="L931">			V44 ^= V47;</span>
+<span class="nc" id="L932">			V47 &amp;= V46;</span>
+<span class="nc" id="L933">			V46 ^= V45;</span>
+<span class="nc" id="L934">			V45 = tmp;</span>
+<span class="nc" id="L935">			V44 ^= V40;</span>
+<span class="nc" id="L936">			V40 = ((V40 &lt;&lt; 2) | (V40 &gt;&gt;&gt; 30)) ^ V44;</span>
+<span class="nc" id="L937">			V44 = ((V44 &lt;&lt; 14) | (V44 &gt;&gt;&gt; 18)) ^ V40;</span>
+<span class="nc" id="L938">			V40 = ((V40 &lt;&lt; 10) | (V40 &gt;&gt;&gt; 22)) ^ V44;</span>
+<span class="nc" id="L939">			V44 = (V44 &lt;&lt; 1) | (V44 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L940">			V45 ^= V41;</span>
+<span class="nc" id="L941">			V41 = ((V41 &lt;&lt; 2) | (V41 &gt;&gt;&gt; 30)) ^ V45;</span>
+<span class="nc" id="L942">			V45 = ((V45 &lt;&lt; 14) | (V45 &gt;&gt;&gt; 18)) ^ V41;</span>
+<span class="nc" id="L943">			V41 = ((V41 &lt;&lt; 10) | (V41 &gt;&gt;&gt; 22)) ^ V45;</span>
+<span class="nc" id="L944">			V45 = (V45 &lt;&lt; 1) | (V45 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L945">			V46 ^= V42;</span>
+<span class="nc" id="L946">			V42 = ((V42 &lt;&lt; 2) | (V42 &gt;&gt;&gt; 30)) ^ V46;</span>
+<span class="nc" id="L947">			V46 = ((V46 &lt;&lt; 14) | (V46 &gt;&gt;&gt; 18)) ^ V42;</span>
+<span class="nc" id="L948">			V42 = ((V42 &lt;&lt; 10) | (V42 &gt;&gt;&gt; 22)) ^ V46;</span>
+<span class="nc" id="L949">			V46 = (V46 &lt;&lt; 1) | (V46 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L950">			V47 ^= V43;</span>
+<span class="nc" id="L951">			V43 = ((V43 &lt;&lt; 2) | (V43 &gt;&gt;&gt; 30)) ^ V47;</span>
+<span class="nc" id="L952">			V47 = ((V47 &lt;&lt; 14) | (V47 &gt;&gt;&gt; 18)) ^ V43;</span>
+<span class="nc" id="L953">			V43 = ((V43 &lt;&lt; 10) | (V43 &gt;&gt;&gt; 22)) ^ V47;</span>
+<span class="nc" id="L954">			V47 = (V47 &lt;&lt; 1) | (V47 &gt;&gt;&gt; 31);</span>
+<span class="nc" id="L955">			V40 ^= RC40[r];</span>
+<span class="nc" id="L956">			V44 ^= RC44[r];</span>
+		}
+<span class="nc" id="L958">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L963">		return &quot;Luffa-512&quot;;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

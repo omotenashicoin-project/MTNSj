@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>X11.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">com.hashengineering.crypto</a> &gt; <span class="el_source">X11.java</span></div><h1>X11.java</h1><pre class="source lang-java linenums">package com.hashengineering.crypto;
+
+import fr.cryptohash.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Created by Hash Engineering on 4/24/14 for the X11 algorithm
+ */
+<span class="nc" id="L10">public class X11 {</span>
+
+<span class="nc" id="L12">    private static final Logger log = LoggerFactory.getLogger(X11.class);</span>
+<span class="nc" id="L13">    private static boolean native_library_loaded = false;</span>
+
+    static {
+
+        try {
+<span class="nc" id="L18">            System.loadLibrary(&quot;x11&quot;);</span>
+<span class="nc" id="L19">            native_library_loaded = true;</span>
+        }
+<span class="nc" id="L21">        catch(UnsatisfiedLinkError x)</span>
+        {
+
+        }
+<span class="nc" id="L25">        catch(Exception e)</span>
+        {
+<span class="nc" id="L27">            native_library_loaded = false;</span>
+<span class="nc" id="L28">        }</span>
+<span class="nc" id="L29">    }</span>
+
+    public static byte[] x11Digest(byte[] input, int offset, int length)
+    {
+<span class="nc" id="L33">        byte [] buf = new byte[length];</span>
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        for(int i = 0; i &lt; length; ++i)</span>
+        {
+<span class="nc" id="L36">            buf[i] = input[offset + i];</span>
+        }
+<span class="nc" id="L38">        return x11Digest(buf);</span>
+    }
+
+    public static byte[] x11Digest(byte[] input) {
+        //long start = System.currentTimeMillis();
+        try {
+<span class="nc bnc" id="L44" title="All 2 branches missed.">            return native_library_loaded ? x11_native(input) : x11(input);</span>
+            /*long start = System.currentTimeMillis();
+            byte [] result = x11_native(input);
+            long end1 = System.currentTimeMillis();
+            byte [] result2 = x11(input);
+            long end2 = System.currentTimeMillis();
+            log.info(&quot;x11: native {} / java {}&quot;, end1-start, end2-end1);
+            return result;*/
+<span class="nc" id="L52">        } catch (Exception e) {</span>
+<span class="nc" id="L53">            return null;</span>
+        }
+<span class="nc" id="L55">        finally {</span>
+            //long time = System.currentTimeMillis()-start;
+            //log.info(&quot;X11 Hash time: {} ms per block&quot;, time);
+<span class="nc" id="L58">        }</span>
+    }
+
+    static native byte [] x11_native(byte [] input);
+
+
+    static byte [] x11(byte header[])
+    {
+        //Initialize
+<span class="nc" id="L67">        Sha512Hash[] hash = new Sha512Hash[11];</span>
+
+        //Run the chain of algorithms
+<span class="nc" id="L70">        BLAKE512 blake512 = new BLAKE512();</span>
+<span class="nc" id="L71">        hash[0] = new Sha512Hash(blake512.digest(header));</span>
+
+<span class="nc" id="L73">        BMW512 bmw = new BMW512();</span>
+<span class="nc" id="L74">        hash[1] = new Sha512Hash(bmw.digest(hash[0].getBytes()));</span>
+
+<span class="nc" id="L76">        Groestl512 groestl = new Groestl512();</span>
+<span class="nc" id="L77">        hash[2] = new Sha512Hash(groestl.digest(hash[1].getBytes()));</span>
+
+<span class="nc" id="L79">        Skein512 skein = new Skein512();</span>
+<span class="nc" id="L80">        hash[3] = new Sha512Hash(skein.digest(hash[2].getBytes()));</span>
+
+<span class="nc" id="L82">        JH512 jh = new JH512();</span>
+<span class="nc" id="L83">        hash[4] = new Sha512Hash(jh.digest(hash[3].getBytes()));</span>
+
+<span class="nc" id="L85">        Keccak512 keccak = new Keccak512();</span>
+<span class="nc" id="L86">        hash[5] = new Sha512Hash(keccak.digest(hash[4].getBytes()));</span>
+
+<span class="nc" id="L88">        Luffa512 luffa = new Luffa512();</span>
+<span class="nc" id="L89">        hash[6] = new Sha512Hash(luffa.digest(hash[5].getBytes()));</span>
+
+<span class="nc" id="L91">        CubeHash512 cubehash = new CubeHash512();</span>
+<span class="nc" id="L92">        hash[7] = new Sha512Hash(cubehash.digest(hash[6].getBytes()));</span>
+
+<span class="nc" id="L94">        SHAvite512 shavite = new SHAvite512();</span>
+<span class="nc" id="L95">        hash[8] = new Sha512Hash(shavite.digest(hash[7].getBytes()));</span>
+
+<span class="nc" id="L97">        SIMD512 simd = new SIMD512();</span>
+<span class="nc" id="L98">        hash[9] = new Sha512Hash(simd.digest(hash[8].getBytes()));</span>
+
+<span class="nc" id="L100">        ECHO512 echo = new ECHO512();</span>
+<span class="nc" id="L101">        hash[10] = new Sha512Hash(echo.digest(hash[9].getBytes()));</span>
+
+<span class="nc" id="L103">        return hash[10].trim256().getBytes();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

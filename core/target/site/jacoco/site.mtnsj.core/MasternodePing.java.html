@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasternodePing.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">MasternodePing.java</span></div><h1>MasternodePing.java</h1><pre class="source lang-java linenums">/**
+ * Copyright 2014 Hash Engineering Solutions
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package site.mtnsj.core;
+
+import site.mtnsj.store.BlockStoreException;
+import org.darkcoinj.DarkSendSigner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.Serializable;
+
+//import static com.hashengineering.crypto.X11.x11Digest; //kaniTODO
+import com.hashengineering.crypto.Skein;
+
+import static site.mtnsj.core.Utils.int64ToByteStreamLE;
+
+public class MasternodePing extends Message implements Serializable {
+
+<span class="nc" id="L34">    private static final Logger log = LoggerFactory.getLogger(MasternodePing.class);</span>
+
+    public static final int  MASTERNODE_MIN_MNP_SECONDS   =          (10*60);
+    public static final int MASTERNODE_MIN_MNB_SECONDS    =         (5*60);
+
+    TransactionInput vin;
+    Sha256Hash blockHash;
+    long sigTime;
+    MasternodeSignature vchSig;
+
+    //DarkCoinSystem system;
+    Context context;
+
+    MasternodePing(Context context) {
+<span class="nc" id="L48">        super(context.getParams());</span>
+<span class="nc" id="L49">        this.context = context;</span>
+<span class="nc" id="L50">    }</span>
+    /*MasternodePing(NetworkParameters context, AbstractBlockChain blockChain, TransactionInput newVin)
+    {
+        super(context);
+    }*/
+
+    MasternodePing(NetworkParameters params, byte[] bytes)
+    {
+<span class="nc" id="L58">        super(params, bytes, 0);</span>
+<span class="nc" id="L59">        this.context = Context.get();</span>
+<span class="nc" id="L60">    }</span>
+
+    MasternodePing(NetworkParameters params, byte[] bytes, int cursor) {
+<span class="nc" id="L63">        super(params, bytes, cursor);</span>
+<span class="nc" id="L64">        this.context = Context.get();</span>
+<span class="nc" id="L65">    }</span>
+
+
+    protected static int calcLength(byte[] buf, int offset) {
+        VarInt varint;
+
+<span class="nc" id="L71">        int cursor = offset;</span>
+
+        //vin
+<span class="nc" id="L74">        cursor += 36;</span>
+<span class="nc" id="L75">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L76">        long scriptLen = varint.value;</span>
+        // 4 = length of sequence field (unint32)
+<span class="nc" id="L78">        cursor += scriptLen + 4 + varint.getOriginalSizeInBytes();</span>
+
+        //blockHash
+<span class="nc" id="L81">        cursor += 32;</span>
+        //sigTime
+<span class="nc" id="L83">        cursor += 8;</span>
+        //vchSig
+<span class="nc" id="L85">        cursor = MasternodeSignature.calcLength(buf, cursor);</span>
+
+<span class="nc" id="L87">        return cursor - offset;</span>
+    }
+
+    public int calculateMessageSizeInBytes()
+    {
+<span class="nc" id="L92">        int cursor = 0;</span>
+
+        //vin
+<span class="nc" id="L95">        cursor += 36;</span>
+
+<span class="nc" id="L97">        long scriptLen = vin.getScriptBytes().length;</span>
+        // 4 = length of sequence field (unint32)
+<span class="nc" id="L99">        cursor += scriptLen + 4 + VarInt.sizeOf(scriptLen);</span>
+
+        //blockHash
+<span class="nc" id="L102">        cursor += 32;</span>
+        //sigTime
+<span class="nc" id="L104">        cursor += 8;</span>
+        //vchSig
+
+<span class="nc" id="L107">        cursor += vchSig.calculateMessageSizeInBytes();</span>
+
+<span class="nc" id="L109">        return cursor;</span>
+
+    }
+
+    @Override
+    protected void parse() throws ProtocolException {
+
+<span class="nc" id="L116">        vin = new TransactionInput(params, null, payload, cursor);</span>
+<span class="nc" id="L117">        cursor += vin.getMessageSize();</span>
+
+<span class="nc" id="L119">        blockHash = readHash();</span>
+
+<span class="nc" id="L121">        sigTime = readInt64();</span>
+
+<span class="nc" id="L123">        vchSig = new MasternodeSignature(params, payload, cursor);</span>
+<span class="nc" id="L124">        cursor += vchSig.getMessageSize();</span>
+
+<span class="nc" id="L126">        length = cursor - offset;</span>
+
+<span class="nc" id="L128">    }</span>
+
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+
+<span class="nc" id="L133">        vin.bitcoinSerialize(stream);</span>
+<span class="nc" id="L134">        stream.write(blockHash.getReversedBytes());</span>
+<span class="nc" id="L135">        int64ToByteStreamLE(sigTime, stream);</span>
+<span class="nc" id="L136">        vchSig.bitcoinSerialize(stream);</span>
+<span class="nc" id="L137">    }</span>
+
+    boolean checkAndUpdate(boolean fRequireEnabled, boolean fCheckSigTimeOnly)
+    {
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        if (sigTime &gt; Utils.currentTimeSeconds() + 60 * 60) {</span>
+<span class="nc" id="L142">            log.info(&quot;CMasternodePing::CheckAndUpdate - Signature rejected, too far into the future &quot;+ vin.toString());</span>
+            //nDos = 1;
+<span class="nc" id="L144">            return false;</span>
+        }
+
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (sigTime &lt;= Utils.currentTimeSeconds() - 60 * 60) {</span>
+<span class="nc" id="L148">            log.info(&quot;CMasternodePing::CheckAndUpdate - Signature rejected, too far into the past {} - {} {} \n&quot;, vin.toString(), sigTime, Utils.currentTimeSeconds());</span>
+            //nDos = 1;
+<span class="nc" id="L150">            return false;</span>
+        }
+
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        if(fCheckSigTimeOnly) {</span>
+<span class="nc" id="L154">            Masternode pmn = context.masternodeManager.find(vin);</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">            if(pmn != null) return verifySignature(pmn.pubKeyMasternode);</span>
+<span class="nc" id="L156">            return true;</span>
+        }
+
+<span class="nc" id="L159">        log.info(&quot;masternode - CMasternodePing::CheckAndUpdate - New Ping - &quot;+ getHash().toString() +&quot; - &quot;+ blockHash.toString()+&quot; - &quot;+ sigTime);</span>
+
+        // see if we have this Masternode
+<span class="nc" id="L162">        Masternode pmn = context.masternodeManager.find(vin);</span>
+<span class="nc bnc" id="L163" title="All 4 branches missed.">        if(pmn != null &amp;&amp; pmn.protocolVersion &gt;= context.masternodePayments.getMinMasternodePaymentsProto())</span>
+        {
+<span class="nc bnc" id="L165" title="All 6 branches missed.">            if (fRequireEnabled &amp;&amp; !pmn.isEnabled() &amp;&amp; !pmn.isPreEnabled()) return false;</span>
+
+            // LogPrintf(&quot;mnping - Found corresponding mn for vin: %s\n&quot;, vin.ToString());
+            // update only if there is no known ping for this masternode or
+            // last ping was more then MASTERNODE_MIN_MNP_SECONDS-60 ago comparing to this one
+<span class="nc bnc" id="L170" title="All 2 branches missed.">            if(!pmn.isPingedWithin(MASTERNODE_MIN_MNP_SECONDS - 60, sigTime)) {</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">                if(!verifySignature(pmn.pubKeyMasternode))</span>
+<span class="nc" id="L172">                    return false;</span>
+
+<span class="nc" id="L174">                String strMessage = vin.toStringCpp() + blockHash.toString() + sigTime;</span>
+
+<span class="nc" id="L176">                StringBuilder errorMessage = new StringBuilder();</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">                if (!DarkSendSigner.verifyMessage(pmn.pubKeyMasternode, vchSig, strMessage, errorMessage)) {</span>
+<span class="nc" id="L178">                    log.info(&quot;CMasternodePing::CheckAndUpdate - Got bad Masternode address signature &quot; + vin.toString());</span>
+                    //nDos = 33;
+<span class="nc" id="L180">                    return false;</span>
+                }
+
+                try {
+
+<span class="nc" id="L185">                    StoredBlock storedBlock = context.masternodeManager.blockChain.getBlockStore().get(blockHash);</span>
+
+<span class="nc bnc" id="L187" title="All 2 branches missed.">                    if(storedBlock != null) {</span>
+
+<span class="nc bnc" id="L189" title="All 2 branches missed.">                        if (storedBlock.getHeight() &lt; context.masternodeManager.blockChain.getChainHead().getHeight() - 24) {</span>
+<span class="nc" id="L190">                            log.info(&quot;CMasternodePing::CheckAndUpdate - Masternode {} block hash {} is too old&quot;, vin.toString(), blockHash.toString());</span>
+<span class="nc" id="L191">                            return false;</span>
+                        }
+                    }
+                    else
+                    {
+                        if (DarkCoinSystem.fDebug)
+<span class="nc" id="L197">                            log.info(&quot;CMasternodePing::CheckAndUpdate - Masternode {} block hash {} is unknown&quot;, vin.toString(), blockHash.toString());</span>
+                    }
+
+<span class="nc" id="L200">                } catch (BlockStoreException x) {</span>
+<span class="nc" id="L201">                    return false;</span>
+                }
+<span class="nc" id="L203">                catch (Exception x) {</span>
+<span class="nc" id="L204">                    return false;</span>
+<span class="nc" id="L205">                }</span>
+                /* java code is above:
+                BlockMap::iterator mi = mapBlockIndex.find(blockHash);
+                if (mi != mapBlockIndex.end() &amp;&amp; (*mi).second)
+                {
+                    if((*mi).second-&gt;nHeight &lt; chainActive.Height() - 24)
+                    {
+                        log.info(&quot;CMasternodePing::CheckAndUpdate - Masternode {2} block hash {2} is too old\n&quot;, vin.ToString(), blockHash.ToString());
+                        // Do nothing here (no Masternode update, no mnping relay)
+                        // Let this node to be visible but fail to accept mnping
+
+                        return false;
+                    }
+                } else {
+                if (DarkCoinSystem.fDebug) log.info(&quot;CMasternodePing::CheckAndUpdate - Masternode %s block hash %s is unknown\n&quot;, vin.ToString(), blockHash.ToString());
+                // maybe we stuck so we shouldn't ban this node, just fail to accept it
+                // TODO: or should we also request this block?
+
+                    return false;
+                }
+
+*/
+<span class="nc" id="L227">                pmn.lastPing = this;</span>
+
+                //mnodeman.mapSeenMasternodeBroadcast.lastPing is probably outdated, so we'll update it
+<span class="nc" id="L230">                MasternodeBroadcast mnb = new MasternodeBroadcast(pmn);</span>
+<span class="nc" id="L231">                Sha256Hash hash = mnb.getHash();</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">                if(context.masternodeManager.mapSeenMasternodeBroadcast.containsKey(hash)) {</span>
+<span class="nc" id="L233">                    context.masternodeManager.mapSeenMasternodeBroadcast.get(hash).lastPing = this;</span>
+                }
+
+<span class="nc" id="L236">                pmn.check(true);</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">                if(pmn.isEnabled()) return false;</span>
+
+<span class="nc" id="L239">                log.info(&quot;masternode-CMasternodePing::CheckAndUpdate - Masternode ping accepted, vin: &quot;+ vin.toString());</span>
+
+<span class="nc" id="L241">                relay();</span>
+<span class="nc" id="L242">                return true;</span>
+            }
+<span class="nc" id="L244">            log.info(&quot;masternode - CMasternodePing::CheckAndUpdate - Masternode ping arrived too early, vin: &quot;+ vin.toString());</span>
+            //nDos = 1; //disable, this is happening frequently and causing banned peers
+<span class="nc" id="L246">            return false;</span>
+        }
+<span class="nc" id="L248">        log.info(&quot;masternode - CMasternodePing::CheckAndUpdate - Couldn't find compatible Masternode entry, vin: &quot;+ vin.toString());</span>
+
+<span class="nc" id="L250">        return false;</span>
+    }
+    boolean checkAndUpdate()
+    {
+<span class="nc" id="L254">        return checkAndUpdate(true, false);</span>
+    }
+    boolean checkAndUpdate(boolean fRequireEnabled)
+    {
+<span class="nc" id="L258">        return checkAndUpdate(fRequireEnabled, false);</span>
+    }
+
+    boolean verifySignature(PublicKey pubKeyMasternode) {
+
+<span class="nc" id="L263">        String strMessage = vin.toStringCpp() + blockHash.toString() + sigTime;</span>
+
+<span class="nc" id="L265">        StringBuilder errorMessage = new StringBuilder();</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        if (!DarkSendSigner.verifyMessage(pubKeyMasternode, vchSig, strMessage, errorMessage)) {</span>
+<span class="nc" id="L267">            log.info(&quot;CMasternodePing::CheckAndUpdate - Got bad Masternode address signature &quot; + vin.toString() + &quot; Error &quot; + errorMessage);</span>
+            //nDos = 33;
+<span class="nc" id="L269">            return false;</span>
+        }
+<span class="nc" id="L271">        return true;</span>
+    }
+
+    public boolean equals(Object o)
+    {
+<span class="nc" id="L276">        MasternodePing mnp = (MasternodePing)o;</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        if(mnp.sigTime == this.sigTime &amp;&amp;</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">                mnp.vin.equals(this.vin) &amp;&amp;</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">                mnp.vchSig.equals(this.vchSig) &amp;&amp;</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">                mnp.blockHash.equals(this.blockHash))</span>
+        {
+
+<span class="nc" id="L283">                return true;</span>
+        }
+<span class="nc" id="L285">        return false;</span>
+    }
+
+<span class="nc" id="L288">    public static MasternodePing EMPTY = new MasternodePing(Context.get());</span>
+
+<span class="nc" id="L290">    static MasternodePing empty() { return EMPTY; }</span>
+
+    void relay()
+    {
+        //CInv inv(MSG_MASTERNODE_PING, GetHash());
+        //RelayInv(inv);
+<span class="nc" id="L296">    }</span>
+
+    public Sha256Hash getHash(){
+        try {
+<span class="nc" id="L300">            UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream(vchSig.calculateMessageSizeInBytes()+8);</span>
+<span class="nc" id="L301">            vin.bitcoinSerialize(bos);</span>
+<span class="nc" id="L302">            Utils.int64ToByteStreamLE(sigTime, bos);</span>
+<span class="nc" id="L303">            return Sha256Hash.wrapReversed(Sha256Hash.hashTwice(bos.toByteArray()));</span>
+<span class="nc" id="L304">        } catch (IOException e) {</span>
+<span class="nc" id="L305">            throw new RuntimeException(e); // Cannot happen.</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

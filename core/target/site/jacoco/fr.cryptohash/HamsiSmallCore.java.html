@@ -1,0 +1,960 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>HamsiSmallCore.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">HamsiSmallCore.java</span></div><h1>HamsiSmallCore.java</h1><pre class="source lang-java linenums">// $Id: HamsiSmallCore.java 239 2010-06-21 14:58:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * This class implements Hamsi-224 and Hamsi-256.
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 239 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+abstract class HamsiSmallCore implements Digest {
+
+	private int[] h;
+	private long bitCount;
+	private int partial;
+	private int partialLen;
+
+	/**
+	 * Create the object.
+	 */
+	HamsiSmallCore()
+<span class="nc" id="L50">	{</span>
+<span class="nc" id="L51">		h = new int[8];</span>
+<span class="nc" id="L52">		reset();</span>
+<span class="nc" id="L53">	}</span>
+
+	/** @see Digest */
+	public void update(byte in)
+	{
+<span class="nc" id="L58">		bitCount += 8;</span>
+<span class="nc" id="L59">		partial = (partial &lt;&lt; 8) | (in &amp; 0xFF);</span>
+<span class="nc" id="L60">		partialLen ++;</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">		if (partialLen == 4) {</span>
+<span class="nc" id="L62">			process(partial &gt;&gt;&gt; 24, (partial &gt;&gt;&gt; 16) &amp; 0xFF,</span>
+				(partial &gt;&gt;&gt; 8) &amp; 0xFF, partial &amp; 0xFF);
+<span class="nc" id="L64">			partialLen = 0;</span>
+		}
+<span class="nc" id="L66">	}</span>
+
+	/** @see Digest */
+	public void update(byte[] inbuf)
+	{
+<span class="nc" id="L71">		update(inbuf, 0, inbuf.length);</span>
+<span class="nc" id="L72">	}</span>
+
+	/** @see Digest */
+	public void update(byte[] inbuf, int off, int len)
+	{
+<span class="nc" id="L77">		bitCount += (long)len &lt;&lt; 3;</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">		if (partialLen != 0) {</span>
+<span class="nc bnc" id="L79" title="All 4 branches missed.">			while (partialLen &lt; 4 &amp;&amp; len &gt; 0) {</span>
+<span class="nc" id="L80">				partial = (partial &lt;&lt; 8)</span>
+					| (inbuf[off ++] &amp; 0xFF);
+<span class="nc" id="L82">				partialLen ++;</span>
+<span class="nc" id="L83">				len --;</span>
+			}
+<span class="nc bnc" id="L85" title="All 2 branches missed.">			if (partialLen &lt; 4)</span>
+<span class="nc" id="L86">				return;</span>
+<span class="nc" id="L87">			process(partial &gt;&gt;&gt; 24, (partial &gt;&gt;&gt; 16) &amp; 0xFF,</span>
+				(partial &gt;&gt;&gt; 8) &amp; 0xFF, partial &amp; 0xFF);
+<span class="nc" id="L89">			partialLen = 0;</span>
+		}
+<span class="nc bnc" id="L91" title="All 2 branches missed.">		while (len &gt;= 4) {</span>
+<span class="nc" id="L92">			process(inbuf[off + 0] &amp; 0xFF,</span>
+				inbuf[off + 1] &amp; 0xFF,
+				inbuf[off + 2] &amp; 0xFF,
+				inbuf[off + 3] &amp; 0xFF);
+<span class="nc" id="L96">			off += 4;</span>
+<span class="nc" id="L97">			len -= 4;</span>
+		}
+<span class="nc" id="L99">		partialLen = len;</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">		while (len -- &gt; 0)</span>
+<span class="nc" id="L101">			partial = (partial &lt;&lt; 8) | (inbuf[off ++] &amp; 0xFF);</span>
+<span class="nc" id="L102">	}</span>
+
+	/** @see Digest */
+	public byte[] digest()
+	{
+<span class="nc" id="L107">		int n = getDigestLength();</span>
+<span class="nc" id="L108">		byte[] out = new byte[n];</span>
+<span class="nc" id="L109">		digest(out, 0, n);</span>
+<span class="nc" id="L110">		return out;</span>
+	}
+
+	/** @see Digest */
+	public byte[] digest(byte[] inbuf)
+	{
+<span class="nc" id="L116">		update(inbuf, 0, inbuf.length);</span>
+<span class="nc" id="L117">		return digest();</span>
+	}
+
+	/** @see Digest */
+	public int digest(byte[] outbuf, int off, int len)
+	{
+<span class="nc" id="L123">		long bitCount = this.bitCount;</span>
+<span class="nc" id="L124">		update((byte)0x80);</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">		while (partialLen != 0)</span>
+<span class="nc" id="L126">			update((byte)0x00);</span>
+<span class="nc" id="L127">		process((int)(bitCount &gt;&gt;&gt; 56) &amp; 0xFF,</span>
+			(int)(bitCount &gt;&gt;&gt; 48) &amp; 0xFF,
+			(int)(bitCount &gt;&gt;&gt; 40) &amp; 0xFF,
+			(int)(bitCount &gt;&gt;&gt; 32) &amp; 0xFF);
+<span class="nc" id="L131">		processFinal(((int)bitCount &gt;&gt;&gt; 24) &amp; 0xFF,</span>
+			((int)bitCount &gt;&gt;&gt; 16) &amp; 0xFF,
+			((int)bitCount &gt;&gt;&gt; 8) &amp; 0xFF,
+			(int)bitCount &amp; 0xFF);
+<span class="nc" id="L135">		int n = getDigestLength();</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">		if (len &gt; n)</span>
+<span class="nc" id="L137">			len = n;</span>
+<span class="nc" id="L138">		int ch = 0;</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">		for (int i = 0, j = 0; i &lt; len; i ++) {</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">			if ((i &amp; 3) == 0)</span>
+<span class="nc" id="L141">				ch = h[j ++];</span>
+<span class="nc" id="L142">			outbuf[off + i] = (byte)(ch &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L143">			ch &lt;&lt;= 8;</span>
+		}
+<span class="nc" id="L145">		reset();</span>
+<span class="nc" id="L146">		return len;</span>
+	}
+
+	/** @see Digest */
+	public void reset()
+	{
+<span class="nc" id="L152">		System.arraycopy(getIV(), 0, h, 0, h.length);</span>
+<span class="nc" id="L153">		bitCount = 0;</span>
+<span class="nc" id="L154">		partialLen = 0;</span>
+<span class="nc" id="L155">	}</span>
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L160">		HamsiSmallCore d = dup();</span>
+<span class="nc" id="L161">		System.arraycopy(h, 0, d.h, 0, h.length);</span>
+<span class="nc" id="L162">		d.bitCount = bitCount;</span>
+<span class="nc" id="L163">		d.partial = partial;</span>
+<span class="nc" id="L164">		d.partialLen = partialLen;</span>
+<span class="nc" id="L165">		return d;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+		/*
+		 * Private communication from Hamsi designer Ozgul Kucuk:
+		 *
+		 * &lt;&lt; For HMAC you can calculate B = 256*ceil(k / 256)
+		 *    (same as CubeHash). &gt;&gt;
+		 */
+<span class="nc" id="L177">		return -32;</span>
+	}
+
+	/**
+	 * Get the IV.
+	 *
+	 * @return  the IV (initial values for the state words)
+	 */
+	abstract int[] getIV();
+
+	/**
+	 * Create a new instance of the same runtime class than this object.
+	 *
+	 * @return  the duplicate
+	 */
+	abstract HamsiSmallCore dup();
+
+<span class="nc" id="L194">	private static final int[][] Tsrc = {</span>
+		{ 0x045f0000, 0x9c4a93c9, 0x62fc79d0, 0x731ebdc2,
+		  0xe0278000, 0x19dce008, 0xd7075d82, 0x5ad2e31d },
+		{ 0xe4788000, 0x859673c1, 0xb5fb2452, 0x29cc5edf,
+		  0x045f0000, 0x9c4a93c9, 0x62fc79d0, 0x731ebdc2 },
+		{ 0xe6570000, 0x4bb33a25, 0x848598ba, 0x1041003e,
+		  0xf44c4000, 0x10a4e3cd, 0x097f5711, 0xde77cc4c },
+		{ 0x121b4000, 0x5b17d9e8, 0x8dfacfab, 0xce36cc72,
+		  0xe6570000, 0x4bb33a25, 0x848598ba, 0x1041003e },
+		{ 0x97530000, 0x204f6ed3, 0x77b9e80f, 0xa1ec5ec1,
+		  0x7e792000, 0x9418e22f, 0x6643d258, 0x9c255be5 },
+		{ 0xe92a2000, 0xb4578cfc, 0x11fa3a57, 0x3dc90524,
+		  0x97530000, 0x204f6ed3, 0x77b9e80f, 0xa1ec5ec1 },
+		{ 0xcba90000, 0x90273769, 0xbbdcf407, 0xd0f4af61,
+		  0xbf3c1000, 0xca0c7117, 0x3321e92c, 0xce122df3 },
+		{ 0x74951000, 0x5a2b467e, 0x88fd1d2b, 0x1ee68292,
+		  0xcba90000, 0x90273769, 0xbbdcf407, 0xd0f4af61 },
+		{ 0xe18b0000, 0x5459887d, 0xbf1283d3, 0x1b666a73,
+		  0x3fb90800, 0x7cdad883, 0xce97a914, 0xbdd9f5e5 },
+		{ 0xde320800, 0x288350fe, 0x71852ac7, 0xa6bf9f96,
+		  0xe18b0000, 0x5459887d, 0xbf1283d3, 0x1b666a73 },
+		{ 0x14bd0000, 0x2fba37ff, 0x6a72e5bb, 0x247febe6,
+		  0x9b830400, 0x2227ff88, 0x05b7ad5a, 0xadf2c730 },
+		{ 0x8f3e0400, 0x0d9dc877, 0x6fc548e1, 0x898d2cd6,
+		  0x14bd0000, 0x2fba37ff, 0x6a72e5bb, 0x247febe6 },
+		{ 0xee260000, 0x124b683e, 0x80c2d68f, 0x3bf3ab2c,
+		  0x499e0200, 0x0d59ec0d, 0xe0272f7d, 0xa5e7de5a },
+		{ 0xa7b80200, 0x1f128433, 0x60e5f9f2, 0x9e147576,
+		  0xee260000, 0x124b683e, 0x80c2d68f, 0x3bf3ab2c },
+		{ 0x734c0000, 0x956fa7d6, 0xa29d1297, 0x6ee56854,
+		  0xc4e80100, 0x1f70960e, 0x2714ca3c, 0x88210c30 },
+		{ 0xb7a40100, 0x8a1f31d8, 0x8589d8ab, 0xe6c46464,
+		  0x734c0000, 0x956fa7d6, 0xa29d1297, 0x6ee56854 },
+		{ 0x39a60000, 0x4ab753eb, 0xd14e094b, 0xb772b42b,
+		  0x62740080, 0x0fb84b07, 0x138a651e, 0x44100618 },
+		{ 0x5bd20080, 0x450f18ec, 0xc2c46c55, 0xf362b233,
+		  0x39a60000, 0x4ab753eb, 0xd14e094b, 0xb772b42b },
+		{ 0x78ab0000, 0xa0cd5a34, 0x5d5ca0f7, 0x727784cb,
+		  0x35650040, 0x9b96b64a, 0x6b39cb5f, 0x5114bece },
+		{ 0x4dce0040, 0x3b5bec7e, 0x36656ba8, 0x23633a05,
+		  0x78ab0000, 0xa0cd5a34, 0x5d5ca0f7, 0x727784cb },
+		{ 0x5c720000, 0xc9bacd12, 0x79a90df9, 0x63e92178,
+		  0xfeca0020, 0x485d28e4, 0x806741fd, 0x814681b8 },
+		{ 0xa2b80020, 0x81e7e5f6, 0xf9ce4c04, 0xe2afa0c0,
+		  0x5c720000, 0xc9bacd12, 0x79a90df9, 0x63e92178 },
+		{ 0x2e390000, 0x64dd6689, 0x3cd406fc, 0xb1f490bc,
+		  0x7f650010, 0x242e1472, 0xc03320fe, 0xc0a3c0dd },
+		{ 0x515c0010, 0x40f372fb, 0xfce72602, 0x71575061,
+		  0x2e390000, 0x64dd6689, 0x3cd406fc, 0xb1f490bc },
+		{ 0x171c0000, 0xb26e3344, 0x9e6a837e, 0x58f8485f,
+		  0xbfb20008, 0x92170a39, 0x6019107f, 0xe051606e },
+		{ 0xa8ae0008, 0x2079397d, 0xfe739301, 0xb8a92831,
+		  0x171c0000, 0xb26e3344, 0x9e6a837e, 0x58f8485f },
+		{ 0x6ba90000, 0x40ebf9aa, 0x98321c3d, 0x76acc733,
+		  0xbba10004, 0xcc9d76dd, 0x05f7ac6d, 0xd9e6eee9 },
+		{ 0xd0080004, 0x8c768f77, 0x9dc5b050, 0xaf4a29da,
+		  0x6ba90000, 0x40ebf9aa, 0x98321c3d, 0x76acc733 },
+		{ 0x51ac0000, 0x25e30f14, 0x79e22a4c, 0x1298bd46,
+		  0xd98f0002, 0x7a04a8a7, 0xe007afe6, 0x9fed4ab7 },
+		{ 0x88230002, 0x5fe7a7b3, 0x99e585aa, 0x8d75f7f1,
+		  0x51ac0000, 0x25e30f14, 0x79e22a4c, 0x1298bd46 },
+		{ 0xc8f10000, 0x0b2de782, 0x6bf648a4, 0x539cbdbf,
+		  0x08bf0001, 0x38942792, 0xc5f8f3a1, 0xe6387b84 },
+		{ 0xc04e0001, 0x33b9c010, 0xae0ebb05, 0xb5a4c63b,
+		  0xc8f10000, 0x0b2de782, 0x6bf648a4, 0x539cbdbf }
+	};
+
+	private static int[][] makeT(int x)
+	{
+<span class="nc" id="L263">		int[][] T = new int[256][8];</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">		for (int y = 0; y &lt; 256; y ++) {</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">			for (int z = 0; z &lt; 8; z ++) {</span>
+<span class="nc" id="L266">				int a = 0;</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">				for (int k = 0; k &lt; 8; k ++) {</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">					if ((y &amp; (1 &lt;&lt; (7 - k))) != 0)</span>
+<span class="nc" id="L269">						a ^= Tsrc[x + k][z];</span>
+				}
+<span class="nc" id="L271">				T[y][z] = a;</span>
+			}
+		}
+<span class="nc" id="L274">		return T;</span>
+	}
+
+<span class="nc" id="L277">	private static final int[][] T256_0 = makeT(0);</span>
+<span class="nc" id="L278">	private static final int[][] T256_1 = makeT(8);</span>
+<span class="nc" id="L279">	private static final int[][] T256_2 = makeT(16);</span>
+<span class="nc" id="L280">	private static final int[][] T256_3 = makeT(24);</span>
+
+<span class="nc" id="L282">	private static final int[] ALPHA_N = {</span>
+		0xff00f0f0, 0xccccaaaa, 0xf0f0cccc, 0xff00aaaa,
+		0xccccaaaa, 0xf0f0ff00, 0xaaaacccc, 0xf0f0ff00,
+		0xf0f0cccc, 0xaaaaff00, 0xccccff00, 0xaaaaf0f0,
+		0xaaaaf0f0, 0xff00cccc, 0xccccf0f0, 0xff00aaaa,
+		0xccccaaaa, 0xff00f0f0, 0xff00aaaa, 0xf0f0cccc,
+		0xf0f0ff00, 0xccccaaaa, 0xf0f0ff00, 0xaaaacccc,
+		0xaaaaff00, 0xf0f0cccc, 0xaaaaf0f0, 0xccccff00,
+		0xff00cccc, 0xaaaaf0f0, 0xff00aaaa, 0xccccf0f0
+	};
+
+<span class="nc" id="L293">	private static final int[] ALPHA_F = {</span>
+		0xcaf9639c, 0x0ff0f9c0, 0x639c0ff0, 0xcaf9f9c0,
+		0x0ff0f9c0, 0x639ccaf9, 0xf9c00ff0, 0x639ccaf9,
+		0x639c0ff0, 0xf9c0caf9, 0x0ff0caf9, 0xf9c0639c,
+		0xf9c0639c, 0xcaf90ff0, 0x0ff0639c, 0xcaf9f9c0,
+		0x0ff0f9c0, 0xcaf9639c, 0xcaf9f9c0, 0x639c0ff0,
+		0x639ccaf9, 0x0ff0f9c0, 0x639ccaf9, 0xf9c00ff0,
+		0xf9c0caf9, 0x639c0ff0, 0xf9c0639c, 0x0ff0caf9,
+		0xcaf90ff0, 0xf9c0639c, 0xcaf9f9c0, 0x0ff0639c
+	};
+
+	private void process(int b0, int b1, int b2, int b3)
+	{
+<span class="nc" id="L306">		int[] rp = T256_0[b0];</span>
+<span class="nc" id="L307">		int m0 = rp[0];</span>
+<span class="nc" id="L308">		int m1 = rp[1];</span>
+<span class="nc" id="L309">		int m2 = rp[2];</span>
+<span class="nc" id="L310">		int m3 = rp[3];</span>
+<span class="nc" id="L311">		int m4 = rp[4];</span>
+<span class="nc" id="L312">		int m5 = rp[5];</span>
+<span class="nc" id="L313">		int m6 = rp[6];</span>
+<span class="nc" id="L314">		int m7 = rp[7];</span>
+<span class="nc" id="L315">		rp = T256_1[b1];</span>
+<span class="nc" id="L316">		m0 ^= rp[0];</span>
+<span class="nc" id="L317">		m1 ^= rp[1];</span>
+<span class="nc" id="L318">		m2 ^= rp[2];</span>
+<span class="nc" id="L319">		m3 ^= rp[3];</span>
+<span class="nc" id="L320">		m4 ^= rp[4];</span>
+<span class="nc" id="L321">		m5 ^= rp[5];</span>
+<span class="nc" id="L322">		m6 ^= rp[6];</span>
+<span class="nc" id="L323">		m7 ^= rp[7];</span>
+<span class="nc" id="L324">		rp = T256_2[b2];</span>
+<span class="nc" id="L325">		m0 ^= rp[0];</span>
+<span class="nc" id="L326">		m1 ^= rp[1];</span>
+<span class="nc" id="L327">		m2 ^= rp[2];</span>
+<span class="nc" id="L328">		m3 ^= rp[3];</span>
+<span class="nc" id="L329">		m4 ^= rp[4];</span>
+<span class="nc" id="L330">		m5 ^= rp[5];</span>
+<span class="nc" id="L331">		m6 ^= rp[6];</span>
+<span class="nc" id="L332">		m7 ^= rp[7];</span>
+<span class="nc" id="L333">		rp = T256_3[b3];</span>
+<span class="nc" id="L334">		m0 ^= rp[0];</span>
+<span class="nc" id="L335">		m1 ^= rp[1];</span>
+<span class="nc" id="L336">		m2 ^= rp[2];</span>
+<span class="nc" id="L337">		m3 ^= rp[3];</span>
+<span class="nc" id="L338">		m4 ^= rp[4];</span>
+<span class="nc" id="L339">		m5 ^= rp[5];</span>
+<span class="nc" id="L340">		m6 ^= rp[6];</span>
+<span class="nc" id="L341">		m7 ^= rp[7];</span>
+
+<span class="nc" id="L343">		int c0 = h[0];</span>
+<span class="nc" id="L344">		int c1 = h[1];</span>
+<span class="nc" id="L345">		int c2 = h[2];</span>
+<span class="nc" id="L346">		int c3 = h[3];</span>
+<span class="nc" id="L347">		int c4 = h[4];</span>
+<span class="nc" id="L348">		int c5 = h[5];</span>
+<span class="nc" id="L349">		int c6 = h[6];</span>
+<span class="nc" id="L350">		int c7 = h[7];</span>
+		int t;
+
+<span class="nc" id="L353">		m0 ^= ALPHA_N[0x00];</span>
+<span class="nc" id="L354">		m1 ^= ALPHA_N[0x01] ^ 0;</span>
+<span class="nc" id="L355">		c0 ^= ALPHA_N[0x02];</span>
+<span class="nc" id="L356">		c1 ^= ALPHA_N[0x03];</span>
+<span class="nc" id="L357">		c2 ^= ALPHA_N[0x08];</span>
+<span class="nc" id="L358">		c3 ^= ALPHA_N[0x09];</span>
+<span class="nc" id="L359">		m2 ^= ALPHA_N[0x0A];</span>
+<span class="nc" id="L360">		m3 ^= ALPHA_N[0x0B];</span>
+<span class="nc" id="L361">		m4 ^= ALPHA_N[0x10];</span>
+<span class="nc" id="L362">		m5 ^= ALPHA_N[0x11];</span>
+<span class="nc" id="L363">		c4 ^= ALPHA_N[0x12];</span>
+<span class="nc" id="L364">		c5 ^= ALPHA_N[0x13];</span>
+<span class="nc" id="L365">		c6 ^= ALPHA_N[0x18];</span>
+<span class="nc" id="L366">		c7 ^= ALPHA_N[0x19];</span>
+<span class="nc" id="L367">		m6 ^= ALPHA_N[0x1A];</span>
+<span class="nc" id="L368">		m7 ^= ALPHA_N[0x1B];</span>
+<span class="nc" id="L369">		t = m0;</span>
+<span class="nc" id="L370">		m0 &amp;= m4;</span>
+<span class="nc" id="L371">		m0 ^= c6;</span>
+<span class="nc" id="L372">		m4 ^= c2;</span>
+<span class="nc" id="L373">		m4 ^= m0;</span>
+<span class="nc" id="L374">		c6 |= t;</span>
+<span class="nc" id="L375">		c6 ^= c2;</span>
+<span class="nc" id="L376">		t ^= m4;</span>
+<span class="nc" id="L377">		c2 = c6;</span>
+<span class="nc" id="L378">		c6 |= t;</span>
+<span class="nc" id="L379">		c6 ^= m0;</span>
+<span class="nc" id="L380">		m0 &amp;= c2;</span>
+<span class="nc" id="L381">		t ^= m0;</span>
+<span class="nc" id="L382">		c2 ^= c6;</span>
+<span class="nc" id="L383">		c2 ^= t;</span>
+<span class="nc" id="L384">		m0 = m4;</span>
+<span class="nc" id="L385">		m4 = c2;</span>
+<span class="nc" id="L386">		c2 = c6;</span>
+<span class="nc" id="L387">		c6 = ~t;</span>
+<span class="nc" id="L388">		t = m1;</span>
+<span class="nc" id="L389">		m1 &amp;= m5;</span>
+<span class="nc" id="L390">		m1 ^= c7;</span>
+<span class="nc" id="L391">		m5 ^= c3;</span>
+<span class="nc" id="L392">		m5 ^= m1;</span>
+<span class="nc" id="L393">		c7 |= t;</span>
+<span class="nc" id="L394">		c7 ^= c3;</span>
+<span class="nc" id="L395">		t ^= m5;</span>
+<span class="nc" id="L396">		c3 = c7;</span>
+<span class="nc" id="L397">		c7 |= t;</span>
+<span class="nc" id="L398">		c7 ^= m1;</span>
+<span class="nc" id="L399">		m1 &amp;= c3;</span>
+<span class="nc" id="L400">		t ^= m1;</span>
+<span class="nc" id="L401">		c3 ^= c7;</span>
+<span class="nc" id="L402">		c3 ^= t;</span>
+<span class="nc" id="L403">		m1 = m5;</span>
+<span class="nc" id="L404">		m5 = c3;</span>
+<span class="nc" id="L405">		c3 = c7;</span>
+<span class="nc" id="L406">		c7 = ~t;</span>
+<span class="nc" id="L407">		t = c0;</span>
+<span class="nc" id="L408">		c0 &amp;= c4;</span>
+<span class="nc" id="L409">		c0 ^= m6;</span>
+<span class="nc" id="L410">		c4 ^= m2;</span>
+<span class="nc" id="L411">		c4 ^= c0;</span>
+<span class="nc" id="L412">		m6 |= t;</span>
+<span class="nc" id="L413">		m6 ^= m2;</span>
+<span class="nc" id="L414">		t ^= c4;</span>
+<span class="nc" id="L415">		m2 = m6;</span>
+<span class="nc" id="L416">		m6 |= t;</span>
+<span class="nc" id="L417">		m6 ^= c0;</span>
+<span class="nc" id="L418">		c0 &amp;= m2;</span>
+<span class="nc" id="L419">		t ^= c0;</span>
+<span class="nc" id="L420">		m2 ^= m6;</span>
+<span class="nc" id="L421">		m2 ^= t;</span>
+<span class="nc" id="L422">		c0 = c4;</span>
+<span class="nc" id="L423">		c4 = m2;</span>
+<span class="nc" id="L424">		m2 = m6;</span>
+<span class="nc" id="L425">		m6 = ~t;</span>
+<span class="nc" id="L426">		t = c1;</span>
+<span class="nc" id="L427">		c1 &amp;= c5;</span>
+<span class="nc" id="L428">		c1 ^= m7;</span>
+<span class="nc" id="L429">		c5 ^= m3;</span>
+<span class="nc" id="L430">		c5 ^= c1;</span>
+<span class="nc" id="L431">		m7 |= t;</span>
+<span class="nc" id="L432">		m7 ^= m3;</span>
+<span class="nc" id="L433">		t ^= c5;</span>
+<span class="nc" id="L434">		m3 = m7;</span>
+<span class="nc" id="L435">		m7 |= t;</span>
+<span class="nc" id="L436">		m7 ^= c1;</span>
+<span class="nc" id="L437">		c1 &amp;= m3;</span>
+<span class="nc" id="L438">		t ^= c1;</span>
+<span class="nc" id="L439">		m3 ^= m7;</span>
+<span class="nc" id="L440">		m3 ^= t;</span>
+<span class="nc" id="L441">		c1 = c5;</span>
+<span class="nc" id="L442">		c5 = m3;</span>
+<span class="nc" id="L443">		m3 = m7;</span>
+<span class="nc" id="L444">		m7 = ~t;</span>
+<span class="nc" id="L445">		m0 = (m0 &lt;&lt; 13) | (m0 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L446">		c4 = (c4 &lt;&lt; 3) | (c4 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L447">		c3 ^= m0 ^ c4;</span>
+<span class="nc" id="L448">		m7 ^= c4 ^ (m0 &lt;&lt; 3);</span>
+<span class="nc" id="L449">		c3 = (c3 &lt;&lt; 1) | (c3 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L450">		m7 = (m7 &lt;&lt; 7) | (m7 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L451">		m0 ^= c3 ^ m7;</span>
+<span class="nc" id="L452">		c4 ^= m7 ^ (c3 &lt;&lt; 7);</span>
+<span class="nc" id="L453">		m0 = (m0 &lt;&lt; 5) | (m0 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L454">		c4 = (c4 &lt;&lt; 22) | (c4 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L455">		m1 = (m1 &lt;&lt; 13) | (m1 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L456">		c5 = (c5 &lt;&lt; 3) | (c5 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L457">		m2 ^= m1 ^ c5;</span>
+<span class="nc" id="L458">		c6 ^= c5 ^ (m1 &lt;&lt; 3);</span>
+<span class="nc" id="L459">		m2 = (m2 &lt;&lt; 1) | (m2 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L460">		c6 = (c6 &lt;&lt; 7) | (c6 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L461">		m1 ^= m2 ^ c6;</span>
+<span class="nc" id="L462">		c5 ^= c6 ^ (m2 &lt;&lt; 7);</span>
+<span class="nc" id="L463">		m1 = (m1 &lt;&lt; 5) | (m1 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L464">		c5 = (c5 &lt;&lt; 22) | (c5 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L465">		c0 = (c0 &lt;&lt; 13) | (c0 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L466">		m4 = (m4 &lt;&lt; 3) | (m4 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L467">		m3 ^= c0 ^ m4;</span>
+<span class="nc" id="L468">		c7 ^= m4 ^ (c0 &lt;&lt; 3);</span>
+<span class="nc" id="L469">		m3 = (m3 &lt;&lt; 1) | (m3 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L470">		c7 = (c7 &lt;&lt; 7) | (c7 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L471">		c0 ^= m3 ^ c7;</span>
+<span class="nc" id="L472">		m4 ^= c7 ^ (m3 &lt;&lt; 7);</span>
+<span class="nc" id="L473">		c0 = (c0 &lt;&lt; 5) | (c0 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L474">		m4 = (m4 &lt;&lt; 22) | (m4 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L475">		c1 = (c1 &lt;&lt; 13) | (c1 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L476">		m5 = (m5 &lt;&lt; 3) | (m5 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L477">		c2 ^= c1 ^ m5;</span>
+<span class="nc" id="L478">		m6 ^= m5 ^ (c1 &lt;&lt; 3);</span>
+<span class="nc" id="L479">		c2 = (c2 &lt;&lt; 1) | (c2 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L480">		m6 = (m6 &lt;&lt; 7) | (m6 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L481">		c1 ^= c2 ^ m6;</span>
+<span class="nc" id="L482">		m5 ^= m6 ^ (c2 &lt;&lt; 7);</span>
+<span class="nc" id="L483">		c1 = (c1 &lt;&lt; 5) | (c1 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L484">		m5 = (m5 &lt;&lt; 22) | (m5 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L485">		m0 ^= ALPHA_N[0x00];</span>
+<span class="nc" id="L486">		m1 ^= ALPHA_N[0x01] ^ 1;</span>
+<span class="nc" id="L487">		c0 ^= ALPHA_N[0x02];</span>
+<span class="nc" id="L488">		c1 ^= ALPHA_N[0x03];</span>
+<span class="nc" id="L489">		c2 ^= ALPHA_N[0x08];</span>
+<span class="nc" id="L490">		c3 ^= ALPHA_N[0x09];</span>
+<span class="nc" id="L491">		m2 ^= ALPHA_N[0x0A];</span>
+<span class="nc" id="L492">		m3 ^= ALPHA_N[0x0B];</span>
+<span class="nc" id="L493">		m4 ^= ALPHA_N[0x10];</span>
+<span class="nc" id="L494">		m5 ^= ALPHA_N[0x11];</span>
+<span class="nc" id="L495">		c4 ^= ALPHA_N[0x12];</span>
+<span class="nc" id="L496">		c5 ^= ALPHA_N[0x13];</span>
+<span class="nc" id="L497">		c6 ^= ALPHA_N[0x18];</span>
+<span class="nc" id="L498">		c7 ^= ALPHA_N[0x19];</span>
+<span class="nc" id="L499">		m6 ^= ALPHA_N[0x1A];</span>
+<span class="nc" id="L500">		m7 ^= ALPHA_N[0x1B];</span>
+<span class="nc" id="L501">		t = m0;</span>
+<span class="nc" id="L502">		m0 &amp;= m4;</span>
+<span class="nc" id="L503">		m0 ^= c6;</span>
+<span class="nc" id="L504">		m4 ^= c2;</span>
+<span class="nc" id="L505">		m4 ^= m0;</span>
+<span class="nc" id="L506">		c6 |= t;</span>
+<span class="nc" id="L507">		c6 ^= c2;</span>
+<span class="nc" id="L508">		t ^= m4;</span>
+<span class="nc" id="L509">		c2 = c6;</span>
+<span class="nc" id="L510">		c6 |= t;</span>
+<span class="nc" id="L511">		c6 ^= m0;</span>
+<span class="nc" id="L512">		m0 &amp;= c2;</span>
+<span class="nc" id="L513">		t ^= m0;</span>
+<span class="nc" id="L514">		c2 ^= c6;</span>
+<span class="nc" id="L515">		c2 ^= t;</span>
+<span class="nc" id="L516">		m0 = m4;</span>
+<span class="nc" id="L517">		m4 = c2;</span>
+<span class="nc" id="L518">		c2 = c6;</span>
+<span class="nc" id="L519">		c6 = ~t;</span>
+<span class="nc" id="L520">		t = m1;</span>
+<span class="nc" id="L521">		m1 &amp;= m5;</span>
+<span class="nc" id="L522">		m1 ^= c7;</span>
+<span class="nc" id="L523">		m5 ^= c3;</span>
+<span class="nc" id="L524">		m5 ^= m1;</span>
+<span class="nc" id="L525">		c7 |= t;</span>
+<span class="nc" id="L526">		c7 ^= c3;</span>
+<span class="nc" id="L527">		t ^= m5;</span>
+<span class="nc" id="L528">		c3 = c7;</span>
+<span class="nc" id="L529">		c7 |= t;</span>
+<span class="nc" id="L530">		c7 ^= m1;</span>
+<span class="nc" id="L531">		m1 &amp;= c3;</span>
+<span class="nc" id="L532">		t ^= m1;</span>
+<span class="nc" id="L533">		c3 ^= c7;</span>
+<span class="nc" id="L534">		c3 ^= t;</span>
+<span class="nc" id="L535">		m1 = m5;</span>
+<span class="nc" id="L536">		m5 = c3;</span>
+<span class="nc" id="L537">		c3 = c7;</span>
+<span class="nc" id="L538">		c7 = ~t;</span>
+<span class="nc" id="L539">		t = c0;</span>
+<span class="nc" id="L540">		c0 &amp;= c4;</span>
+<span class="nc" id="L541">		c0 ^= m6;</span>
+<span class="nc" id="L542">		c4 ^= m2;</span>
+<span class="nc" id="L543">		c4 ^= c0;</span>
+<span class="nc" id="L544">		m6 |= t;</span>
+<span class="nc" id="L545">		m6 ^= m2;</span>
+<span class="nc" id="L546">		t ^= c4;</span>
+<span class="nc" id="L547">		m2 = m6;</span>
+<span class="nc" id="L548">		m6 |= t;</span>
+<span class="nc" id="L549">		m6 ^= c0;</span>
+<span class="nc" id="L550">		c0 &amp;= m2;</span>
+<span class="nc" id="L551">		t ^= c0;</span>
+<span class="nc" id="L552">		m2 ^= m6;</span>
+<span class="nc" id="L553">		m2 ^= t;</span>
+<span class="nc" id="L554">		c0 = c4;</span>
+<span class="nc" id="L555">		c4 = m2;</span>
+<span class="nc" id="L556">		m2 = m6;</span>
+<span class="nc" id="L557">		m6 = ~t;</span>
+<span class="nc" id="L558">		t = c1;</span>
+<span class="nc" id="L559">		c1 &amp;= c5;</span>
+<span class="nc" id="L560">		c1 ^= m7;</span>
+<span class="nc" id="L561">		c5 ^= m3;</span>
+<span class="nc" id="L562">		c5 ^= c1;</span>
+<span class="nc" id="L563">		m7 |= t;</span>
+<span class="nc" id="L564">		m7 ^= m3;</span>
+<span class="nc" id="L565">		t ^= c5;</span>
+<span class="nc" id="L566">		m3 = m7;</span>
+<span class="nc" id="L567">		m7 |= t;</span>
+<span class="nc" id="L568">		m7 ^= c1;</span>
+<span class="nc" id="L569">		c1 &amp;= m3;</span>
+<span class="nc" id="L570">		t ^= c1;</span>
+<span class="nc" id="L571">		m3 ^= m7;</span>
+<span class="nc" id="L572">		m3 ^= t;</span>
+<span class="nc" id="L573">		c1 = c5;</span>
+<span class="nc" id="L574">		c5 = m3;</span>
+<span class="nc" id="L575">		m3 = m7;</span>
+<span class="nc" id="L576">		m7 = ~t;</span>
+<span class="nc" id="L577">		m0 = (m0 &lt;&lt; 13) | (m0 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L578">		c4 = (c4 &lt;&lt; 3) | (c4 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L579">		c3 ^= m0 ^ c4;</span>
+<span class="nc" id="L580">		m7 ^= c4 ^ (m0 &lt;&lt; 3);</span>
+<span class="nc" id="L581">		c3 = (c3 &lt;&lt; 1) | (c3 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L582">		m7 = (m7 &lt;&lt; 7) | (m7 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L583">		m0 ^= c3 ^ m7;</span>
+<span class="nc" id="L584">		c4 ^= m7 ^ (c3 &lt;&lt; 7);</span>
+<span class="nc" id="L585">		m0 = (m0 &lt;&lt; 5) | (m0 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L586">		c4 = (c4 &lt;&lt; 22) | (c4 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L587">		m1 = (m1 &lt;&lt; 13) | (m1 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L588">		c5 = (c5 &lt;&lt; 3) | (c5 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L589">		m2 ^= m1 ^ c5;</span>
+<span class="nc" id="L590">		c6 ^= c5 ^ (m1 &lt;&lt; 3);</span>
+<span class="nc" id="L591">		m2 = (m2 &lt;&lt; 1) | (m2 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L592">		c6 = (c6 &lt;&lt; 7) | (c6 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L593">		m1 ^= m2 ^ c6;</span>
+<span class="nc" id="L594">		c5 ^= c6 ^ (m2 &lt;&lt; 7);</span>
+<span class="nc" id="L595">		m1 = (m1 &lt;&lt; 5) | (m1 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L596">		c5 = (c5 &lt;&lt; 22) | (c5 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L597">		c0 = (c0 &lt;&lt; 13) | (c0 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L598">		m4 = (m4 &lt;&lt; 3) | (m4 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L599">		m3 ^= c0 ^ m4;</span>
+<span class="nc" id="L600">		c7 ^= m4 ^ (c0 &lt;&lt; 3);</span>
+<span class="nc" id="L601">		m3 = (m3 &lt;&lt; 1) | (m3 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L602">		c7 = (c7 &lt;&lt; 7) | (c7 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L603">		c0 ^= m3 ^ c7;</span>
+<span class="nc" id="L604">		m4 ^= c7 ^ (m3 &lt;&lt; 7);</span>
+<span class="nc" id="L605">		c0 = (c0 &lt;&lt; 5) | (c0 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L606">		m4 = (m4 &lt;&lt; 22) | (m4 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L607">		c1 = (c1 &lt;&lt; 13) | (c1 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L608">		m5 = (m5 &lt;&lt; 3) | (m5 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L609">		c2 ^= c1 ^ m5;</span>
+<span class="nc" id="L610">		m6 ^= m5 ^ (c1 &lt;&lt; 3);</span>
+<span class="nc" id="L611">		c2 = (c2 &lt;&lt; 1) | (c2 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L612">		m6 = (m6 &lt;&lt; 7) | (m6 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L613">		c1 ^= c2 ^ m6;</span>
+<span class="nc" id="L614">		m5 ^= m6 ^ (c2 &lt;&lt; 7);</span>
+<span class="nc" id="L615">		c1 = (c1 &lt;&lt; 5) | (c1 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L616">		m5 = (m5 &lt;&lt; 22) | (m5 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L617">		m0 ^= ALPHA_N[0x00];</span>
+<span class="nc" id="L618">		m1 ^= ALPHA_N[0x01] ^ 2;</span>
+<span class="nc" id="L619">		c0 ^= ALPHA_N[0x02];</span>
+<span class="nc" id="L620">		c1 ^= ALPHA_N[0x03];</span>
+<span class="nc" id="L621">		c2 ^= ALPHA_N[0x08];</span>
+<span class="nc" id="L622">		c3 ^= ALPHA_N[0x09];</span>
+<span class="nc" id="L623">		m2 ^= ALPHA_N[0x0A];</span>
+<span class="nc" id="L624">		m3 ^= ALPHA_N[0x0B];</span>
+<span class="nc" id="L625">		m4 ^= ALPHA_N[0x10];</span>
+<span class="nc" id="L626">		m5 ^= ALPHA_N[0x11];</span>
+<span class="nc" id="L627">		c4 ^= ALPHA_N[0x12];</span>
+<span class="nc" id="L628">		c5 ^= ALPHA_N[0x13];</span>
+<span class="nc" id="L629">		c6 ^= ALPHA_N[0x18];</span>
+<span class="nc" id="L630">		c7 ^= ALPHA_N[0x19];</span>
+<span class="nc" id="L631">		m6 ^= ALPHA_N[0x1A];</span>
+<span class="nc" id="L632">		m7 ^= ALPHA_N[0x1B];</span>
+<span class="nc" id="L633">		t = m0;</span>
+<span class="nc" id="L634">		m0 &amp;= m4;</span>
+<span class="nc" id="L635">		m0 ^= c6;</span>
+<span class="nc" id="L636">		m4 ^= c2;</span>
+<span class="nc" id="L637">		m4 ^= m0;</span>
+<span class="nc" id="L638">		c6 |= t;</span>
+<span class="nc" id="L639">		c6 ^= c2;</span>
+<span class="nc" id="L640">		t ^= m4;</span>
+<span class="nc" id="L641">		c2 = c6;</span>
+<span class="nc" id="L642">		c6 |= t;</span>
+<span class="nc" id="L643">		c6 ^= m0;</span>
+<span class="nc" id="L644">		m0 &amp;= c2;</span>
+<span class="nc" id="L645">		t ^= m0;</span>
+<span class="nc" id="L646">		c2 ^= c6;</span>
+<span class="nc" id="L647">		c2 ^= t;</span>
+<span class="nc" id="L648">		m0 = m4;</span>
+<span class="nc" id="L649">		m4 = c2;</span>
+<span class="nc" id="L650">		c2 = c6;</span>
+<span class="nc" id="L651">		c6 = ~t;</span>
+<span class="nc" id="L652">		t = m1;</span>
+<span class="nc" id="L653">		m1 &amp;= m5;</span>
+<span class="nc" id="L654">		m1 ^= c7;</span>
+<span class="nc" id="L655">		m5 ^= c3;</span>
+<span class="nc" id="L656">		m5 ^= m1;</span>
+<span class="nc" id="L657">		c7 |= t;</span>
+<span class="nc" id="L658">		c7 ^= c3;</span>
+<span class="nc" id="L659">		t ^= m5;</span>
+<span class="nc" id="L660">		c3 = c7;</span>
+<span class="nc" id="L661">		c7 |= t;</span>
+<span class="nc" id="L662">		c7 ^= m1;</span>
+<span class="nc" id="L663">		m1 &amp;= c3;</span>
+<span class="nc" id="L664">		t ^= m1;</span>
+<span class="nc" id="L665">		c3 ^= c7;</span>
+<span class="nc" id="L666">		c3 ^= t;</span>
+<span class="nc" id="L667">		m1 = m5;</span>
+<span class="nc" id="L668">		m5 = c3;</span>
+<span class="nc" id="L669">		c3 = c7;</span>
+<span class="nc" id="L670">		c7 = ~t;</span>
+<span class="nc" id="L671">		t = c0;</span>
+<span class="nc" id="L672">		c0 &amp;= c4;</span>
+<span class="nc" id="L673">		c0 ^= m6;</span>
+<span class="nc" id="L674">		c4 ^= m2;</span>
+<span class="nc" id="L675">		c4 ^= c0;</span>
+<span class="nc" id="L676">		m6 |= t;</span>
+<span class="nc" id="L677">		m6 ^= m2;</span>
+<span class="nc" id="L678">		t ^= c4;</span>
+<span class="nc" id="L679">		m2 = m6;</span>
+<span class="nc" id="L680">		m6 |= t;</span>
+<span class="nc" id="L681">		m6 ^= c0;</span>
+<span class="nc" id="L682">		c0 &amp;= m2;</span>
+<span class="nc" id="L683">		t ^= c0;</span>
+<span class="nc" id="L684">		m2 ^= m6;</span>
+<span class="nc" id="L685">		m2 ^= t;</span>
+<span class="nc" id="L686">		c0 = c4;</span>
+<span class="nc" id="L687">		c4 = m2;</span>
+<span class="nc" id="L688">		m2 = m6;</span>
+<span class="nc" id="L689">		m6 = ~t;</span>
+<span class="nc" id="L690">		t = c1;</span>
+<span class="nc" id="L691">		c1 &amp;= c5;</span>
+<span class="nc" id="L692">		c1 ^= m7;</span>
+<span class="nc" id="L693">		c5 ^= m3;</span>
+<span class="nc" id="L694">		c5 ^= c1;</span>
+<span class="nc" id="L695">		m7 |= t;</span>
+<span class="nc" id="L696">		m7 ^= m3;</span>
+<span class="nc" id="L697">		t ^= c5;</span>
+<span class="nc" id="L698">		m3 = m7;</span>
+<span class="nc" id="L699">		m7 |= t;</span>
+<span class="nc" id="L700">		m7 ^= c1;</span>
+<span class="nc" id="L701">		c1 &amp;= m3;</span>
+<span class="nc" id="L702">		t ^= c1;</span>
+<span class="nc" id="L703">		m3 ^= m7;</span>
+<span class="nc" id="L704">		m3 ^= t;</span>
+<span class="nc" id="L705">		c1 = c5;</span>
+<span class="nc" id="L706">		c5 = m3;</span>
+<span class="nc" id="L707">		m3 = m7;</span>
+<span class="nc" id="L708">		m7 = ~t;</span>
+<span class="nc" id="L709">		m0 = (m0 &lt;&lt; 13) | (m0 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L710">		c4 = (c4 &lt;&lt; 3) | (c4 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L711">		c3 ^= m0 ^ c4;</span>
+<span class="nc" id="L712">		m7 ^= c4 ^ (m0 &lt;&lt; 3);</span>
+<span class="nc" id="L713">		c3 = (c3 &lt;&lt; 1) | (c3 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L714">		m7 = (m7 &lt;&lt; 7) | (m7 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L715">		m0 ^= c3 ^ m7;</span>
+<span class="nc" id="L716">		c4 ^= m7 ^ (c3 &lt;&lt; 7);</span>
+<span class="nc" id="L717">		m0 = (m0 &lt;&lt; 5) | (m0 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L718">		c4 = (c4 &lt;&lt; 22) | (c4 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L719">		m1 = (m1 &lt;&lt; 13) | (m1 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L720">		c5 = (c5 &lt;&lt; 3) | (c5 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L721">		m2 ^= m1 ^ c5;</span>
+<span class="nc" id="L722">		c6 ^= c5 ^ (m1 &lt;&lt; 3);</span>
+<span class="nc" id="L723">		m2 = (m2 &lt;&lt; 1) | (m2 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L724">		c6 = (c6 &lt;&lt; 7) | (c6 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L725">		m1 ^= m2 ^ c6;</span>
+<span class="nc" id="L726">		c5 ^= c6 ^ (m2 &lt;&lt; 7);</span>
+<span class="nc" id="L727">		m1 = (m1 &lt;&lt; 5) | (m1 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L728">		c5 = (c5 &lt;&lt; 22) | (c5 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L729">		c0 = (c0 &lt;&lt; 13) | (c0 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L730">		m4 = (m4 &lt;&lt; 3) | (m4 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L731">		m3 ^= c0 ^ m4;</span>
+<span class="nc" id="L732">		c7 ^= m4 ^ (c0 &lt;&lt; 3);</span>
+<span class="nc" id="L733">		m3 = (m3 &lt;&lt; 1) | (m3 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L734">		c7 = (c7 &lt;&lt; 7) | (c7 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L735">		c0 ^= m3 ^ c7;</span>
+<span class="nc" id="L736">		m4 ^= c7 ^ (m3 &lt;&lt; 7);</span>
+<span class="nc" id="L737">		c0 = (c0 &lt;&lt; 5) | (c0 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L738">		m4 = (m4 &lt;&lt; 22) | (m4 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L739">		c1 = (c1 &lt;&lt; 13) | (c1 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L740">		m5 = (m5 &lt;&lt; 3) | (m5 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L741">		c2 ^= c1 ^ m5;</span>
+<span class="nc" id="L742">		m6 ^= m5 ^ (c1 &lt;&lt; 3);</span>
+<span class="nc" id="L743">		c2 = (c2 &lt;&lt; 1) | (c2 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L744">		m6 = (m6 &lt;&lt; 7) | (m6 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L745">		c1 ^= c2 ^ m6;</span>
+<span class="nc" id="L746">		m5 ^= m6 ^ (c2 &lt;&lt; 7);</span>
+<span class="nc" id="L747">		c1 = (c1 &lt;&lt; 5) | (c1 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L748">		m5 = (m5 &lt;&lt; 22) | (m5 &gt;&gt;&gt; (32 - 22));</span>
+
+<span class="nc" id="L750">		h[7] ^= c5;</span>
+<span class="nc" id="L751">		h[6] ^= c4;</span>
+<span class="nc" id="L752">		h[5] ^= m5;</span>
+<span class="nc" id="L753">		h[4] ^= m4;</span>
+<span class="nc" id="L754">		h[3] ^= c1;</span>
+<span class="nc" id="L755">		h[2] ^= c0;</span>
+<span class="nc" id="L756">		h[1] ^= m1;</span>
+<span class="nc" id="L757">		h[0] ^= m0;</span>
+<span class="nc" id="L758">	}</span>
+
+	private void processFinal(int b0, int b1, int b2, int b3)
+	{
+<span class="nc" id="L762">		int[] rp = T256_0[b0];</span>
+<span class="nc" id="L763">		int m0 = rp[0];</span>
+<span class="nc" id="L764">		int m1 = rp[1];</span>
+<span class="nc" id="L765">		int m2 = rp[2];</span>
+<span class="nc" id="L766">		int m3 = rp[3];</span>
+<span class="nc" id="L767">		int m4 = rp[4];</span>
+<span class="nc" id="L768">		int m5 = rp[5];</span>
+<span class="nc" id="L769">		int m6 = rp[6];</span>
+<span class="nc" id="L770">		int m7 = rp[7];</span>
+<span class="nc" id="L771">		rp = T256_1[b1];</span>
+<span class="nc" id="L772">		m0 ^= rp[0];</span>
+<span class="nc" id="L773">		m1 ^= rp[1];</span>
+<span class="nc" id="L774">		m2 ^= rp[2];</span>
+<span class="nc" id="L775">		m3 ^= rp[3];</span>
+<span class="nc" id="L776">		m4 ^= rp[4];</span>
+<span class="nc" id="L777">		m5 ^= rp[5];</span>
+<span class="nc" id="L778">		m6 ^= rp[6];</span>
+<span class="nc" id="L779">		m7 ^= rp[7];</span>
+<span class="nc" id="L780">		rp = T256_2[b2];</span>
+<span class="nc" id="L781">		m0 ^= rp[0];</span>
+<span class="nc" id="L782">		m1 ^= rp[1];</span>
+<span class="nc" id="L783">		m2 ^= rp[2];</span>
+<span class="nc" id="L784">		m3 ^= rp[3];</span>
+<span class="nc" id="L785">		m4 ^= rp[4];</span>
+<span class="nc" id="L786">		m5 ^= rp[5];</span>
+<span class="nc" id="L787">		m6 ^= rp[6];</span>
+<span class="nc" id="L788">		m7 ^= rp[7];</span>
+<span class="nc" id="L789">		rp = T256_3[b3];</span>
+<span class="nc" id="L790">		m0 ^= rp[0];</span>
+<span class="nc" id="L791">		m1 ^= rp[1];</span>
+<span class="nc" id="L792">		m2 ^= rp[2];</span>
+<span class="nc" id="L793">		m3 ^= rp[3];</span>
+<span class="nc" id="L794">		m4 ^= rp[4];</span>
+<span class="nc" id="L795">		m5 ^= rp[5];</span>
+<span class="nc" id="L796">		m6 ^= rp[6];</span>
+<span class="nc" id="L797">		m7 ^= rp[7];</span>
+
+<span class="nc" id="L799">		int c0 = h[0];</span>
+<span class="nc" id="L800">		int c1 = h[1];</span>
+<span class="nc" id="L801">		int c2 = h[2];</span>
+<span class="nc" id="L802">		int c3 = h[3];</span>
+<span class="nc" id="L803">		int c4 = h[4];</span>
+<span class="nc" id="L804">		int c5 = h[5];</span>
+<span class="nc" id="L805">		int c6 = h[6];</span>
+<span class="nc" id="L806">		int c7 = h[7];</span>
+		int t;
+
+<span class="nc bnc" id="L809" title="All 2 branches missed.">		for (int r = 0; r &lt; 6; r ++) {</span>
+<span class="nc" id="L810">			m0 ^= ALPHA_F[0x00];</span>
+<span class="nc" id="L811">			m1 ^= ALPHA_F[0x01] ^ r;</span>
+<span class="nc" id="L812">			c0 ^= ALPHA_F[0x02];</span>
+<span class="nc" id="L813">			c1 ^= ALPHA_F[0x03];</span>
+<span class="nc" id="L814">			c2 ^= ALPHA_F[0x08];</span>
+<span class="nc" id="L815">			c3 ^= ALPHA_F[0x09];</span>
+<span class="nc" id="L816">			m2 ^= ALPHA_F[0x0A];</span>
+<span class="nc" id="L817">			m3 ^= ALPHA_F[0x0B];</span>
+<span class="nc" id="L818">			m4 ^= ALPHA_F[0x10];</span>
+<span class="nc" id="L819">			m5 ^= ALPHA_F[0x11];</span>
+<span class="nc" id="L820">			c4 ^= ALPHA_F[0x12];</span>
+<span class="nc" id="L821">			c5 ^= ALPHA_F[0x13];</span>
+<span class="nc" id="L822">			c6 ^= ALPHA_F[0x18];</span>
+<span class="nc" id="L823">			c7 ^= ALPHA_F[0x19];</span>
+<span class="nc" id="L824">			m6 ^= ALPHA_F[0x1A];</span>
+<span class="nc" id="L825">			m7 ^= ALPHA_F[0x1B];</span>
+<span class="nc" id="L826">			t = m0;</span>
+<span class="nc" id="L827">			m0 &amp;= m4;</span>
+<span class="nc" id="L828">			m0 ^= c6;</span>
+<span class="nc" id="L829">			m4 ^= c2;</span>
+<span class="nc" id="L830">			m4 ^= m0;</span>
+<span class="nc" id="L831">			c6 |= t;</span>
+<span class="nc" id="L832">			c6 ^= c2;</span>
+<span class="nc" id="L833">			t ^= m4;</span>
+<span class="nc" id="L834">			c2 = c6;</span>
+<span class="nc" id="L835">			c6 |= t;</span>
+<span class="nc" id="L836">			c6 ^= m0;</span>
+<span class="nc" id="L837">			m0 &amp;= c2;</span>
+<span class="nc" id="L838">			t ^= m0;</span>
+<span class="nc" id="L839">			c2 ^= c6;</span>
+<span class="nc" id="L840">			c2 ^= t;</span>
+<span class="nc" id="L841">			m0 = m4;</span>
+<span class="nc" id="L842">			m4 = c2;</span>
+<span class="nc" id="L843">			c2 = c6;</span>
+<span class="nc" id="L844">			c6 = ~t;</span>
+<span class="nc" id="L845">			t = m1;</span>
+<span class="nc" id="L846">			m1 &amp;= m5;</span>
+<span class="nc" id="L847">			m1 ^= c7;</span>
+<span class="nc" id="L848">			m5 ^= c3;</span>
+<span class="nc" id="L849">			m5 ^= m1;</span>
+<span class="nc" id="L850">			c7 |= t;</span>
+<span class="nc" id="L851">			c7 ^= c3;</span>
+<span class="nc" id="L852">			t ^= m5;</span>
+<span class="nc" id="L853">			c3 = c7;</span>
+<span class="nc" id="L854">			c7 |= t;</span>
+<span class="nc" id="L855">			c7 ^= m1;</span>
+<span class="nc" id="L856">			m1 &amp;= c3;</span>
+<span class="nc" id="L857">			t ^= m1;</span>
+<span class="nc" id="L858">			c3 ^= c7;</span>
+<span class="nc" id="L859">			c3 ^= t;</span>
+<span class="nc" id="L860">			m1 = m5;</span>
+<span class="nc" id="L861">			m5 = c3;</span>
+<span class="nc" id="L862">			c3 = c7;</span>
+<span class="nc" id="L863">			c7 = ~t;</span>
+<span class="nc" id="L864">			t = c0;</span>
+<span class="nc" id="L865">			c0 &amp;= c4;</span>
+<span class="nc" id="L866">			c0 ^= m6;</span>
+<span class="nc" id="L867">			c4 ^= m2;</span>
+<span class="nc" id="L868">			c4 ^= c0;</span>
+<span class="nc" id="L869">			m6 |= t;</span>
+<span class="nc" id="L870">			m6 ^= m2;</span>
+<span class="nc" id="L871">			t ^= c4;</span>
+<span class="nc" id="L872">			m2 = m6;</span>
+<span class="nc" id="L873">			m6 |= t;</span>
+<span class="nc" id="L874">			m6 ^= c0;</span>
+<span class="nc" id="L875">			c0 &amp;= m2;</span>
+<span class="nc" id="L876">			t ^= c0;</span>
+<span class="nc" id="L877">			m2 ^= m6;</span>
+<span class="nc" id="L878">			m2 ^= t;</span>
+<span class="nc" id="L879">			c0 = c4;</span>
+<span class="nc" id="L880">			c4 = m2;</span>
+<span class="nc" id="L881">			m2 = m6;</span>
+<span class="nc" id="L882">			m6 = ~t;</span>
+<span class="nc" id="L883">			t = c1;</span>
+<span class="nc" id="L884">			c1 &amp;= c5;</span>
+<span class="nc" id="L885">			c1 ^= m7;</span>
+<span class="nc" id="L886">			c5 ^= m3;</span>
+<span class="nc" id="L887">			c5 ^= c1;</span>
+<span class="nc" id="L888">			m7 |= t;</span>
+<span class="nc" id="L889">			m7 ^= m3;</span>
+<span class="nc" id="L890">			t ^= c5;</span>
+<span class="nc" id="L891">			m3 = m7;</span>
+<span class="nc" id="L892">			m7 |= t;</span>
+<span class="nc" id="L893">			m7 ^= c1;</span>
+<span class="nc" id="L894">			c1 &amp;= m3;</span>
+<span class="nc" id="L895">			t ^= c1;</span>
+<span class="nc" id="L896">			m3 ^= m7;</span>
+<span class="nc" id="L897">			m3 ^= t;</span>
+<span class="nc" id="L898">			c1 = c5;</span>
+<span class="nc" id="L899">			c5 = m3;</span>
+<span class="nc" id="L900">			m3 = m7;</span>
+<span class="nc" id="L901">			m7 = ~t;</span>
+<span class="nc" id="L902">			m0 = (m0 &lt;&lt; 13) | (m0 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L903">			c4 = (c4 &lt;&lt; 3) | (c4 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L904">			c3 ^= m0 ^ c4;</span>
+<span class="nc" id="L905">			m7 ^= c4 ^ (m0 &lt;&lt; 3);</span>
+<span class="nc" id="L906">			c3 = (c3 &lt;&lt; 1) | (c3 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L907">			m7 = (m7 &lt;&lt; 7) | (m7 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L908">			m0 ^= c3 ^ m7;</span>
+<span class="nc" id="L909">			c4 ^= m7 ^ (c3 &lt;&lt; 7);</span>
+<span class="nc" id="L910">			m0 = (m0 &lt;&lt; 5) | (m0 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L911">			c4 = (c4 &lt;&lt; 22) | (c4 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L912">			m1 = (m1 &lt;&lt; 13) | (m1 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L913">			c5 = (c5 &lt;&lt; 3) | (c5 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L914">			m2 ^= m1 ^ c5;</span>
+<span class="nc" id="L915">			c6 ^= c5 ^ (m1 &lt;&lt; 3);</span>
+<span class="nc" id="L916">			m2 = (m2 &lt;&lt; 1) | (m2 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L917">			c6 = (c6 &lt;&lt; 7) | (c6 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L918">			m1 ^= m2 ^ c6;</span>
+<span class="nc" id="L919">			c5 ^= c6 ^ (m2 &lt;&lt; 7);</span>
+<span class="nc" id="L920">			m1 = (m1 &lt;&lt; 5) | (m1 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L921">			c5 = (c5 &lt;&lt; 22) | (c5 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L922">			c0 = (c0 &lt;&lt; 13) | (c0 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L923">			m4 = (m4 &lt;&lt; 3) | (m4 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L924">			m3 ^= c0 ^ m4;</span>
+<span class="nc" id="L925">			c7 ^= m4 ^ (c0 &lt;&lt; 3);</span>
+<span class="nc" id="L926">			m3 = (m3 &lt;&lt; 1) | (m3 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L927">			c7 = (c7 &lt;&lt; 7) | (c7 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L928">			c0 ^= m3 ^ c7;</span>
+<span class="nc" id="L929">			m4 ^= c7 ^ (m3 &lt;&lt; 7);</span>
+<span class="nc" id="L930">			c0 = (c0 &lt;&lt; 5) | (c0 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L931">			m4 = (m4 &lt;&lt; 22) | (m4 &gt;&gt;&gt; (32 - 22));</span>
+<span class="nc" id="L932">			c1 = (c1 &lt;&lt; 13) | (c1 &gt;&gt;&gt; (32 - 13));</span>
+<span class="nc" id="L933">			m5 = (m5 &lt;&lt; 3) | (m5 &gt;&gt;&gt; (32 - 3));</span>
+<span class="nc" id="L934">			c2 ^= c1 ^ m5;</span>
+<span class="nc" id="L935">			m6 ^= m5 ^ (c1 &lt;&lt; 3);</span>
+<span class="nc" id="L936">			c2 = (c2 &lt;&lt; 1) | (c2 &gt;&gt;&gt; (32 - 1));</span>
+<span class="nc" id="L937">			m6 = (m6 &lt;&lt; 7) | (m6 &gt;&gt;&gt; (32 - 7));</span>
+<span class="nc" id="L938">			c1 ^= c2 ^ m6;</span>
+<span class="nc" id="L939">			m5 ^= m6 ^ (c2 &lt;&lt; 7);</span>
+<span class="nc" id="L940">			c1 = (c1 &lt;&lt; 5) | (c1 &gt;&gt;&gt; (32 - 5));</span>
+<span class="nc" id="L941">			m5 = (m5 &lt;&lt; 22) | (m5 &gt;&gt;&gt; (32 - 22));</span>
+		}
+
+<span class="nc" id="L944">		h[7] ^= c5;</span>
+<span class="nc" id="L945">		h[6] ^= c4;</span>
+<span class="nc" id="L946">		h[5] ^= m5;</span>
+<span class="nc" id="L947">		h[4] ^= m4;</span>
+<span class="nc" id="L948">		h[3] ^= c1;</span>
+<span class="nc" id="L949">		h[2] ^= c0;</span>
+<span class="nc" id="L950">		h[1] ^= m1;</span>
+<span class="nc" id="L951">		h[0] ^= m0;</span>
+<span class="nc" id="L952">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L957">		return &quot;Hamsi-&quot; + (getDigestLength() &lt;&lt; 3);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

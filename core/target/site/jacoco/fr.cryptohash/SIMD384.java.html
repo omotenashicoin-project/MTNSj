@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>SIMD384.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">SIMD384.java</span></div><h1>SIMD384.java</h1><pre class="source lang-java linenums">// $Id: SIMD384.java 156 2010-04-26 17:55:11Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the SIMD-384 digest algorithm under the
+ * {@link Digest} API.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 156 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class SIMD384 extends SIMDBigCore {
+
+	/**
+	 * Create the engine.
+	 */
+	public SIMD384()
+	{
+<span class="nc" id="L47">		super();</span>
+<span class="nc" id="L48">	}</span>
+
+	/** The initial value for SIMD-384. */
+<span class="nc" id="L51">	private static final int[] initVal = {</span>
+		0x8A36EEBC, 0x94A3BD90, 0xD1537B83, 0xB25B070B,
+		0xF463F1B5, 0xB6F81E20, 0x0055C339, 0xB4D144D1,
+		0x7360CA61, 0x18361A03, 0x17DCB4B9, 0x3414C45A,
+		0xA699A9D2, 0xE39E9664, 0x468BFE77, 0x51D062F8,
+		0xB9E3BFE8, 0x63BECE2A, 0x8FE506B9, 0xF8CC4AC2,
+		0x7AE11542, 0xB1AADDA1, 0x64B06794, 0x28D2F462,
+		0xE64071EC, 0x1DEB91A8, 0x8AC8DB23, 0x3F782AB5,
+		0x039B5CB8, 0x71DDD962, 0xFADE2CEA, 0x1416DF71
+	};
+
+	/** @see SIMDSmallCore */
+	int[] getInitVal()
+	{
+<span class="nc" id="L65">		return initVal;</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L71">		return 48;</span>
+	}
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L77">		return copyState(new SIMD384());</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>WhirlpoolCore.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">WhirlpoolCore.java</span></div><h1>WhirlpoolCore.java</h1><pre class="source lang-java linenums">// $Id: WhirlpoolCore.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the core operations for the Whirlpool digest
+ * algorithm family. The three variants differ only in the tables of
+ * constants which are provided to this implementation in the constructor.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+abstract class WhirlpoolCore extends MDHelper {
+
+	/**
+	 * Create the object.
+	 */
+	WhirlpoolCore(long[] T0, long[] T1, long[] T2, long[] T3,
+		long[] T4, long[] T5, long[] T6, long[] T7, long[] RC)
+	{
+<span class="nc" id="L49">		super(false, 32);</span>
+<span class="nc" id="L50">		this.T0 = T0;</span>
+<span class="nc" id="L51">		this.T1 = T1;</span>
+<span class="nc" id="L52">		this.T2 = T2;</span>
+<span class="nc" id="L53">		this.T3 = T3;</span>
+<span class="nc" id="L54">		this.T4 = T4;</span>
+<span class="nc" id="L55">		this.T5 = T5;</span>
+<span class="nc" id="L56">		this.T6 = T6;</span>
+<span class="nc" id="L57">		this.T7 = T7;</span>
+<span class="nc" id="L58">		this.RC = RC;</span>
+<span class="nc" id="L59">	}</span>
+
+	private final long[] T0, T1, T2, T3, T4, T5, T6, T7, RC;
+
+	private long state0, state1, state2, state3;
+	private long state4, state5, state6, state7;
+
+	/** @see DigestEngine */
+	protected Digest copyState(WhirlpoolCore d)
+	{
+<span class="nc" id="L69">		d.state0 = state0;</span>
+<span class="nc" id="L70">		d.state1 = state1;</span>
+<span class="nc" id="L71">		d.state2 = state2;</span>
+<span class="nc" id="L72">		d.state3 = state3;</span>
+<span class="nc" id="L73">		d.state4 = state4;</span>
+<span class="nc" id="L74">		d.state5 = state5;</span>
+<span class="nc" id="L75">		d.state6 = state6;</span>
+<span class="nc" id="L76">		d.state7 = state7;</span>
+<span class="nc" id="L77">		return super.copyState(d);</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L83">		return 64;</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L89">		return 64;</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L95">		state0 = 0;</span>
+<span class="nc" id="L96">		state1 = 0;</span>
+<span class="nc" id="L97">		state2 = 0;</span>
+<span class="nc" id="L98">		state3 = 0;</span>
+<span class="nc" id="L99">		state4 = 0;</span>
+<span class="nc" id="L100">		state5 = 0;</span>
+<span class="nc" id="L101">		state6 = 0;</span>
+<span class="nc" id="L102">		state7 = 0;</span>
+<span class="nc" id="L103">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L108">		makeMDPadding();</span>
+<span class="nc" id="L109">		encodeLELong(state0, output, outputOffset);</span>
+<span class="nc" id="L110">		encodeLELong(state1, output, outputOffset + 8);</span>
+<span class="nc" id="L111">		encodeLELong(state2, output, outputOffset + 16);</span>
+<span class="nc" id="L112">		encodeLELong(state3, output, outputOffset + 24);</span>
+<span class="nc" id="L113">		encodeLELong(state4, output, outputOffset + 32);</span>
+<span class="nc" id="L114">		encodeLELong(state5, output, outputOffset + 40);</span>
+<span class="nc" id="L115">		encodeLELong(state6, output, outputOffset + 48);</span>
+<span class="nc" id="L116">		encodeLELong(state7, output, outputOffset + 56);</span>
+<span class="nc" id="L117">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L122">		engineReset();</span>
+<span class="nc" id="L123">	}</span>
+
+	/**
+	 * Decode a 64-bit little-endian integer.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded integer
+	 */
+	private static final long decodeLELong(byte[] buf, int off)
+	{
+<span class="nc" id="L134">		return (buf[off + 0] &amp; 0xFF)</span>
+			| ((long)(buf[off + 1] &amp; 0xFF) &lt;&lt; 8)
+			| ((long)(buf[off + 2] &amp; 0xFF) &lt;&lt; 16)
+			| ((long)(buf[off + 3] &amp; 0xFF) &lt;&lt; 24)
+			| ((long)(buf[off + 4] &amp; 0xFF) &lt;&lt; 32)
+			| ((long)(buf[off + 5] &amp; 0xFF) &lt;&lt; 40)
+			| ((long)(buf[off + 6] &amp; 0xFF) &lt;&lt; 48)
+			| ((long)(buf[off + 7] &amp; 0xFF) &lt;&lt; 56);
+	}
+
+	/**
+	 * Encode a 64-bit integer with little-endian convention.
+	 *
+	 * @param val   the integer to encode
+	 * @param dst   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeLELong(long val, byte[] dst, int off)
+	{
+<span class="nc" id="L153">		dst[off + 0] = (byte)val;</span>
+<span class="nc" id="L154">		dst[off + 1] = (byte)((int)val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L155">		dst[off + 2] = (byte)((int)val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L156">		dst[off + 3] = (byte)((int)val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L157">		dst[off + 4] = (byte)(val &gt;&gt;&gt; 32);</span>
+<span class="nc" id="L158">		dst[off + 5] = (byte)(val &gt;&gt;&gt; 40);</span>
+<span class="nc" id="L159">		dst[off + 6] = (byte)(val &gt;&gt;&gt; 48);</span>
+<span class="nc" id="L160">		dst[off + 7] = (byte)(val &gt;&gt;&gt; 56);</span>
+<span class="nc" id="L161">	}</span>
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc" id="L166">		long n0 = decodeLELong(data, 0),  sn0 = n0;</span>
+<span class="nc" id="L167">		long n1 = decodeLELong(data, 8),  sn1 = n1;</span>
+<span class="nc" id="L168">		long n2 = decodeLELong(data, 16), sn2 = n2;</span>
+<span class="nc" id="L169">		long n3 = decodeLELong(data, 24), sn3 = n3;</span>
+<span class="nc" id="L170">		long n4 = decodeLELong(data, 32), sn4 = n4;</span>
+<span class="nc" id="L171">		long n5 = decodeLELong(data, 40), sn5 = n5;</span>
+<span class="nc" id="L172">		long n6 = decodeLELong(data, 48), sn6 = n6;</span>
+<span class="nc" id="L173">		long n7 = decodeLELong(data, 56), sn7 = n7;</span>
+<span class="nc" id="L174">		long h0 = state0, h1 = state1, h2 = state2, h3 = state3;</span>
+<span class="nc" id="L175">		long h4 = state4, h5 = state5, h6 = state6, h7 = state7;</span>
+		int r;
+
+<span class="nc" id="L178">		n0 ^= h0;</span>
+<span class="nc" id="L179">		n1 ^= h1;</span>
+<span class="nc" id="L180">		n2 ^= h2;</span>
+<span class="nc" id="L181">		n3 ^= h3;</span>
+<span class="nc" id="L182">		n4 ^= h4;</span>
+<span class="nc" id="L183">		n5 ^= h5;</span>
+<span class="nc" id="L184">		n6 ^= h6;</span>
+<span class="nc" id="L185">		n7 ^= h7;</span>
+<span class="nc bnc" id="L186" title="All 2 branches missed.">		for (r = 0; r &lt; 10; r ++) {</span>
+			long t0, t1, t2, t3, t4, t5, t6, t7;
+
+<span class="nc" id="L189">			t0 = T0[(int)h0 &amp; 0xFF]</span>
+				^ T1[((int)h7 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)h6 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)h5 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(h4 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(h3 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(h2 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(h1 &gt;&gt; 56) &amp; 0xFF]
+				^ RC[r];
+<span class="nc" id="L198">			t1 = T0[(int)h1 &amp; 0xFF]</span>
+				^ T1[((int)h0 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)h7 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)h6 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(h5 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(h4 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(h3 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(h2 &gt;&gt; 56) &amp; 0xFF];
+<span class="nc" id="L206">			t2 = T0[(int)h2 &amp; 0xFF]</span>
+				^ T1[((int)h1 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)h0 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)h7 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(h6 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(h5 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(h4 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(h3 &gt;&gt; 56) &amp; 0xFF];
+<span class="nc" id="L214">			t3 = T0[(int)h3 &amp; 0xFF]</span>
+				^ T1[((int)h2 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)h1 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)h0 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(h7 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(h6 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(h5 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(h4 &gt;&gt; 56) &amp; 0xFF];
+<span class="nc" id="L222">			t4 = T0[(int)h4 &amp; 0xFF]</span>
+				^ T1[((int)h3 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)h2 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)h1 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(h0 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(h7 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(h6 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(h5 &gt;&gt; 56) &amp; 0xFF];
+<span class="nc" id="L230">			t5 = T0[(int)h5 &amp; 0xFF]</span>
+				^ T1[((int)h4 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)h3 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)h2 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(h1 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(h0 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(h7 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(h6 &gt;&gt; 56) &amp; 0xFF];
+<span class="nc" id="L238">			t6 = T0[(int)h6 &amp; 0xFF]</span>
+				^ T1[((int)h5 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)h4 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)h3 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(h2 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(h1 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(h0 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(h7 &gt;&gt; 56) &amp; 0xFF];
+<span class="nc" id="L246">			t7 = T0[(int)h7 &amp; 0xFF]</span>
+				^ T1[((int)h6 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)h5 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)h4 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(h3 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(h2 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(h1 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(h0 &gt;&gt; 56) &amp; 0xFF];
+<span class="nc" id="L254">			h0 = t0;</span>
+<span class="nc" id="L255">			h1 = t1;</span>
+<span class="nc" id="L256">			h2 = t2;</span>
+<span class="nc" id="L257">			h3 = t3;</span>
+<span class="nc" id="L258">			h4 = t4;</span>
+<span class="nc" id="L259">			h5 = t5;</span>
+<span class="nc" id="L260">			h6 = t6;</span>
+<span class="nc" id="L261">			h7 = t7;</span>
+<span class="nc" id="L262">			t0 = T0[(int)n0 &amp; 0xFF]</span>
+				^ T1[((int)n7 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)n6 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)n5 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(n4 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(n3 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(n2 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(n1 &gt;&gt; 56) &amp; 0xFF]
+				^ h0;
+<span class="nc" id="L271">			t1 = T0[(int)n1 &amp; 0xFF]</span>
+				^ T1[((int)n0 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)n7 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)n6 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(n5 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(n4 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(n3 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(n2 &gt;&gt; 56) &amp; 0xFF]
+				^ h1;
+<span class="nc" id="L280">			t2 = T0[(int)n2 &amp; 0xFF]</span>
+				^ T1[((int)n1 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)n0 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)n7 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(n6 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(n5 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(n4 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(n3 &gt;&gt; 56) &amp; 0xFF]
+				^ h2;
+<span class="nc" id="L289">			t3 = T0[(int)n3 &amp; 0xFF]</span>
+				^ T1[((int)n2 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)n1 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)n0 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(n7 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(n6 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(n5 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(n4 &gt;&gt; 56) &amp; 0xFF]
+				^ h3;
+<span class="nc" id="L298">			t4 = T0[(int)n4 &amp; 0xFF]</span>
+				^ T1[((int)n3 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)n2 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)n1 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(n0 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(n7 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(n6 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(n5 &gt;&gt; 56) &amp; 0xFF]
+				^ h4;
+<span class="nc" id="L307">			t5 = T0[(int)n5 &amp; 0xFF]</span>
+				^ T1[((int)n4 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)n3 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)n2 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(n1 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(n0 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(n7 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(n6 &gt;&gt; 56) &amp; 0xFF]
+				^ h5;
+<span class="nc" id="L316">			t6 = T0[(int)n6 &amp; 0xFF]</span>
+				^ T1[((int)n5 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)n4 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)n3 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(n2 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(n1 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(n0 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(n7 &gt;&gt; 56) &amp; 0xFF]
+				^ h6;
+<span class="nc" id="L325">			t7 = T0[(int)n7 &amp; 0xFF]</span>
+				^ T1[((int)n6 &gt;&gt; 8) &amp; 0xFF]
+				^ T2[((int)n5 &gt;&gt; 16) &amp; 0xFF]
+				^ T3[((int)n4 &gt;&gt; 24) &amp; 0xFF]
+				^ T4[(int)(n3 &gt;&gt; 32) &amp; 0xFF]
+				^ T5[(int)(n2 &gt;&gt; 40) &amp; 0xFF]
+				^ T6[(int)(n1 &gt;&gt; 48) &amp; 0xFF]
+				^ T7[(int)(n0 &gt;&gt; 56) &amp; 0xFF]
+				^ h7;
+<span class="nc" id="L334">			n0 = t0;</span>
+<span class="nc" id="L335">			n1 = t1;</span>
+<span class="nc" id="L336">			n2 = t2;</span>
+<span class="nc" id="L337">			n3 = t3;</span>
+<span class="nc" id="L338">			n4 = t4;</span>
+<span class="nc" id="L339">			n5 = t5;</span>
+<span class="nc" id="L340">			n6 = t6;</span>
+<span class="nc" id="L341">			n7 = t7;</span>
+		}
+<span class="nc" id="L343">		state0 ^= n0 ^ sn0;</span>
+<span class="nc" id="L344">		state1 ^= n1 ^ sn1;</span>
+<span class="nc" id="L345">		state2 ^= n2 ^ sn2;</span>
+<span class="nc" id="L346">		state3 ^= n3 ^ sn3;</span>
+<span class="nc" id="L347">		state4 ^= n4 ^ sn4;</span>
+<span class="nc" id="L348">		state5 ^= n5 ^ sn5;</span>
+<span class="nc" id="L349">		state6 ^= n6 ^ sn6;</span>
+<span class="nc" id="L350">		state7 ^= n7 ^ sn7;</span>
+<span class="nc" id="L351">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

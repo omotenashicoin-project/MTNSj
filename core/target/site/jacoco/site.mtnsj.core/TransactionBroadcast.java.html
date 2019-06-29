@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>TransactionBroadcast.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">TransactionBroadcast.java</span></div><h1>TransactionBroadcast.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 2013 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package site.mtnsj.core;
+
+import com.google.common.annotations.*;
+import com.google.common.base.*;
+import com.google.common.util.concurrent.*;
+import site.mtnsj.utils.*;
+import site.mtnsj.wallet.Wallet;
+import org.slf4j.*;
+
+import javax.annotation.*;
+import java.util.*;
+import java.util.concurrent.*;
+
+import static com.google.common.base.Preconditions.checkState;
+import site.mtnsj.core.listeners.PreMessageReceivedEventListener;
+
+/**
+ * Represents a single transaction broadcast that we are performing. A broadcast occurs after a new transaction is created
+ * (typically by a {@link Wallet} and needs to be sent to the network. A broadcast can succeed or fail. A success is
+ * defined as seeing the transaction be announced by peers via inv messages, thus indicating their acceptance. A failure
+ * is defined as not reaching acceptance within a timeout period, or getting an explicit reject message from a peer
+ * indicating that the transaction was not acceptable.
+ */
+public class TransactionBroadcast {
+<span class="nc" id="L41">    private static final Logger log = LoggerFactory.getLogger(TransactionBroadcast.class);</span>
+
+<span class="nc" id="L43">    private final SettableFuture&lt;Transaction&gt; future = SettableFuture.create();</span>
+    private final PeerGroup peerGroup;
+    private final Transaction tx;
+    private boolean isSwiftX;
+    private int minConnections;
+    private int numWaitingFor;
+
+    /** Used for shuffling the peers before broadcast: unit tests can replace this to make themselves deterministic. */
+    @VisibleForTesting
+<span class="nc" id="L52">    public static Random random = new Random();</span>
+    
+    // Tracks which nodes sent us a reject message about this broadcast, if any. Useful for debugging.
+<span class="nc" id="L55">    private Map&lt;Peer, RejectMessage&gt; rejects = Collections.synchronizedMap(new HashMap&lt;Peer, RejectMessage&gt;());</span>
+
+<span class="nc" id="L57">    TransactionBroadcast(PeerGroup peerGroup, Transaction tx) {</span>
+<span class="nc" id="L58">        this.peerGroup = peerGroup;</span>
+<span class="nc" id="L59">        this.tx = tx;</span>
+<span class="nc" id="L60">        this.minConnections = Math.max(1, peerGroup.getMinBroadcastConnections());</span>
+<span class="nc" id="L61">    }</span>
+
+<span class="nc" id="L63">    TransactionBroadcast(PeerGroup peerGroup, Transaction tx,boolean isSwiftX) {</span>
+<span class="nc" id="L64">        this.peerGroup = peerGroup;</span>
+<span class="nc" id="L65">        this.tx = tx;</span>
+<span class="nc" id="L66">        this.isSwiftX = isSwiftX;</span>
+<span class="nc" id="L67">        this.minConnections = Math.max(1, peerGroup.getMinBroadcastConnections());</span>
+<span class="nc" id="L68">    }</span>
+
+    // Only for mock broadcasts.
+<span class="nc" id="L71">    private TransactionBroadcast(Transaction tx) {</span>
+<span class="nc" id="L72">        this.peerGroup = null;</span>
+<span class="nc" id="L73">        this.tx = tx;</span>
+<span class="nc" id="L74">    }</span>
+
+    @VisibleForTesting
+    public static TransactionBroadcast createMockBroadcast(Transaction tx, final SettableFuture&lt;Transaction&gt; future) {
+<span class="nc" id="L78">        return new TransactionBroadcast(tx) {</span>
+            @Override
+            public ListenableFuture&lt;Transaction&gt; broadcast() {
+<span class="nc" id="L81">                return future;</span>
+            }
+
+            @Override
+            public ListenableFuture&lt;Transaction&gt; future() {
+<span class="nc" id="L86">                return future;</span>
+            }
+        };
+    }
+
+    public ListenableFuture&lt;Transaction&gt; future() {
+<span class="nc" id="L92">        return future;</span>
+    }
+
+    public void setMinConnections(int minConnections) {
+<span class="nc" id="L96">        this.minConnections = minConnections;</span>
+<span class="nc" id="L97">    }</span>
+
+<span class="nc" id="L99">    private PreMessageReceivedEventListener rejectionListener = new PreMessageReceivedEventListener() {</span>
+        @Override
+        public Message onPreMessageReceived(Peer peer, Message m) {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (m instanceof RejectMessage) {</span>
+<span class="nc" id="L103">                RejectMessage rejectMessage = (RejectMessage)m;</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">                if (tx.getHash().equals(rejectMessage.getRejectedObjectHash())) {</span>
+<span class="nc" id="L105">                    rejects.put(peer, rejectMessage);</span>
+<span class="nc" id="L106">                    int size = rejects.size();</span>
+<span class="nc" id="L107">                    long threshold = Math.round(numWaitingFor / 2.0);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">                    if (size &gt; threshold) {</span>
+<span class="nc" id="L109">                        log.warn(&quot;Threshold for considering broadcast rejected has been reached ({}/{})&quot;, size, threshold);</span>
+<span class="nc" id="L110">                        future.setException(new RejectedTransactionException(tx, rejectMessage));</span>
+<span class="nc" id="L111">                        peerGroup.removePreMessageReceivedEventListener(this);</span>
+                    }
+                }
+            }
+<span class="nc" id="L115">            return m;</span>
+        }
+    };
+
+    public ListenableFuture&lt;Transaction&gt; broadcast() {
+<span class="nc" id="L120">        peerGroup.addPreMessageReceivedEventListener(Threading.SAME_THREAD, rejectionListener);</span>
+<span class="nc" id="L121">        log.info(&quot;Waiting for {} peers required for broadcast, we have {} ...&quot;, minConnections, peerGroup.getConnectedPeers().size());</span>
+<span class="nc" id="L122">        peerGroup.waitForPeers(minConnections).addListener(new EnoughAvailablePeers(), Threading.SAME_THREAD);</span>
+<span class="nc" id="L123">        return future;</span>
+    }
+
+<span class="nc" id="L126">    private class EnoughAvailablePeers implements Runnable {</span>
+        @Override
+        public void run() {
+            // We now have enough connected peers to send the transaction.
+            // This can be called immediately if we already have enough. Otherwise it'll be called from a peer
+            // thread.
+
+            // We will send the tx simultaneously to half the connected peers and wait to hear back from at least half
+            // of the other half, i.e., with 4 peers connected we will send the tx to 2 randomly chosen peers, and then
+            // wait for it to show up on one of the other two. This will be taken as sign of network acceptance. As can
+            // be seen, 4 peers is probably too little - it doesn't taken many broken peers for tx propagation to have
+            // a big effect.
+<span class="nc" id="L138">            List&lt;Peer&gt; peers = peerGroup.getConnectedPeers();    // snapshots</span>
+            // Prepare to send the transaction by adding a listener that'll be called when confidence changes.
+            // Only bother with this if we might actually hear back:
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            if (minConnections &gt; 1)</span>
+<span class="nc" id="L142">                tx.getConfidence().addEventListener(new ConfidenceChange());</span>
+            // Bitcoin Core sends an inv in this case and then lets the peer request the tx data. We just
+            // blast out the TX here for a couple of reasons. Firstly it's simpler: in the case where we have
+            // just a single connection we don't have to wait for getdata to be received and handled before
+            // completing the future in the code immediately below. Secondly, it's faster. The reason the
+            // Bitcoin Core sends an inv is privacy - it means you can't tell if the peer originated the
+            // transaction or not. However, we are not a fully validating node and this is advertised in
+            // our version message, as SPV nodes cannot relay it doesn't give away any additional information
+            // to skip the inv here - we wouldn't send invs anyway.
+<span class="nc" id="L151">            int numConnected = peers.size();</span>
+<span class="nc" id="L152">            int numToBroadcastTo = (int) Math.max(1, Math.round(Math.ceil(peers.size() / 2.0)));</span>
+<span class="nc" id="L153">            numWaitingFor = (int) Math.ceil((peers.size() - numToBroadcastTo) / 2.0);</span>
+<span class="nc" id="L154">            Collections.shuffle(peers, random);</span>
+<span class="nc" id="L155">            peers = peers.subList(0, numToBroadcastTo);</span>
+<span class="nc" id="L156">            log.info(&quot;broadcastTransaction: We have {} peers, adding {} to the memory pool&quot;, numConnected, tx.getHashAsString());</span>
+<span class="nc" id="L157">            log.info(&quot;Sending to {} peers, will wait for {}, sending to: {}&quot;, numToBroadcastTo, numWaitingFor, Joiner.on(&quot;,&quot;).join(peers));</span>
+            Message message;
+            // SwiftX
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            if (isSwiftX) {</span>
+                // transaction lock request
+<span class="nc" id="L162">                TransactionLockRequest transactionLockRequest = new TransactionLockRequest(tx.params, tx.payload);</span>
+<span class="nc" id="L163">                message = transactionLockRequest;</span>
+<span class="nc" id="L164">            }else {</span>
+                // regular tx
+<span class="nc" id="L166">                message = tx;</span>
+            }
+<span class="nc bnc" id="L168" title="All 2 branches missed.">            for (Peer peer : peers) {</span>
+                try {
+<span class="nc" id="L170">                    peer.sendMessage(message);</span>
+                    // We don't record the peer as having seen the tx in the memory pool because we want to track only
+                    // how many peers announced to us.
+<span class="nc" id="L173">                } catch (Exception e) {</span>
+<span class="nc" id="L174">                    log.error(&quot;Caught exception sending to {}&quot;, peer, e);</span>
+<span class="nc" id="L175">                }</span>
+<span class="nc" id="L176">            }</span>
+            // If we've been limited to talk to only one peer, we can't wait to hear back because the
+            // remote peer won't tell us about transactions we just announced to it for obvious reasons.
+            // So we just have to assume we're done, at that point. This happens when we're not given
+            // any peer discovery source and the user just calls connectTo() once.
+<span class="nc bnc" id="L181" title="All 2 branches missed.">            if (minConnections == 1) {</span>
+<span class="nc" id="L182">                peerGroup.removePreMessageReceivedEventListener(rejectionListener);</span>
+<span class="nc" id="L183">                future.set(tx);</span>
+            }
+<span class="nc" id="L185">        }</span>
+    }
+
+    private int numSeemPeers;
+    private boolean mined;
+
+<span class="nc" id="L191">    private class ConfidenceChange implements TransactionConfidence.Listener {</span>
+        @Override
+        public void onConfidenceChanged(TransactionConfidence conf, ChangeReason reason) {
+            // The number of peers that announced this tx has gone up.
+<span class="nc" id="L195">            int numSeenPeers = conf.numBroadcastPeers() + rejects.size();</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">            boolean mined = tx.getAppearsInHashes() != null;</span>
+<span class="nc" id="L197">            log.info(&quot;broadcastTransaction: {}:  TX {} seen by {} peers{}&quot;, reason, tx.getHashAsString(),</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">                    numSeenPeers, mined ? &quot; and mined&quot; : &quot;&quot;);</span>
+
+            // Progress callback on the requested thread.
+<span class="nc" id="L201">            invokeAndRecord(numSeenPeers, mined);</span>
+
+<span class="nc bnc" id="L203" title="All 4 branches missed.">            if (numSeenPeers &gt;= numWaitingFor || mined) {</span>
+                // We've seen the min required number of peers announce the transaction, or it was included
+                // in a block. Normally we'd expect to see it fully propagate before it gets mined, but
+                // it can be that a block is solved very soon after broadcast, and it's also possible that
+                // due to version skew and changes in the relay rules our transaction is not going to
+                // fully propagate yet can get mined anyway.
+                //
+                // Note that we can't wait for the current number of connected peers right now because we
+                // could have added more peers after the broadcast took place, which means they won't
+                // have seen the transaction. In future when peers sync up their memory pools after they
+                // connect we could come back and change this.
+                //
+                // We're done! It's important that the PeerGroup lock is not held (by this thread) at this
+                // point to avoid triggering inversions when the Future completes.
+<span class="nc" id="L217">                log.info(&quot;broadcastTransaction: {} complete&quot;, tx.getHash());</span>
+<span class="nc" id="L218">                peerGroup.removePreMessageReceivedEventListener(rejectionListener);</span>
+<span class="nc" id="L219">                conf.removeEventListener(this);</span>
+<span class="nc" id="L220">                future.set(tx);  // RE-ENTRANCY POINT</span>
+            }
+<span class="nc" id="L222">        }</span>
+    }
+
+    private void invokeAndRecord(int numSeenPeers, boolean mined) {
+<span class="nc" id="L226">        synchronized (this) {</span>
+<span class="nc" id="L227">            this.numSeemPeers = numSeenPeers;</span>
+<span class="nc" id="L228">            this.mined = mined;</span>
+<span class="nc" id="L229">        }</span>
+<span class="nc" id="L230">        invokeProgressCallback(numSeenPeers, mined);</span>
+<span class="nc" id="L231">    }</span>
+
+    private void invokeProgressCallback(int numSeenPeers, boolean mined) {
+        final ProgressCallback callback;
+        Executor executor;
+<span class="nc" id="L236">        synchronized (this) {</span>
+<span class="nc" id="L237">            callback = this.callback;</span>
+<span class="nc" id="L238">            executor = this.progressCallbackExecutor;</span>
+<span class="nc" id="L239">        }</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">        if (callback != null) {</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            final double progress = Math.min(1.0, mined ? 1.0 : numSeenPeers / (double) numWaitingFor);</span>
+<span class="nc bnc" id="L242" title="All 4 branches missed.">            checkState(progress &gt;= 0.0 &amp;&amp; progress &lt;= 1.0, progress);</span>
+            try {
+<span class="nc bnc" id="L244" title="All 2 branches missed.">                if (executor == null)</span>
+<span class="nc" id="L245">                    callback.onBroadcastProgress(progress);</span>
+                else
+<span class="nc" id="L247">                    executor.execute(new Runnable() {</span>
+                        @Override
+                        public void run() {
+<span class="nc" id="L250">                            callback.onBroadcastProgress(progress);</span>
+<span class="nc" id="L251">                        }</span>
+                    });
+<span class="nc" id="L253">            } catch (Throwable e) {</span>
+<span class="nc" id="L254">                log.error(&quot;Exception during progress callback&quot;, e);</span>
+<span class="nc" id="L255">            }</span>
+        }
+<span class="nc" id="L257">    }</span>
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /** An interface for receiving progress information on the propagation of the tx, from 0.0 to 1.0 */
+    public interface ProgressCallback {
+        /**
+         * onBroadcastProgress will be invoked on the provided executor when the progress of the transaction
+         * broadcast has changed, because the transaction has been announced by another peer or because the transaction
+         * was found inside a mined block (in this case progress will go to 1.0 immediately). Any exceptions thrown
+         * by this callback will be logged and ignored.
+         */
+        void onBroadcastProgress(double progress);
+    }
+
+    @Nullable private ProgressCallback callback;
+    @Nullable private Executor progressCallbackExecutor;
+
+    /**
+     * Sets the given callback for receiving progress values, which will run on the user thread. See
+     * {@link site.mtnsj.utils.Threading} for details.  If the broadcast has already started then the callback will
+     * be invoked immediately with the current progress.
+     */
+    public void setProgressCallback(ProgressCallback callback) {
+<span class="nc" id="L281">        setProgressCallback(callback, Threading.USER_THREAD);</span>
+<span class="nc" id="L282">    }</span>
+
+    /**
+     * Sets the given callback for receiving progress values, which will run on the given executor. If the executor
+     * is null then the callback will run on a network thread and may be invoked multiple times in parallel. You
+     * probably want to provide your UI thread or Threading.USER_THREAD for the second parameter. If the broadcast
+     * has already started then the callback will be invoked immediately with the current progress.
+     */
+    public void setProgressCallback(ProgressCallback callback, @Nullable Executor executor) {
+        boolean shouldInvoke;
+        int num;
+        boolean mined;
+<span class="nc" id="L294">        synchronized (this) {</span>
+<span class="nc" id="L295">            this.callback = callback;</span>
+<span class="nc" id="L296">            this.progressCallbackExecutor = executor;</span>
+<span class="nc" id="L297">            num = this.numSeemPeers;</span>
+<span class="nc" id="L298">            mined = this.mined;</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">            shouldInvoke = numWaitingFor &gt; 0;</span>
+<span class="nc" id="L300">        }</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">        if (shouldInvoke)</span>
+<span class="nc" id="L302">            invokeProgressCallback(num, mined);</span>
+<span class="nc" id="L303">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

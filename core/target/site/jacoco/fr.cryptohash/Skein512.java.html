@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Skein512.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">Skein512.java</span></div><h1>Skein512.java</h1><pre class="source lang-java linenums">// $Id: Skein512.java 253 2011-06-07 18:33:10Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the Skein-512 digest algorithm under the
+ * {@link Digest} API. In the Skein specification, that function is
+ * called under the full name &quot;Skein-512-512&quot;.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 253 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class Skein512 extends SkeinBigCore {
+
+	/**
+	 * Create the engine.
+	 */
+	public Skein512()
+	{
+<span class="fc" id="L48">		super();</span>
+<span class="fc" id="L49">	}</span>
+
+	/** The initial value for Skein-512. */
+<span class="fc" id="L52">	private static final long[] initVal = {</span>
+		0x4903ADFF749C51CEL, 0x0D95DE399746DF03L,
+		0x8FD1934127C79BCEL, 0x9A255629FF352CB1L,
+		0x5DB62599DF6CA7B0L, 0xEABE394CA9D5C3F4L,
+		0x991112C71A75B523L, 0xAE18A40B660FCC33L
+	};
+
+	/** @see SkeinBigCore */
+	long[] getInitVal()
+	{
+<span class="fc" id="L62">		return initVal;</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="fc" id="L68">		return 64;</span>
+	}
+
+	/** @see SkeinBigCore */
+	SkeinBigCore dup()
+	{
+<span class="nc" id="L74">		return new Skein512();</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

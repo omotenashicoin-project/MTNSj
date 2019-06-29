@@ -1,0 +1,1092 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasternodeManager.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">MasternodeManager.java</span></div><h1>MasternodeManager.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+import site.mtnsj.script.Script;
+import site.mtnsj.script.ScriptBuilder;
+import site.mtnsj.store.BlockStore;
+import site.mtnsj.store.BlockStoreException;
+import site.mtnsj.utils.ListenerRegistration;
+import site.mtnsj.utils.Pair;
+import site.mtnsj.utils.Threading;
+import org.darkcoinj.DarkSendSigner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static com.google.common.base.Preconditions.checkState;
+import static site.mtnsj.core.MasterNodeSystem.MASTERNODE_REMOVAL_SECONDS;
+
+/**
+ * Created by Hash Engineering on 2/20/2016.
+ */
+public class MasternodeManager extends AbstractManager {
+<span class="nc" id="L28">    private static final Logger log = LoggerFactory.getLogger(MasternodeManager.class);</span>
+
+    public static final int MASTERNODES_DUMP_SECONDS =              (15*60);
+    public static final int MASTERNODES_DSEG_SECONDS    =           (3*60*60);
+    // critical section to protect the inner data structures
+    //mutable CCriticalSection cs;
+<span class="nc" id="L34">    ReentrantLock lock = Threading.lock(&quot;MasternodeManager&quot;);</span>
+
+    // critical section to protect the inner data structures specifically on messaging
+    //mutable CCriticalSection cs_process_message;
+<span class="nc" id="L38">    ReentrantLock lock_messages = Threading.lock(&quot;MasternodeManager-Messages&quot;);</span>
+
+    // map to hold all MNs
+    ArrayList&lt;Masternode&gt; vMasternodes;// = new ArrayList&lt;Masternode&gt;();
+    // who's asked for the Masternode list and the last time
+    HashMap&lt;NetAddress, Long&gt; mAskedUsForMasternodeList;// = new HashMap&lt;NetAddress, Long&gt;();
+    // who we asked for the Masternode list and the last time
+        HashMap&lt;NetAddress, Long&gt; mWeAskedForMasternodeList;// = new HashMap&lt;NetAddress, Long&gt;();
+    // which Masternodes we've asked for
+    HashMap&lt;TransactionOutPoint, Long&gt; mWeAskedForMasternodeListEntry;// = new HashMap&lt;TransactionOutPoint, Long&gt;();
+
+    // Keep track of all broadcasts I've seen
+    public HashMap&lt;Sha256Hash, MasternodeBroadcast&gt; mapSeenMasternodeBroadcast;// = new HashMap&lt;Sha256Hash, MasternodeBroadcast&gt;();
+    // Keep track of all pings I've seen
+    public HashMap&lt;Sha256Hash, MasternodePing&gt; mapSeenMasternodePing;// = new HashMap&lt;Sha256Hash, MasternodePing&gt;();
+
+    // keep track of dsq count to prevent masternodes from gaming darksend queue
+    long nDsqCount;
+
+    //internal parameters
+    AbstractBlockChain blockChain;
+<span class="nc" id="L59">    void setBlockChain(AbstractBlockChain blockChain) { this.blockChain = blockChain; }</span>
+
+    //Context context;
+
+    public MasternodeManager(Context context)
+    {
+<span class="nc" id="L65">        super(context);</span>
+<span class="nc" id="L66">        nDsqCount = 0;</span>
+
+        // map to hold all MNs
+<span class="nc" id="L69">        vMasternodes = new ArrayList&lt;Masternode&gt;();</span>
+        // who's asked for the Masternode list and the last time
+<span class="nc" id="L71">        mAskedUsForMasternodeList = new HashMap&lt;NetAddress, Long&gt;();</span>
+        // who we asked for the Masternode list and the last time
+<span class="nc" id="L73">        mWeAskedForMasternodeList = new HashMap&lt;NetAddress, Long&gt;();</span>
+        // which Masternodes we've asked for
+<span class="nc" id="L75">        mWeAskedForMasternodeListEntry = new HashMap&lt;TransactionOutPoint, Long&gt;();</span>
+
+        // Keep track of all broadcasts I've seen
+<span class="nc" id="L78">        mapSeenMasternodeBroadcast = new HashMap&lt;Sha256Hash, MasternodeBroadcast&gt;();</span>
+        // Keep track of all pings I've seen
+<span class="nc" id="L80">        mapSeenMasternodePing = new HashMap&lt;Sha256Hash, MasternodePing&gt;();</span>
+
+
+        //context = Context.get();
+
+<span class="nc" id="L85">        eventListeners = new CopyOnWriteArrayList&lt;ListenerRegistration&lt;MasternodeManagerListener&gt;&gt;();</span>
+<span class="nc" id="L86">    }</span>
+
+    public MasternodeManager(NetworkParameters params, byte [] payload, int cursor)
+    {
+<span class="nc" id="L90">        super(params, payload, cursor);</span>
+<span class="nc" id="L91">        context = Context.get();</span>
+
+<span class="nc" id="L93">        eventListeners = new CopyOnWriteArrayList&lt;ListenerRegistration&lt;MasternodeManagerListener&gt;&gt;();</span>
+<span class="nc" id="L94">    }</span>
+
+
+    protected static int calcLength(byte[] buf, int offset) {
+<span class="nc" id="L98">        int cursor = 0;</span>
+
+<span class="nc" id="L100">        return cursor - offset;</span>
+    }
+
+    public int calculateMessageSizeInBytes()
+    {
+<span class="nc" id="L105">        int size = 0;</span>
+
+<span class="nc" id="L107">        lock.lock();</span>
+        try {
+<span class="nc" id="L109">            size += VarInt.sizeOf(vMasternodes.size());</span>
+
+<span class="nc bnc" id="L111" title="All 2 branches missed.">            for (Masternode mn : vMasternodes) {</span>
+<span class="nc" id="L112">                size += mn.calculateMessageSizeInBytes();</span>
+<span class="nc" id="L113">            }</span>
+<span class="nc" id="L114">            size += VarInt.sizeOf(mAskedUsForMasternodeList.size());</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            for (NetAddress na : mAskedUsForMasternodeList.keySet()) {</span>
+<span class="nc" id="L116">                size += na.MESSAGE_SIZE;</span>
+<span class="nc" id="L117">                size += 8;</span>
+<span class="nc" id="L118">            }</span>
+<span class="nc" id="L119">            return size;</span>
+        }
+        finally {
+<span class="nc" id="L122">            lock.unlock();</span>
+<span class="nc" id="L123">        }</span>
+    }
+    @Override
+    protected void parse() throws ProtocolException {
+
+
+<span class="nc" id="L129">        int size = (int)readVarInt();</span>
+
+<span class="nc" id="L131">        vMasternodes = new ArrayList&lt;Masternode&gt;(size);</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        for (int i = 0; i &lt; size; ++i)</span>
+        {
+<span class="nc" id="L134">            Masternode mn = new Masternode(params, payload, cursor);</span>
+<span class="nc" id="L135">            cursor += mn.getMessageSize();</span>
+<span class="nc" id="L136">            vMasternodes.add(mn);</span>
+
+            //mn.calculateScore(0, Sha256Hash.twiceOf(mn.pubkey.getBytes()));
+        }
+
+<span class="nc" id="L141">        size = (int)readVarInt();</span>
+<span class="nc" id="L142">        mAskedUsForMasternodeList = new HashMap&lt;NetAddress, Long&gt;(size);</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        for(int i = 0; i &lt; size; ++i)</span>
+        {
+<span class="nc" id="L145">            NetAddress ma = new NetAddress(params, payload, cursor, 0);</span>
+<span class="nc" id="L146">            cursor += ma.getMessageSize();</span>
+<span class="nc" id="L147">            long x = readInt64();</span>
+<span class="nc" id="L148">            mAskedUsForMasternodeList.put(ma, x);</span>
+        }
+        //TODO: add the rest
+        //READWRITE(mWeAskedForMasternodeList);
+<span class="nc" id="L152">        size = (int)readVarInt();</span>
+<span class="nc" id="L153">        mWeAskedForMasternodeList = new HashMap&lt;NetAddress, Long&gt;(size);</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        for(int i = 0; i &lt; size; ++i)</span>
+        {
+<span class="nc" id="L156">            NetAddress ma = new NetAddress(params, payload, cursor, 0);</span>
+<span class="nc" id="L157">            cursor += ma.getMessageSize();</span>
+<span class="nc" id="L158">            long x = readInt64();</span>
+<span class="nc" id="L159">            mAskedUsForMasternodeList.put(ma, x);</span>
+        }
+        //READWRITE(mWeAskedForMasternodeListEntry);
+<span class="nc" id="L162">        size = (int)readVarInt();</span>
+<span class="nc" id="L163">        mWeAskedForMasternodeListEntry = new HashMap&lt;TransactionOutPoint, Long&gt;(size);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        for(int i = 0; i &lt; size; ++i)</span>
+        {
+<span class="nc" id="L166">            TransactionOutPoint out = new TransactionOutPoint(params, payload, cursor);</span>
+<span class="nc" id="L167">            cursor += out.getMessageSize();</span>
+<span class="nc" id="L168">            long x = readInt64();</span>
+<span class="nc" id="L169">            mWeAskedForMasternodeListEntry.put(out, x);</span>
+        }
+
+        //READWRITE(nDsqCount);
+<span class="nc" id="L173">        nDsqCount = readUint32();</span>
+
+        //READWRITE(mapSeenMasternodeBroadcast);
+<span class="nc" id="L176">        size = (int)readVarInt();</span>
+<span class="nc" id="L177">        mapSeenMasternodeBroadcast = new HashMap&lt;Sha256Hash, MasternodeBroadcast&gt;(size);</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        for(int i = 0; i &lt; size; ++i)</span>
+        {
+<span class="nc" id="L180">            Sha256Hash hash = readHash();</span>
+<span class="nc" id="L181">            MasternodeBroadcast mb = new MasternodeBroadcast(params, payload, cursor);</span>
+<span class="nc" id="L182">            cursor += mb.getMessageSize();</span>
+<span class="nc" id="L183">            mapSeenMasternodeBroadcast.put(hash, mb);</span>
+        }
+        //READWRITE(mapSeenMasternodePing);
+<span class="nc" id="L186">        size = (int)readVarInt();</span>
+<span class="nc" id="L187">        mapSeenMasternodePing = new HashMap&lt;Sha256Hash, MasternodePing&gt;(size);</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">        for(int i = 0; i &lt; size; ++i)</span>
+        {
+<span class="nc" id="L190">            Sha256Hash hash = readHash();</span>
+<span class="nc" id="L191">            MasternodePing mb = new MasternodePing(params, payload, cursor);</span>
+<span class="nc" id="L192">            cursor += mb.getMessageSize();</span>
+<span class="nc" id="L193">            mapSeenMasternodePing.put(hash, mb);</span>
+        }
+
+<span class="nc" id="L196">        length = cursor - offset;</span>
+<span class="nc" id="L197">    }</span>
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+
+<span class="nc" id="L201">        lock.lock();</span>
+        try {
+<span class="nc" id="L203">            stream.write(new VarInt(vMasternodes.size()).encode());</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">            for (Masternode mn : vMasternodes) {</span>
+<span class="nc" id="L205">                mn.bitcoinSerialize(stream);</span>
+<span class="nc" id="L206">            }</span>
+<span class="nc" id="L207">            stream.write(new VarInt(mAskedUsForMasternodeList.size()).encode());</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            for(Iterator&lt;Map.Entry&lt;NetAddress, Long&gt;&gt; it1= mAskedUsForMasternodeList.entrySet().iterator(); it1.hasNext();)</span>
+            {
+<span class="nc" id="L210">                Map.Entry&lt;NetAddress, Long&gt; entry = it1.next();</span>
+<span class="nc" id="L211">                entry.getKey().bitcoinSerialize(stream);</span>
+<span class="nc" id="L212">                Utils.int64ToByteStreamLE(entry.getValue(), stream);</span>
+<span class="nc" id="L213">            }</span>
+            //READWRITE(mWeAskedForMasternodeList);
+<span class="nc" id="L215">            stream.write(new VarInt(mWeAskedForMasternodeList.size()).encode());</span>
+
+<span class="nc bnc" id="L217" title="All 2 branches missed.">            for(Iterator&lt;Map.Entry&lt;NetAddress, Long&gt;&gt; it1= mWeAskedForMasternodeList.entrySet().iterator(); it1.hasNext();)</span>
+            {
+<span class="nc" id="L219">                Map.Entry&lt;NetAddress, Long&gt; entry = it1.next();</span>
+<span class="nc" id="L220">                entry.getKey().bitcoinSerialize(stream);</span>
+<span class="nc" id="L221">                Utils.int64ToByteStreamLE(entry.getValue(), stream);</span>
+<span class="nc" id="L222">            }</span>
+            //READWRITE(mWeAskedForMasternodeListEntry);
+<span class="nc" id="L224">            stream.write(new VarInt(mWeAskedForMasternodeListEntry.size()).encode());</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">            for(Iterator&lt;Map.Entry&lt;TransactionOutPoint, Long&gt;&gt; it1= mWeAskedForMasternodeListEntry.entrySet().iterator(); it1.hasNext();)</span>
+            {
+<span class="nc" id="L227">                Map.Entry&lt;TransactionOutPoint, Long&gt; entry = it1.next();</span>
+<span class="nc" id="L228">                entry.getKey().bitcoinSerialize(stream);</span>
+<span class="nc" id="L229">                Utils.int64ToByteStreamLE(entry.getValue(), stream);</span>
+<span class="nc" id="L230">            }</span>
+            //READWRITE(nDsqCount);
+<span class="nc" id="L232">            Utils.uint32ToByteStreamLE(nDsqCount, stream);</span>
+            //READWRITE(mapSeenMasternodeBroadcast);
+<span class="nc" id="L234">            stream.write(new VarInt(mapSeenMasternodeBroadcast.size()).encode());</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">            for(Iterator&lt;Map.Entry&lt;Sha256Hash, MasternodeBroadcast&gt;&gt; it1= mapSeenMasternodeBroadcast.entrySet().iterator(); it1.hasNext();)</span>
+            {
+<span class="nc" id="L237">                Map.Entry&lt;Sha256Hash, MasternodeBroadcast&gt; entry = it1.next();</span>
+<span class="nc" id="L238">                stream.write(entry.getKey().getReversedBytes());</span>
+<span class="nc" id="L239">                entry.getValue().bitcoinSerialize(stream);</span>
+<span class="nc" id="L240">            }</span>
+            //READWRITE(mapSeenMasternodePing);
+<span class="nc" id="L242">            stream.write(new VarInt(mapSeenMasternodePing.size()).encode());</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            for(Iterator&lt;Map.Entry&lt;Sha256Hash, MasternodePing&gt;&gt; it1= mapSeenMasternodePing.entrySet().iterator(); it1.hasNext();)</span>
+            {
+<span class="nc" id="L245">                Map.Entry&lt;Sha256Hash, MasternodePing&gt; entry = it1.next();</span>
+<span class="nc" id="L246">                stream.write(entry.getKey().getReversedBytes());</span>
+<span class="nc" id="L247">                entry.getValue().bitcoinSerialize(stream);</span>
+<span class="nc" id="L248">            }</span>
+            //TODO: add the rest
+        } finally {
+<span class="nc" id="L251">            lock.unlock();</span>
+<span class="nc" id="L252">        }</span>
+<span class="nc" id="L253">    }</span>
+
+    public void clear()
+    {
+<span class="nc" id="L257">        lock.lock();</span>
+        try {
+<span class="nc" id="L259">            vMasternodes.clear();</span>
+<span class="nc" id="L260">            mAskedUsForMasternodeList.clear();</span>
+<span class="nc" id="L261">            mWeAskedForMasternodeList.clear();</span>
+<span class="nc" id="L262">            mWeAskedForMasternodeListEntry.clear();</span>
+<span class="nc" id="L263">            mapSeenMasternodeBroadcast.clear();</span>
+<span class="nc" id="L264">            mapSeenMasternodePing.clear();</span>
+<span class="nc" id="L265">            nDsqCount = 0;</span>
+        } finally {
+<span class="nc" id="L267">            lock.unlock();</span>
+<span class="nc" id="L268">        }</span>
+<span class="nc" id="L269">    }</span>
+
+    boolean checkMnbAndUpdateMasternodeList(MasternodeBroadcast mnb) {
+<span class="nc" id="L272">        log.info(&quot;masternode-CMasternodeMan::CheckMnbAndUpdateMasternodeList - Masternode broadcast, vin: {}\n&quot;, mnb.vin.toString());</span>
+
+<span class="nc" id="L274">        lock.lock();</span>
+        try {
+<span class="nc bnc" id="L276" title="All 2 branches missed.">            if (mapSeenMasternodeBroadcast.containsKey(mnb.getHash())) { //seen</span>
+<span class="nc" id="L277">                context.masternodeSync.addedMasternodeList(mnb.getHash());</span>
+<span class="nc" id="L278">                return true;</span>
+            }
+
+<span class="nc" id="L281">            mapSeenMasternodeBroadcast.put(mnb.getHash(), mnb);</span>
+        } finally {
+<span class="nc" id="L283">            lock.unlock();</span>
+<span class="nc" id="L284">        }</span>
+
+<span class="nc" id="L286">        log.info(&quot;masternode-CMasternodeMan::CheckMnbAndUpdateMasternodeList - Masternode broadcast, vin: {} new\n&quot;, mnb.vin.toString());</span>
+
+<span class="nc bnc" id="L288" title="All 2 branches missed.">        if(!mnb.checkAndUpdate()){</span>
+<span class="nc" id="L289">            log.info(&quot;masternode-CMasternodeMan::CheckMnbAndUpdateMasternodeList - Masternode broadcast, vin: {} CheckAndUpdate failed\n&quot;, mnb.vin.toString());</span>
+<span class="nc" id="L290">            return false;</span>
+        }
+
+        // make sure it's still unspent
+        //  - this is checked later by .check() in many places and by ThreadCheckDarkSendPool()
+<span class="nc bnc" id="L295" title="All 2 branches missed.">        if(mnb.checkInputsAndAdd()) {</span>
+<span class="nc" id="L296">            context.masternodeSync.addedMasternodeList(mnb.getHash());</span>
+        } else {
+<span class="nc" id="L298">            log.info(&quot;CMasternodeMan::CheckMnbAndUpdateMasternodeList - Rejected Masternode entry {}&quot;, mnb.address.toString());</span>
+<span class="nc" id="L299">            return false;</span>
+        }
+
+<span class="nc" id="L302">        return true;</span>
+    }
+
+    void processMasternodeBroadcast(MasternodeBroadcast mnb)
+    {
+        //log.info(&quot;processMasternodeBroadcast:  hash={}&quot;, mnb.getHash());
+
+<span class="nc bnc" id="L309" title="All 2 branches missed.">        if(checkMnbAndUpdateMasternodeList(mnb))</span>
+        {
+
+        } else {
+
+            //if (nDoS &gt; 0)
+//                Misbehaving(pfrom-&gt;GetId(), nDoS);
+        }
+<span class="nc" id="L317">    }</span>
+    void processMasternodeBroadcast_old(MasternodeBroadcast mnb)
+    {
+        //log.info(&quot;processMasternodeBroadcast:  hash={}&quot;, mnb.getHash());
+        //lock.lock();
+        try {
+<span class="nc bnc" id="L323" title="All 2 branches missed.">            if (mapSeenMasternodeBroadcast.containsKey(mnb.getHash())) { //seen</span>
+<span class="nc" id="L324">                context.masternodeSync.addedMasternodeList(mnb.getHash());</span>
+<span class="nc" id="L325">                return;</span>
+            }
+
+<span class="nc" id="L328">            mapSeenMasternodeBroadcast.put(mnb.getHash(), mnb);</span>
+        } finally {
+<span class="nc" id="L330">            lock.unlock();</span>
+<span class="nc" id="L331">        }</span>
+
+<span class="nc" id="L333">        int nDoS = 0;</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">        if(!mnb.checkAndUpdate()){</span>
+
+            //if(nDoS &gt; 0)
+            //    Misbehaving(pfrom-&gt;GetId(), nDoS);
+
+            //failed
+<span class="nc" id="L340">            return;</span>
+        }
+
+        // make sure the vout that was signed is related to the transaction that spawned the Masternode
+        //  - this is expensive, so it's only done once per Masternode
+<span class="nc bnc" id="L345" title="All 2 branches missed.">        if(!DarkSendSigner.isVinAssociatedWithPubkey(params, mnb.vin, mnb.pubKeyCollateralAddress)) {</span>
+<span class="nc" id="L346">            log.info(&quot;mnb - Got mismatched pubkey and vin&quot;);</span>
+            //Misbehaving(pfrom-&gt;GetId(), 33);
+<span class="nc" id="L348">            return;</span>
+        }
+
+        // make sure it's still unspent
+        //  - this is checked later by .check() in many places and by ThreadCheckDarkSendPool()
+<span class="nc bnc" id="L353" title="All 2 branches missed.">        if(mnb.checkInputsAndAdd()) {</span>
+            // use this as a peer
+            //TODO:  Is this possible?
+            //addrman.Add(CAddress(mnb.addr), pfrom-&gt;addr, 2*60*60);
+            //context.masternodeSync.addedMasternodeList(mnb.getHash());
+        } else {
+<span class="nc" id="L359">            log.info(&quot;mnb - Rejected Masternode entry &quot;+ mnb.address.toString());</span>
+
+            //if (nDoS &gt; 0)
+//                Misbehaving(pfrom-&gt;GetId(), nDoS);
+        }
+<span class="nc" id="L364">    }</span>
+    void processMasternodePing(Peer peer, MasternodePing mnp)
+    {
+        //log.info(&quot;masternode - mnp - Masternode ping(hash={}, vin: {}&quot;, mnp.getHash(), mnp.vin.toString());
+
+<span class="nc bnc" id="L369" title="All 2 branches missed.">        if(mapSeenMasternodePing.containsKey(mnp.getHash()))</span>
+<span class="nc" id="L370">            return; //seen</span>
+<span class="nc" id="L371">        lock.lock();</span>
+        try {
+<span class="nc" id="L373">            mapSeenMasternodePing.put(mnp.getHash(), mnp);</span>
+        } finally {
+<span class="nc" id="L375">            lock.unlock();</span>
+<span class="nc" id="L376">        }</span>
+<span class="nc" id="L377">        log.info(&quot;masternode-mnp - Masternode ping, vin: {} new\n&quot;, mnp.vin.toString());</span>
+
+<span class="nc" id="L379">        int nDoS = 0;</span>
+<span class="nc bnc" id="L380" title="All 2 branches missed.">        if(mnp.checkAndUpdate()) return;</span>
+
+<span class="nc bnc" id="L382" title="All 2 branches missed.">        if(nDoS &gt; 0) {</span>
+            // if anything significant failed, mark that node
+            //Misbehaving(pfrom-&gt;GetId(), nDoS);
+        } else {
+            // if nothing significant failed, search existing Masternode list
+<span class="nc" id="L387">            Masternode pmn = find(mnp.vin);</span>
+            // if it's known, don't ask for the mnb, just return
+<span class="nc bnc" id="L389" title="All 2 branches missed.">            if(pmn != null) return;</span>
+        }
+
+        // something significant is broken or mn is unknown,
+        // we might have to ask for a masternode entry once
+<span class="nc" id="L394">        askForMN(peer, mnp.vin);</span>
+<span class="nc" id="L395">    }</span>
+    public void updateMasternodePing(MasternodePing lastPing)
+    {
+<span class="nc" id="L398">        lock.lock();</span>
+        try {
+<span class="nc" id="L400">            mapSeenMasternodePing.put(lastPing.getHash(), lastPing);</span>
+        } finally {
+<span class="nc" id="L402">            lock.unlock();</span>
+<span class="nc" id="L403">        }</span>
+<span class="nc" id="L404">    }</span>
+
+    boolean add(Masternode mn)
+    {
+        try {
+<span class="nc" id="L409">            lock.lock();</span>
+
+<span class="nc bnc" id="L411" title="All 4 branches missed.">            if (!mn.isEnabled() &amp;&amp; !mn.isPreEnabled())</span>
+<span class="nc" id="L412">                return false;</span>
+
+<span class="nc" id="L414">            Masternode pmn = find(mn.vin);</span>
+<span class="nc bnc" id="L415" title="All 2 branches missed.">            if (pmn == null) {</span>
+<span class="nc" id="L416">                log.info(&quot;masternode - MasternodeMan: Adding new Masternode &quot;+mn.address.toString()+&quot; - &quot;+(size() + 1)+&quot; now&quot;);</span>
+<span class="nc" id="L417">                vMasternodes.add(mn);</span>
+<span class="nc" id="L418">                queueOnSyncStatusChanged();</span>
+<span class="nc" id="L419">                return true;</span>
+            }
+
+<span class="nc" id="L422">            return false;</span>
+        } finally {
+<span class="nc" id="L424">          lock.unlock();</span>
+<span class="nc" id="L425">        }</span>
+    }
+
+    Masternode find(Script payee)
+    {
+        //LOCK(cs);
+<span class="nc" id="L431">        lock.lock();</span>
+        try {
+            Script payee2;
+
+            //BOOST_FOREACH(CMasternode&amp; mn, vMasternodes)
+<span class="nc bnc" id="L436" title="All 2 branches missed.">            for (Masternode mn : vMasternodes) {</span>
+                //payee2 = GetScriptForDestination(mn.pubkey.GetID());
+<span class="nc" id="L438">                payee2 = ScriptBuilder.createOutputScript(mn.pubKeyCollateralAddress.getECKey());</span>
+
+<span class="nc bnc" id="L440" title="All 2 branches missed.">                if (payee2 == payee)</span>
+<span class="nc" id="L441">                    return mn;</span>
+<span class="nc" id="L442">            }</span>
+<span class="nc" id="L443">            return null;</span>
+        } finally {
+<span class="nc" id="L445">            lock.unlock();</span>
+<span class="nc" id="L446">        }</span>
+    }
+
+    public Masternode find(TransactionInput vin)
+    {
+<span class="nc" id="L451">        lock.lock();</span>
+        try {
+
+            //BOOST_FOREACH(CMasternode &amp; mn, vMasternodes)
+<span class="nc bnc" id="L455" title="All 2 branches missed.">            for (Masternode mn : vMasternodes)</span>
+            {
+<span class="nc bnc" id="L457" title="All 2 branches missed.">                if (mn.vin.getOutpoint().equals(vin.getOutpoint()))</span>
+<span class="nc" id="L458">                    return mn;</span>
+<span class="nc" id="L459">            }</span>
+<span class="nc" id="L460">            return null;</span>
+        } finally {
+<span class="nc" id="L462">            lock.unlock();</span>
+<span class="nc" id="L463">        }</span>
+    }
+
+
+    Masternode find(PublicKey pubKeyMasternode)
+    {
+<span class="nc" id="L469">        lock.lock();</span>
+        try {
+            //BOOST_FOREACH(CMasternode &amp; mn, vMasternodes)
+<span class="nc bnc" id="L472" title="All 2 branches missed.">            for (Masternode mn : vMasternodes)</span>
+            {
+<span class="nc bnc" id="L474" title="All 2 branches missed.">                if (mn.pubKeyMasternode.equals(pubKeyMasternode))</span>
+<span class="nc" id="L475">                    return mn;</span>
+<span class="nc" id="L476">            }</span>
+<span class="nc" id="L477">            return null;</span>
+        } finally {
+<span class="nc" id="L479">            lock.unlock();</span>
+<span class="nc" id="L480">        }</span>
+    }
+    public boolean has(TransactionOutPoint outpoint)
+    {
+<span class="nc" id="L484">        TransactionInput txin = new TransactionInput(params, null, null, outpoint);</span>
+<span class="nc" id="L485">        Masternode mn = find(txin);</span>
+
+<span class="nc bnc" id="L487" title="All 2 branches missed.">        return mn != null;</span>
+    }
+
+<span class="nc" id="L490">    public int countEnabled() { return countEnabled(-1); }</span>
+    public int countEnabled(int protocolVersion)
+    {
+<span class="nc" id="L493">        int i = 0;</span>
+<span class="nc bnc" id="L494" title="All 2 branches missed.">        protocolVersion = protocolVersion == -1 ? context.masternodePayments.getMinMasternodePaymentsProto() : protocolVersion;</span>
+
+<span class="nc" id="L496">        lock.lock();</span>
+        try {
+            //BOOST_FOREACH(CMasternode&amp; mn, vMasternodes)
+<span class="nc bnc" id="L499" title="All 2 branches missed.">            for (Masternode mn : vMasternodes) {</span>
+<span class="nc" id="L500">                mn.check();</span>
+<span class="nc bnc" id="L501" title="All 4 branches missed.">                if (mn.protocolVersion &lt; protocolVersion || !mn.isEnabled()) continue;</span>
+<span class="nc" id="L502">                i++;</span>
+<span class="nc" id="L503">            }</span>
+        } finally {
+<span class="nc" id="L505">            lock.unlock();</span>
+<span class="nc" id="L506">        }</span>
+
+<span class="nc" id="L508">        return i;</span>
+    }
+
+    public void remove(TransactionInput vin)
+    {
+        try {
+<span class="nc" id="L514">            lock.lock();</span>
+
+
+            //vector&lt;CMasternode&gt;::iterator it = vMasternodes.begin();
+<span class="nc" id="L518">            Iterator&lt;Masternode&gt; it = vMasternodes.iterator();</span>
+<span class="nc bnc" id="L519" title="All 2 branches missed.">            while (it.hasNext()) {</span>
+<span class="nc" id="L520">                Masternode mn = it.next();</span>
+<span class="nc bnc" id="L521" title="All 2 branches missed.">                if (mn.vin.equals(vin)){</span>
+<span class="nc" id="L522">                    log.info(&quot;masternode - CMasternodeMan: Removing Masternode %s &quot;+mn.address.toString()+&quot;- &quot;+(size()-1)+&quot; now&quot;);</span>
+
+                    //vMasternodes.remove(mn);
+<span class="nc" id="L525">                    it.remove();</span>
+<span class="nc" id="L526">                    queueOnSyncStatusChanged();</span>
+<span class="nc" id="L527">                    break;</span>
+                }
+
+<span class="nc" id="L530">            }</span>
+        } finally {
+<span class="nc" id="L532">            lock.unlock();</span>
+<span class="nc" id="L533">        }</span>
+<span class="nc" id="L534">    }</span>
+<span class="nc" id="L535">    int size() { return vMasternodes.size(); }</span>
+
+    public String toString()
+    {
+        String result;
+
+<span class="nc" id="L541">        result = &quot;Masternodes: &quot; + (int)vMasternodes.size() +</span>
+<span class="nc" id="L542">                &quot;, peers who asked us for Masternode list: &quot; + (int)mAskedUsForMasternodeList.size() +</span>
+<span class="nc" id="L543">                &quot;, peers we asked for Masternode list: &quot; + (int)mWeAskedForMasternodeList.size() +</span>
+<span class="nc" id="L544">                &quot;, entries in Masternode list we asked for: &quot; + (int)mWeAskedForMasternodeListEntry.size() +</span>
+                &quot;, nDsqCount: &quot; + (int)nDsqCount;
+
+<span class="nc" id="L547">        return result;</span>
+    }
+    public void askForMN(Peer pnode, TransactionOutPoint outPoint)
+    {
+<span class="nc" id="L551">        TransactionInput input = new TransactionInput(params, null, null, outPoint);</span>
+<span class="nc" id="L552">        askForMN(pnode, input);</span>
+<span class="nc" id="L553">    }</span>
+
+    public void askForMN(Peer pnode, TransactionInput vin)
+    {
+        //std::map&lt;COutPoint, int64_t&gt;::iterator i = mWeAskedForMasternodeListEntry.find(vin.prevout);
+
+<span class="nc" id="L559">        Long i = mWeAskedForMasternodeListEntry.get(vin.getOutpoint());</span>
+
+<span class="nc bnc" id="L561" title="All 2 branches missed.">        if (i != null)</span>
+        {
+<span class="nc" id="L563">            long t = i;</span>
+<span class="nc bnc" id="L564" title="All 2 branches missed.">            if (Utils.currentTimeSeconds() &lt; t) return; // we've asked recently</span>
+        }
+
+        // ask for the mnb info once from the node that sent mnp
+
+<span class="nc" id="L569">        log.info(&quot;CMasternodeMan::AskForMN - Asking node for missing entry, vin: &quot;+ vin.toString());</span>
+        //pnode-&gt;PushMessage(&quot;dseg&quot;, vin);
+<span class="nc" id="L571">        pnode.sendMessage(new DarkSendEntryGetMessage(vin));</span>
+<span class="nc" id="L572">        long askAgain = Utils.currentTimeSeconds() + MasternodePing.MASTERNODE_MIN_MNP_SECONDS;</span>
+<span class="nc" id="L573">        mWeAskedForMasternodeListEntry.put(vin.getOutpoint(), askAgain);</span>
+<span class="nc" id="L574">    }</span>
+
+    Sha256Hash _getBlockHash(long height)
+    {
+        try {
+<span class="nc" id="L579">            StoredBlock head = blockChain.getChainHead();</span>
+
+<span class="nc" id="L581">            BlockStore blockStore = blockChain.getBlockStore();</span>
+
+            //long heightToFind = (height - 100) - ((height-100)%100);
+
+            //If header is not stored, then return the tip
+            //TODO:  remove this or the whole function;
+<span class="nc bnc" id="L587" title="All 2 branches missed.">            if((head.getHeight() - 2050) &gt; height)</span>
+<span class="nc" id="L588">                return null;</span>
+
+<span class="nc" id="L590">            StoredBlock cursor = head;</span>
+<span class="nc bnc" id="L591" title="All 4 branches missed.">            while (cursor != null &amp;&amp; cursor.getHeight() != (height-1)) {</span>
+<span class="nc" id="L592">                cursor = cursor.getPrev(blockStore);</span>
+            }
+
+<span class="nc bnc" id="L595" title="All 2 branches missed.">            return cursor != null ? cursor.getHeader().getHash() : null;</span>
+
+<span class="nc" id="L597">        } catch(BlockStoreException x)</span>
+        {
+<span class="nc" id="L599">            return null;</span>
+        }
+    }
+
+    public int getMasternodeRank(TransactionInput vin, int nBlockHeight, int minProtocol)
+    {
+<span class="nc" id="L605">        return getMasternodeRank(vin, nBlockHeight, minProtocol, true);</span>
+    }
+
+<span class="nc" id="L608">    class CompareScoreTxIn&lt;Object&gt; implements Comparator&lt;Object&gt;</span>
+    {
+        public int compare(Object t1, Object t2) {
+<span class="nc" id="L611">            Pair&lt;Long, TransactionInput&gt; p1 = (Pair&lt;Long, TransactionInput&gt;)t1;</span>
+<span class="nc" id="L612">            Pair&lt;Long, TransactionInput&gt; p2 = (Pair&lt;Long, TransactionInput&gt;)t2;</span>
+
+<span class="nc bnc" id="L614" title="All 2 branches missed.">            if(p1.getFirst() &lt; p2.getFirst())</span>
+<span class="nc" id="L615">                return -1;</span>
+<span class="nc bnc" id="L616" title="All 2 branches missed.">            if(p1.getFirst() == p2.getFirst())</span>
+<span class="nc" id="L617">                return 0;</span>
+<span class="nc" id="L618">            else return 1;</span>
+        }
+    }
+
+<span class="nc" id="L622">    class CompareScoreMn&lt;Object&gt; implements Comparator&lt;Object&gt;</span>
+    {
+        public int compare(Object t1, Object t2) {
+<span class="nc" id="L625">            Pair&lt;Long, Masternode&gt; p1 = (Pair&lt;Long, Masternode&gt;)t1;</span>
+<span class="nc" id="L626">            Pair&lt;Long, Masternode&gt; p2 = (Pair&lt;Long, Masternode&gt;)t2;</span>
+
+<span class="nc bnc" id="L628" title="All 2 branches missed.">            if(p1.getFirst() &lt; p2.getFirst())</span>
+<span class="nc" id="L629">                return -1;</span>
+<span class="nc bnc" id="L630" title="All 2 branches missed.">            if(p1.getFirst() == p2.getFirst())</span>
+<span class="nc" id="L631">                return 0;</span>
+<span class="nc" id="L632">            else return 1;</span>
+        }
+    }
+
+    public int getMasternodeRank(TransactionInput vin, int nBlockHeight, int minProtocol, boolean fOnlyActive)
+    {
+        //std::vector&lt;pair&lt;int64_t, CTxIn&gt; &gt; vecMasternodeScores;
+<span class="nc" id="L639">        ArrayList&lt;Pair&lt;Long, TransactionInput&gt;&gt; vecMasternodeScores = new ArrayList&lt;Pair&lt;Long, TransactionInput&gt;&gt;(size());</span>
+
+        //make sure we know about this block
+        //uint256 hash = 0;
+        //if(!GetBlockHash(hash, nBlockHeight)) return -1;
+<span class="nc bnc" id="L644" title="All 2 branches missed.">        if(blockChain.getChainHead().getHeight() &lt; nBlockHeight)</span>
+<span class="nc" id="L645">            return -1; //Blockheight is above what the store has.</span>
+
+        //Added to speed things up
+<span class="nc bnc" id="L648" title="All 2 branches missed.">        if(context.isLiteMode())</span>
+<span class="nc" id="L649">            return -3; // We don't have a masternode list</span>
+
+<span class="nc" id="L651">        Masternode mnExisting = find(vin);</span>
+<span class="nc bnc" id="L652" title="All 2 branches missed.">        if(mnExisting == null)</span>
+<span class="nc" id="L653">            return -1;</span>
+        // todo: hashtore bad structred in the code.
+<span class="nc" id="L655">        Sha256Hash hash = null;//context.hashStore.getBlockHash(nBlockHeight);</span>
+<span class="nc bnc" id="L656" title="All 2 branches missed.">        if(hash == null) {</span>
+<span class="nc" id="L657">            return -2; //we don't have the block in our store</span>
+        }
+         // scan for winner
+        else
+        {
+<span class="nc" id="L662">            lock.lock();</span>
+            try {
+<span class="nc bnc" id="L664" title="All 2 branches missed.">                for(Masternode mn : vMasternodes) {</span>
+<span class="nc bnc" id="L665" title="All 2 branches missed.">                    if(mn.protocolVersion &lt; minProtocol) continue;</span>
+<span class="nc bnc" id="L666" title="All 2 branches missed.">                    if(fOnlyActive) {</span>
+<span class="nc" id="L667">                        mn.check();</span>
+<span class="nc bnc" id="L668" title="All 2 branches missed.">                        if(!mn.isEnabled()) continue;</span>
+                    }
+<span class="nc" id="L670">                    Sha256Hash n = mn.calculateScore(1, hash);</span>
+                    //int64_t n2 = n.GetCompact(false);
+<span class="nc" id="L672">                    long n2 = Utils.encodeCompactBits(n.toBigInteger(), false);</span>
+
+<span class="nc" id="L674">                    vecMasternodeScores.add(new Pair&lt;Long, TransactionInput&gt;(n2, mn.vin));</span>
+<span class="nc" id="L675">                }</span>
+            } finally {
+<span class="nc" id="L677">                lock.unlock();</span>
+<span class="nc" id="L678">            }</span>
+        }
+
+
+        //sort(vecMasternodeScores.rbegin(), vecMasternodeScores.rend(), CompareScoreTxIn());
+        //vecMasternodeScores.sort(new CompareScoreTxIn());
+<span class="nc" id="L684">        Collections.sort(vecMasternodeScores, Collections.reverseOrder(new CompareScoreTxIn()));</span>
+
+
+
+<span class="nc" id="L688">        int rank = 0;</span>
+<span class="nc bnc" id="L689" title="All 2 branches missed.">        for (Pair&lt;Long, TransactionInput&gt; s : vecMasternodeScores) {</span>
+<span class="nc" id="L690">            rank++;</span>
+<span class="nc bnc" id="L691" title="All 2 branches missed.">            if(s.getSecond().getOutpoint().equals(vin.getOutpoint())) {</span>
+<span class="nc" id="L692">                return rank;</span>
+            }
+<span class="nc" id="L694">        }</span>
+
+<span class="nc" id="L696">        return -1;</span>
+    }
+
+    /*public int getMasternodeRank(TransactionInput vin, Sha256Hash hash, int minProtocol, boolean fOnlyActive)
+    {
+        //std::vector&lt;pair&lt;int64_t, CTxIn&gt; &gt; vecMasternodeScores;
+        ArrayList&lt;Pair&lt;Long, TransactionInput&gt;&gt; vecMasternodeScores = new ArrayList&lt;Pair&lt;Long, TransactionInput&gt;&gt;(3000);
+
+        // scan for winner
+        for(Masternode mn : vMasternodes) {
+            if(mn.protocolVersion &lt; minProtocol) continue;
+            if(fOnlyActive) {
+                mn.check();
+                if(!mn.isEnabled()) continue;
+            }
+            Sha256Hash n = mn.calculateScore(1, hash);
+            //int64_t n2 = n.GetCompact(false);
+            long n2 = Utils.encodeCompactBits(new BigInteger(n.getBytes()));
+
+            vecMasternodeScores.add(new Pair&lt;Long, TransactionInput&gt;(n2, mn.vin));
+        }
+
+
+        Collections.sort(vecMasternodeScores, Collections.reverseOrder(new CompareScoreTxIn()));
+        //Arrays.sort(vecMasternodeScores.toArray(), new CompareScoreTxIn());
+
+        int rank = 0;
+        for (Pair&lt;Long, TransactionInput&gt; s : vecMasternodeScores) {
+            rank++;
+            if(s.getSecond().getOutpoint().equals(vin.getOutpoint())) {
+                return rank;
+            }
+        }
+
+        return -1;
+    }*/
+    void check()
+    {
+<span class="nc" id="L734">        lock.lock();</span>
+
+
+<span class="nc bnc" id="L737" title="All 2 branches missed.">        for(Masternode mn : vMasternodes){</span>
+<span class="nc" id="L738">            mn.check();</span>
+<span class="nc" id="L739">        }</span>
+<span class="nc" id="L740">        lock.unlock();</span>
+
+<span class="nc" id="L742">    }</span>
+
+    //std::vector&lt;pair&lt;int, CMasternode&gt; &gt;
+    public ArrayList&lt;Pair&lt;Integer, Masternode&gt;&gt; getMasternodeRanks(int nBlockHeight, int minProtocol)
+    {
+
+            //std::vector&lt;pair&lt;int64_t, CMasternode&gt; &gt; vecMasternodeScores;
+<span class="nc" id="L749">            ArrayList&lt;Pair&lt;Long, Masternode&gt;&gt; vecMasternodeScores = new ArrayList&lt;Pair&lt;Long, Masternode&gt;&gt;();</span>
+            //std::vector&lt;pair&lt;int, CMasternode&gt; &gt; vecMasternodeRanks;
+<span class="nc" id="L751">            ArrayList&lt;Pair&lt;Integer, Masternode&gt;&gt; vecMasternodeRanks = new ArrayList&lt;Pair&lt;Integer, Masternode&gt;&gt;();</span>
+            //make sure we know about this block
+            //uint256 hash = uint256();
+            //if(!GetBlockHash(hash, nBlockHeight)) return vecMasternodeRanks;
+            // todo: hashstore bad structured in the code:
+<span class="nc" id="L756">            Sha256Hash hash = null;//context.hashStore.getBlockHash(nBlockHeight);</span>
+<span class="nc bnc" id="L757" title="All 2 branches missed.">            if (hash == null)</span>
+<span class="nc" id="L758">                return vecMasternodeRanks;</span>
+<span class="nc" id="L759">        lock.lock();</span>
+        try {
+            // scan for winner
+<span class="nc bnc" id="L762" title="All 2 branches missed.">            for (Masternode mn : vMasternodes) {</span>
+
+<span class="nc" id="L764">                mn.check();</span>
+
+<span class="nc bnc" id="L766" title="All 2 branches missed.">                if (mn.protocolVersion &lt; minProtocol) continue;</span>
+<span class="nc bnc" id="L767" title="All 2 branches missed.">                if (!mn.isEnabled()) {</span>
+<span class="nc" id="L768">                    continue;</span>
+                }
+
+<span class="nc" id="L771">                Sha256Hash n = mn.calculateScore(1, nBlockHeight);</span>
+                //long n2 = UintToArith256(n).GetCompact(false);
+<span class="nc" id="L773">                long n2 = Utils.encodeCompactBits(n.toBigInteger(), false);</span>
+
+<span class="nc" id="L775">                vecMasternodeScores.add(new Pair(n2, mn));</span>
+<span class="nc" id="L776">            }</span>
+        } finally {
+<span class="nc" id="L778">            lock.unlock();</span>
+<span class="nc" id="L779">        }</span>
+
+        //sort(vecMasternodeScores.rbegin(), vecMasternodeScores.rend(), CompareScoreMN());
+<span class="nc" id="L782">        Collections.sort(vecMasternodeScores, Collections.reverseOrder(new CompareScoreMn()));</span>
+        //Arrays.sort(vecMasternodeScores.toArray(), new CompareScoreMn());
+<span class="nc" id="L784">        int rank = 0;</span>
+        //BOOST_FOREACH (PAIRTYPE(int64_t, CMasternode)&amp; s, vecMasternodeScores){
+<span class="nc bnc" id="L786" title="All 2 branches missed.">        for(Pair&lt;Long, Masternode&gt; s: vecMasternodeScores) {</span>
+<span class="nc" id="L787">            rank++;</span>
+<span class="nc" id="L788">            vecMasternodeRanks.add(new Pair(rank, s.getSecond()));</span>
+<span class="nc" id="L789">        }</span>
+
+<span class="nc" id="L791">        return vecMasternodeRanks;</span>
+    }
+
+<span class="nc" id="L794">    public void checkAndRemove() { checkAndRemove(false); }</span>
+    public void checkAndRemove(boolean forceExpiredRemoval)
+    {
+<span class="nc" id="L797">        check();</span>
+
+<span class="nc" id="L799">        lock.lock();</span>
+        try {
+
+            //remove inactive and outdated
+            //vector&lt;CMasternode&gt;::iterator it = vMasternodes.begin();
+<span class="nc" id="L804">            Iterator&lt;Masternode&gt; it = vMasternodes.iterator();</span>
+
+<span class="nc bnc" id="L806" title="All 2 branches missed.">            while (it.hasNext()) {</span>
+<span class="nc" id="L807">                Masternode mn = it.next();</span>
+<span class="nc bnc" id="L808" title="All 8 branches missed.">                if (mn.activeState == Masternode.State.MASTERNODE_REMOVE ||</span>
+                        mn.activeState == Masternode.State.MASTERNODE_VIN_SPENT ||
+                        (forceExpiredRemoval &amp;&amp; mn.activeState == Masternode.State.MASTERNODE_EXPIRED)) {
+<span class="nc" id="L811">                    log.info(&quot;masternode-CMasternodeMan: Removing inactive Masternode {} - {} now&quot;, mn.address.toString(), size() - 1);</span>
+
+                    //erase all of the broadcasts we've seen from this vin
+                    // -- if we missed a few pings and the node was removed, this will allow is to get it back without them
+                    //    sending a brand new mnb
+                    //map&lt;uint256, CMasternodeBroadcast&gt;::iterator it3 = mapSeenMasternodeBroadcast.begin();
+<span class="nc" id="L817">                    Iterator&lt;Map.Entry&lt;Sha256Hash, MasternodeBroadcast&gt;&gt; it3 = mapSeenMasternodeBroadcast.entrySet().iterator();</span>
+<span class="nc bnc" id="L818" title="All 2 branches missed.">                    while (it3.hasNext()) {</span>
+<span class="nc" id="L819">                        Map.Entry&lt;Sha256Hash, MasternodeBroadcast&gt; mb = it3.next();</span>
+<span class="nc bnc" id="L820" title="All 2 branches missed.">                        if (mb.getValue().vin.equals(mn.vin)) {</span>
+<span class="nc" id="L821">                            context.masternodeSync.mapSeenSyncMNB.remove(mb.getKey());</span>
+                            //mapSeenMasternodeBroadcast.remove(mb.getKey(), mb.getValue());
+<span class="nc" id="L823">                            it3.remove();</span>
+                        }
+<span class="nc" id="L825">                    }</span>
+
+                    // allow us to ask for this masternode again if we see another ping
+                    //map&lt;COutPoint, int64_t&gt;::iterator it2 = mWeAskedForMasternodeListEntry.begin();
+<span class="nc" id="L829">                    Iterator&lt;Map.Entry&lt;TransactionOutPoint, Long&gt;&gt; it2 = mWeAskedForMasternodeListEntry.entrySet().iterator();</span>
+<span class="nc bnc" id="L830" title="All 2 branches missed.">                    while (it2.hasNext()) {</span>
+<span class="nc" id="L831">                        Map.Entry&lt;TransactionOutPoint, Long&gt; e = it2.next();</span>
+<span class="nc bnc" id="L832" title="All 2 branches missed.">                        if (e.getKey().equals(mn.vin.getOutpoint())) {</span>
+                            //mWeAskedForMasternodeListEntry.remove(e.getKey(), e.getValue());
+<span class="nc" id="L834">                            it2.remove();</span>
+                        }
+<span class="nc" id="L836">                    }</span>
+
+                    //it = vMasternodes.erase(it);
+<span class="nc" id="L839">                    it.remove();</span>
+<span class="nc" id="L840">                    queueOnSyncStatusChanged();</span>
+                } else {
+                    //++it;
+                }
+<span class="nc" id="L844">            }</span>
+
+            // check who's asked for the Masternode list
+            //map&lt;CNetAddr, int64_t&gt;::iterator it1 = mAskedUsForMasternodeList.begin();
+<span class="nc" id="L848">            Iterator&lt;Map.Entry&lt;NetAddress, Long&gt;&gt; it1 = mAskedUsForMasternodeList.entrySet().iterator();</span>
+<span class="nc bnc" id="L849" title="All 2 branches missed.">            while (it1.hasNext()) {</span>
+<span class="nc" id="L850">                Map.Entry&lt;NetAddress, Long&gt; e = it1.next();</span>
+<span class="nc bnc" id="L851" title="All 2 branches missed.">                if (e.getValue() &lt; Utils.currentTimeSeconds()) {</span>
+                    //mAskedUsForMasternodeList.erase(it1++);
+<span class="nc" id="L853">                    it1.remove();</span>
+                } else {
+                    //++it1;
+                }
+<span class="nc" id="L857">            }</span>
+
+            // check who we asked for the Masternode list
+            //it1 = mWeAskedForMasternodeList.begin();
+<span class="nc" id="L861">            it1 = mWeAskedForMasternodeList.entrySet().iterator();</span>
+<span class="nc bnc" id="L862" title="All 2 branches missed.">            while (it1.hasNext()) {</span>
+<span class="nc" id="L863">                Map.Entry&lt;NetAddress, Long&gt; e = it1.next();</span>
+<span class="nc bnc" id="L864" title="All 2 branches missed.">                if (e.getValue() &lt; Utils.currentTimeSeconds()) {</span>
+                    //mWeAskedForMasternodeList.erase(it1++);
+<span class="nc" id="L866">                    it1.remove();</span>
+                } else {
+                    //++it1;
+                }
+<span class="nc" id="L870">            }</span>
+
+            // check which Masternodes we've asked for
+            //map&lt;COutPoint, int64_t&gt;::iterator it2 = mWeAskedForMasternodeListEntry.begin();
+<span class="nc" id="L874">            Iterator&lt;Map.Entry&lt;TransactionOutPoint, Long&gt;&gt; it2 = mWeAskedForMasternodeListEntry.entrySet().iterator();</span>
+<span class="nc bnc" id="L875" title="All 2 branches missed.">            while (it2.hasNext()) {</span>
+<span class="nc" id="L876">                Map.Entry&lt;TransactionOutPoint, Long&gt; e = it2.next();</span>
+<span class="nc bnc" id="L877" title="All 2 branches missed.">                if (e.getValue() &lt; Utils.currentTimeSeconds()) {</span>
+                    //mWeAskedForMasternodeListEntry.erase(it2++);
+<span class="nc" id="L879">                    it2.remove();</span>
+                } else {
+                    //++it2;
+                }
+<span class="nc" id="L883">            }</span>
+
+            // remove expired mapSeenMasternodeBroadcast
+<span class="nc" id="L886">            Iterator&lt;Map.Entry&lt;Sha256Hash, MasternodeBroadcast&gt;&gt; it3 = mapSeenMasternodeBroadcast.entrySet().iterator();</span>
+
+<span class="nc bnc" id="L888" title="All 2 branches missed.">            while (it3.hasNext()) {</span>
+<span class="nc" id="L889">                Map.Entry&lt;Sha256Hash, MasternodeBroadcast&gt; mb = it3.next();</span>
+<span class="nc bnc" id="L890" title="All 2 branches missed.">                if (mb.getValue().lastPing.sigTime &lt; Utils.currentTimeSeconds() - (MASTERNODE_REMOVAL_SECONDS * 2)) {</span>
+                    //mapSeenMasternodeBroadcast.erase(it3++);
+<span class="nc" id="L892">                    log.info(&quot;masternode-CMasternodeMan::CheckAndRemove - Removing expired Masternode broadcast {}&quot;, mb.getValue().getHash().toString());</span>
+<span class="nc" id="L893">                    context.masternodeSync.mapSeenSyncMNB.remove(mb.getValue().getHash());</span>
+
+<span class="nc" id="L895">                    it3.remove();</span>
+                } else {
+                    //++it3;
+                }
+<span class="nc" id="L899">            }</span>
+
+            // remove expired mapSeenMasternodePing
+<span class="nc" id="L902">            Iterator&lt;Map.Entry&lt;Sha256Hash, MasternodePing&gt;&gt; it4 = mapSeenMasternodePing.entrySet().iterator();</span>
+<span class="nc bnc" id="L903" title="All 2 branches missed.">            while (it4.hasNext()) {</span>
+<span class="nc" id="L904">                Map.Entry&lt;Sha256Hash, MasternodePing&gt; mp = it4.next();</span>
+<span class="nc bnc" id="L905" title="All 2 branches missed.">                if (mp.getValue().sigTime &lt; Utils.currentTimeSeconds() - (MASTERNODE_REMOVAL_SECONDS * 2)) {</span>
+                    //mapSeenMasternodePing.erase(it4++);
+<span class="nc" id="L907">                    log.info(&quot;masternode-CMasternodeMan::CheckAndRemove - Removing expired Masternode ping {}&quot;, mp.getValue().getHash().toString());</span>
+<span class="nc" id="L908">                    it4.remove();</span>
+                } else {
+                    //++it4;
+                }
+<span class="nc" id="L912">            }</span>
+        }
+        finally {
+<span class="nc" id="L915">            lock.unlock();</span>
+<span class="nc" id="L916">        }</span>
+
+<span class="nc" id="L918">    }</span>
+
+    void dsegUpdate(Peer pnode)
+    {
+<span class="nc" id="L922">        lock.lock();</span>
+
+        try {
+
+<span class="nc bnc" id="L926" title="All 2 branches missed.">            if (params.getId().equals(NetworkParameters.ID_MAINNET)) {</span>
+<span class="nc bnc" id="L927" title="All 4 branches missed.">                if (!(pnode.getAddress().getAddr().isAnyLocalAddress() || pnode.getAddress().getAddr().isLoopbackAddress())) {</span>
+                   //std::map &lt; CNetAddr, int64_t &gt;::iterator it = mWeAskedForMasternodeList.find(pnode -&gt; addr);
+<span class="nc" id="L929">                    Iterator&lt;Map.Entry&lt;NetAddress, Long&gt;&gt; it = mWeAskedForMasternodeList.entrySet().iterator();</span>
+<span class="nc bnc" id="L930" title="All 2 branches missed.">                    if (it.hasNext()) {</span>
+
+<span class="nc bnc" id="L932" title="All 2 branches missed.">                        if (Utils.currentTimeSeconds() &lt; it.next().getValue()){</span>
+<span class="nc" id="L933">                            log.info(&quot;dseg - we already asked {} for the list; skipping...&quot;, pnode.getAddress().toString());</span>
+<span class="nc" id="L934">                            return;</span>
+                        }
+                    }
+                }
+            }
+
+<span class="nc" id="L940">            pnode.sendMessage(new DarkSendEntryGetMessage(new TransactionInput(params,null, new byte[0])));</span>
+            //pnode -&gt; PushMessage(&quot;dseg&quot;, CTxIn());
+<span class="nc" id="L942">            long askAgain = Utils.currentTimeSeconds() + MasternodeManager.MASTERNODES_DSEG_SECONDS;</span>
+<span class="nc" id="L943">            mWeAskedForMasternodeList.put(new NetAddress(pnode.getAddress().getAddr()),askAgain);</span>
+        } finally {
+<span class="nc" id="L945">            lock.unlock();</span>
+<span class="nc" id="L946">        }</span>
+<span class="nc" id="L947">    }</span>
+
+    public void processMasternodeConnections()
+    {
+        //we don't care about this for regtest
+<span class="nc bnc" id="L952" title="All 2 branches missed.">        if(params.getId().equals(NetworkParameters.ID_REGTEST)) return;</span>
+
+<span class="nc" id="L954">        ReentrantLock nodeLock = context.peerGroup.getLock();</span>
+
+<span class="nc" id="L956">        nodeLock.lock();</span>
+        try {
+
+            //BOOST_FOREACH(CNode * pnode, vNodes)
+<span class="nc bnc" id="L960" title="All 2 branches missed.">            for(Peer pnode : context.peerGroup.getConnectedPeers())</span>
+            {
+<span class="nc bnc" id="L962" title="All 2 branches missed.">                if (pnode.isDarkSendMaster()) {</span>
+<span class="nc bnc" id="L963" title="All 4 branches missed.">                    if (context.darkSendPool.submittedToMasternode != null &amp;&amp; pnode.getAddress().getAddr().equals(context.darkSendPool.submittedToMasternode.address.getAddr()))</span>
+<span class="nc" id="L964">                        continue;</span>
+<span class="nc" id="L965">                    log.info(&quot;Closing Masternode connection {}&quot;, pnode.getAddress());</span>
+<span class="nc" id="L966">                    pnode.fDarkSendMaster = false;</span>
+                    //pnode.release();???
+                    //TODO:  not finished
+                }
+
+<span class="nc" id="L971">            }</span>
+        } finally {
+<span class="nc" id="L973">            nodeLock.unlock();</span>
+<span class="nc" id="L974">        }</span>
+<span class="nc" id="L975">    }</span>
+
+
+    /******************************************************************************************************************/
+
+    //region Event listeners
+    private transient CopyOnWriteArrayList&lt;ListenerRegistration&lt;MasternodeManagerListener&gt;&gt; eventListeners;
+    /**
+     * Adds an event listener object. Methods on this object are called when something interesting happens,
+     * like receiving money. Runs the listener methods in the user thread.
+     */
+    public void addEventListener(MasternodeManagerListener listener) {
+<span class="nc" id="L987">        addEventListener(listener, Threading.USER_THREAD);</span>
+<span class="nc" id="L988">    }</span>
+
+    /**
+     * Adds an event listener object. Methods on this object are called when something interesting happens,
+     * like receiving money. The listener is executed by the given executor.
+     */
+    public void addEventListener(MasternodeManagerListener listener, Executor executor) {
+        // This is thread safe, so we don't need to take the lock.
+<span class="nc" id="L996">        eventListeners.add(new ListenerRegistration&lt;MasternodeManagerListener&gt;(listener, executor));</span>
+        //keychain.addEventListener(listener, executor);
+<span class="nc" id="L998">    }</span>
+
+    /**
+     * Removes the given event listener object. Returns true if the listener was removed, false if that listener
+     * was never added.
+     */
+    public boolean removeEventListener(MasternodeManagerListener listener) {
+        //keychain.removeEventListener(listener);
+<span class="nc" id="L1006">        return ListenerRegistration.removeFromList(listener, eventListeners);</span>
+    }
+
+    private void queueOnSyncStatusChanged() {
+        //checkState(lock.isHeldByCurrentThread());
+<span class="nc bnc" id="L1011" title="All 2 branches missed.">        for (final ListenerRegistration&lt;MasternodeManagerListener&gt; registration : eventListeners) {</span>
+<span class="nc bnc" id="L1012" title="All 2 branches missed.">            if (registration.executor == Threading.SAME_THREAD) {</span>
+<span class="nc" id="L1013">                registration.listener.onMasternodeCountChanged(vMasternodes.size());</span>
+            } else {
+<span class="nc" id="L1015">                registration.executor.execute(new Runnable() {</span>
+                    @Override
+                    public void run() {
+<span class="nc" id="L1018">                        registration.listener.onMasternodeCountChanged(vMasternodes.size());</span>
+<span class="nc" id="L1019">                    }</span>
+                });
+            }
+<span class="nc" id="L1022">        }</span>
+<span class="nc" id="L1023">    }</span>
+    public int getEstimatedMasternodes(int nBlock)
+    {
+    /*
+        Masternodes = (Coins/1000)*X on average
+
+        *X = nPercentage, starting at 0.52
+        nPercentage goes up 0.01 each period
+        Period starts at 35040, which has exponential slowing growth
+
+    */
+
+<span class="nc" id="L1035">        int nPercentage = 52; //0.52</span>
+<span class="nc" id="L1036">        int nPeriod = 35040;</span>
+<span class="nc" id="L1037">        int nCollateral = 1000;</span>
+
+<span class="nc bnc" id="L1039" title="All 2 branches missed.">        for(int i = nPeriod; i &lt;= nBlock; i += nPeriod)</span>
+        {
+<span class="nc" id="L1041">            nPercentage++;</span>
+<span class="nc" id="L1042">            nPeriod*=2;</span>
+        }
+<span class="nc" id="L1044">        return (int)(Utils.getTotalCoinEstimate(nBlock)/100*nPercentage/nCollateral);</span>
+    }
+
+    /*MasternodeInfo getMasternodeInfo(TransactionOutPoint outpoint)
+    {
+
+    }*/
+
+
+    public AbstractManager createEmpty()
+    {
+<span class="nc" id="L1055">        return new MasternodeManager(context);</span>
+    }
+
+    TransactionInput getInputFromOutPoint(TransactionOutPoint outPoint)
+    {
+<span class="nc" id="L1060">        return new TransactionInput(params, null, null, outPoint);</span>
+    }
+
+    public MasternodeInfo getMasternodeInfo(TransactionOutPoint outPoint)
+    {
+<span class="nc" id="L1065">        return getMasternodeInfo(getInputFromOutPoint(outPoint));</span>
+    }
+
+    public MasternodeInfo getMasternodeInfo(TransactionInput vin)
+    {
+<span class="nc" id="L1070">        MasternodeInfo info = new MasternodeInfo();</span>
+        //LOCK(cs);
+<span class="nc" id="L1072">        Masternode pMN = find(vin);</span>
+<span class="nc bnc" id="L1073" title="All 2 branches missed.">        if(pMN == null)  {</span>
+<span class="nc" id="L1074">            return info;</span>
+        }
+<span class="nc" id="L1076">        info = pMN.getInfo();</span>
+<span class="nc" id="L1077">        return info;</span>
+    }
+
+    public MasternodeInfo getMasternodeInfo(PublicKey pubKeyMasternode)
+    {
+<span class="nc" id="L1082">        MasternodeInfo info = new MasternodeInfo();</span>
+        //LOCK(cs);
+<span class="nc" id="L1084">        Masternode pMN = find(pubKeyMasternode);</span>
+<span class="nc bnc" id="L1085" title="All 2 branches missed.">        if(pMN == null)  {</span>
+<span class="nc" id="L1086">            return info;</span>
+        }
+<span class="nc" id="L1088">        info = pMN.getInfo();</span>
+<span class="nc" id="L1089">        return info;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

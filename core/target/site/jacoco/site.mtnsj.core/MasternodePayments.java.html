@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasternodePayments.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">MasternodePayments.java</span></div><h1>MasternodePayments.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+/**
+ * Created by Eric on 2/21/2016.
+ * modify OmotenashiCoin Project by kani
+ */
+public class MasternodePayments {
+    Context context;
+
+    //! minimum peer version that can receive masternode payments
+    // V1 - Last protocol version before update
+    // V2 - Newest protocol version
+    static final int MIN_MASTERNODE_PAYMENT_PROTO_VERSION_1 = 70206; //kaniTODO
+    static final int MIN_MASTERNODE_PAYMENT_PROTO_VERSION_2 = 70206;
+
+    MasternodePayments(Context context)
+<span class="nc" id="L17">    {</span>
+<span class="nc" id="L18">        this.context = context;</span>
+<span class="nc" id="L19">    }</span>
+
+    int getMinMasternodePaymentsProto() {
+<span class="nc bnc" id="L22" title="All 2 branches missed.">        return context.sporkManager.isSporkActive(SporkManager.SPORK_10_MASTERNODE_PAY_UPDATED_NODES) //kaniTODO</span>
+                ? MIN_MASTERNODE_PAYMENT_PROTO_VERSION_2
+                : MIN_MASTERNODE_PAYMENT_PROTO_VERSION_1;
+    }
+
+    public void cleanPaymentList()
+    {
+
+<span class="nc" id="L30">    }</span>
+    public void checkAndRemove()
+    {
+
+<span class="nc" id="L34">    }</span>
+    boolean isEnoughData(int nMnCount) {
+        /*if(GetBlockCount() &gt; nMnCount * nStorageCoeff &amp;&amp; GetBlockCount() &gt; nMinBlocksToStore)
+        {
+            float nAverageVotes = (MNPAYMENTS_SIGNATURES_TOTAL + MNPAYMENTS_SIGNATURES_REQUIRED) / 2;
+            if(GetVoteCount() &gt; nMnCount * nStorageCoeff * nAverageVotes &amp;&amp; GetVoteCount() &gt; nMinBlocksToStore * nAverageVotes)
+            {
+                return true;
+            }
+        }*/
+<span class="nc" id="L44">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

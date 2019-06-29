@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasterNodePaymentWinner.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">MasterNodePaymentWinner.java</span></div><h1>MasterNodePaymentWinner.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.Serializable;
+
+import static site.mtnsj.core.Utils.int64ToByteStreamLE;
+import static site.mtnsj.core.Utils.uint32ToByteStreamLE;
+
+/**
+ * Created by Eric on 2/8/2015.
+ */
+public class MasterNodePaymentWinner extends ChildMessage implements Serializable {
+    int blockHeight;
+    TransactionInput vin;
+    byte [] vchSig;
+    long score;
+
+    private transient int optimalEncodingMessageSize;
+
+    MasterNodePaymentWinner()
+<span class="nc" id="L22">    {</span>
+<span class="nc" id="L23">    }</span>
+    MasterNodePaymentWinner(NetworkParameters params, byte[] bytes, int cursor)
+    {
+<span class="nc" id="L26">        super(params, bytes, cursor);</span>
+<span class="nc" id="L27">    }</span>
+
+
+    protected static int calcLength(byte[] buf, int offset) {
+        VarInt varint;
+        // jump past version (uint32)
+<span class="nc" id="L33">        int cursor = offset;// + 4;</span>
+        // jump past blockHeight
+<span class="nc" id="L35">        cursor += 4 ;</span>
+        //score
+<span class="nc" id="L37">        cursor += 8;</span>
+        // TransactionInput
+<span class="nc" id="L39">        cursor += 36;</span>
+<span class="nc" id="L40">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L41">        long scriptLen = varint.value;</span>
+        // 4 = length of sequence field (unint32)
+<span class="nc" id="L43">        cursor += scriptLen + 4 + varint.getOriginalSizeInBytes();</span>
+
+        //vchSig
+<span class="nc" id="L46">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L47">        long size = varint.value;</span>
+<span class="nc" id="L48">        cursor += varint.getOriginalSizeInBytes();</span>
+<span class="nc" id="L49">        cursor += size;</span>
+
+
+
+
+<span class="nc" id="L54">        return cursor - offset;</span>
+    }
+    @Override
+    protected void parse() throws ProtocolException {
+
+<span class="nc" id="L59">        cursor = offset;</span>
+
+<span class="nc" id="L61">        blockHeight = (int)readUint32();</span>
+<span class="nc" id="L62">        optimalEncodingMessageSize = 4;</span>
+
+<span class="nc" id="L64">        score = readInt64();</span>
+<span class="nc" id="L65">        optimalEncodingMessageSize += 8;</span>
+
+<span class="nc" id="L67">        vin = new TransactionInput(params, null, payload, cursor);</span>
+<span class="nc" id="L68">        optimalEncodingMessageSize += vin.getMessageSize();</span>
+
+<span class="nc" id="L70">        vchSig = readByteArray();</span>
+<span class="nc" id="L71">        optimalEncodingMessageSize += vchSig.length;</span>
+
+<span class="nc" id="L73">        length = cursor - offset;</span>
+
+
+<span class="nc" id="L76">    }</span>
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+
+<span class="nc" id="L80">        uint32ToByteStreamLE(blockHeight, stream);</span>
+<span class="nc" id="L81">        int64ToByteStreamLE(score, stream);</span>
+<span class="nc" id="L82">        vin.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L84">        stream.write(new VarInt(vchSig.length).encode());</span>
+<span class="nc" id="L85">        stream.write(vchSig);</span>
+
+<span class="nc" id="L87">    }</span>
+
+    long getOptimalEncodingMessageSize()
+    {
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        if (optimalEncodingMessageSize != 0)</span>
+<span class="nc" id="L92">            return optimalEncodingMessageSize;</span>
+
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        if (optimalEncodingMessageSize != 0)</span>
+<span class="nc" id="L95">            return optimalEncodingMessageSize;</span>
+<span class="nc" id="L96">        optimalEncodingMessageSize = getMessageSize();</span>
+<span class="nc" id="L97">        return optimalEncodingMessageSize;</span>
+    }
+
+    public String toString()
+    {
+<span class="nc" id="L102">        return &quot;not ready&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

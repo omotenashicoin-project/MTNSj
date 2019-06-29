@@ -1,0 +1,671 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Masternode.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">Masternode.java</span></div><h1>Masternode.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+import site.mtnsj.utils.Threading;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static site.mtnsj.core.MasterNodeSystem.MASTERNODE_REMOVAL_SECONDS;
+
+/**
+ * Created by Eric on 2/8/2015.
+ */
+public class Masternode extends Message{
+<span class="nc" id="L20">    private static final Logger log = LoggerFactory.getLogger(Masternode.class);</span>
+<span class="nc" id="L21">    ReentrantLock lock = Threading.lock(&quot;Masternode&quot;);</span>
+    long lastTimeChecked;
+
+<span class="nc" id="L24">    enum State {</span>
+<span class="nc" id="L25">        MASTERNODE_PRE_ENABLED(0),</span>
+<span class="nc" id="L26">        MASTERNODE_ENABLED(1),</span>
+<span class="nc" id="L27">        MASTERNODE_EXPIRED(2),</span>
+<span class="nc" id="L28">        MASTERNODE_VIN_SPENT(3),</span>
+<span class="nc" id="L29">        MASTERNODE_REMOVE(4),</span>
+<span class="nc" id="L30">        MASTERNODE_POS_ERROR(5);</span>
+
+<span class="nc" id="L32">         State(int value) {</span>
+<span class="nc" id="L33">            this.value = value;</span>
+<span class="nc" id="L34">        }</span>
+
+        public int getValue() {
+<span class="nc" id="L37">            return value;</span>
+        }
+
+<span class="nc" id="L40">        private static final Map&lt;Integer, State&gt; typesByValue = new HashMap&lt;Integer, State&gt;();</span>
+
+        static {
+<span class="nc bnc" id="L43" title="All 2 branches missed.">            for (State type : State.values()) {</span>
+<span class="nc" id="L44">                typesByValue.put(type.value, type);</span>
+            }
+<span class="nc" id="L46">        }</span>
+
+        private final int value;
+
+        public static State forValue(int value) {
+<span class="nc" id="L51">            return typesByValue.get(value);</span>
+        }
+    }
+
+    public static final int MASTERNODE_CHECK_SECONDS               =   5;
+    public static final int MASTERNODE_MIN_MNB_SECONDS             =   5 * 60;
+    public static final int MASTERNODE_MIN_MNP_SECONDS             =  10 * 60;
+    public static final int MASTERNODE_EXPIRATION_SECONDS          =  65 * 60;
+    public static final int MASTERNODE_WATCHDOG_MAX_SECONDS        = 120 * 60;
+    public static final int MASTERNODE_NEW_START_REQUIRED_SECONDS  = 180 * 60;
+
+    public static final int MASTERNODE_POSE_BAN_MAX_SCORE          = 5;
+
+    public TransactionInput vin;
+    public MasternodeAddress address;
+    public PublicKey pubKeyCollateralAddress;
+    public PublicKey pubKeyMasternode;
+    public MasternodeSignature sig;
+    public long sigTime; //mnb message time
+    long nLastDsq;
+    public long nTimeLastChecked;
+    public long nTimeLastPaid;
+    public long nTimeLastWatchdogVote;
+    public State activeState;
+    public int nCacheCollateralBlock;
+    public int nBlockLastPaid;
+    public int protocolVersion;
+    public int nPoSeBanScore;
+    public int nPoSeBanHeight;
+    boolean fAllowMixingTx;
+    boolean unitTest;
+
+<span class="nc" id="L83">    HashMap&lt;Sha256Hash, Integer&gt; mapGovernanceObjectsVotedOn = new HashMap&lt;Sha256Hash, Integer&gt;();</span>
+
+    int cacheInputAge;
+    int cacheInputAgeBlock;
+
+    boolean allowFreeTx;
+
+
+    //the dsq count from the last dsq broadcast of this node
+
+    int nScanningErrorCount;
+    int nLastScanningErrorBlockHeight;
+    MasternodePing lastPing;
+
+    Context context;
+
+    public Masternode(Context context)
+    {
+<span class="nc" id="L101">        super(context.getParams());</span>
+<span class="nc" id="L102">        this.context = context;</span>
+
+<span class="nc" id="L104">        vin = null;</span>
+<span class="nc" id="L105">        address = null;</span>
+<span class="nc" id="L106">        pubKeyCollateralAddress = new PublicKey();</span>
+<span class="nc" id="L107">        pubKeyMasternode = new PublicKey();</span>
+<span class="nc" id="L108">        sig = null;</span>
+<span class="nc" id="L109">        activeState = State.MASTERNODE_ENABLED;</span>
+<span class="nc" id="L110">        sigTime = Utils.currentTimeSeconds();</span>
+<span class="nc" id="L111">        lastPing = MasternodePing.EMPTY;</span>
+<span class="nc" id="L112">        cacheInputAge = 0;</span>
+<span class="nc" id="L113">        cacheInputAgeBlock = 0;</span>
+<span class="nc" id="L114">        unitTest = false;</span>
+<span class="nc" id="L115">        allowFreeTx = true;</span>
+<span class="nc" id="L116">        protocolVersion = CoinDefinition.PROTOCOL_VERSION;</span>
+<span class="nc" id="L117">        nLastDsq = 0;</span>
+<span class="nc" id="L118">        nScanningErrorCount = 0;</span>
+<span class="nc" id="L119">        nLastScanningErrorBlockHeight = 0;</span>
+<span class="nc" id="L120">        lastTimeChecked = 0;</span>
+<span class="nc" id="L121">    }</span>
+
+    public Masternode(NetworkParameters params, byte [] payload, int cursor)
+    {
+<span class="nc" id="L125">        super(params, payload, cursor);</span>
+<span class="nc" id="L126">        context = Context.get();</span>
+        //calculateScoreTest();
+<span class="nc" id="L128">    }</span>
+
+    public Masternode(Context context, byte [] payload, int cursor)
+    {
+<span class="nc" id="L132">        super(context.getParams(), payload, cursor);</span>
+<span class="nc" id="L133">        this.context = context;</span>
+        //calculateScoreTest();
+<span class="nc" id="L135">    }</span>
+
+    public Masternode(Masternode other)
+    {
+<span class="nc" id="L139">        super(other.params);</span>
+<span class="nc" id="L140">        this.context = other.context;</span>
+        //LOCK(cs);
+<span class="nc" id="L142">        this.vin = other.vin;  //TODO:  need to make copies of all these?</span>
+<span class="nc" id="L143">        this.address = new MasternodeAddress(other.address.getAddr(), other.address.getPort());</span>
+<span class="nc" id="L144">        this.pubKeyCollateralAddress = other.pubKeyCollateralAddress.duplicate();</span>
+<span class="nc" id="L145">        this.pubKeyMasternode = other.pubKeyMasternode.duplicate();</span>
+
+        //These are good
+<span class="nc" id="L148">        this.sig = other.sig.duplicate();</span>
+<span class="nc" id="L149">        this.activeState = other.activeState;</span>
+<span class="nc" id="L150">        this.sigTime = other.sigTime;</span>
+<span class="nc" id="L151">        this.cacheInputAge = other.cacheInputAge;</span>
+<span class="nc" id="L152">        this.cacheInputAgeBlock = other.cacheInputAgeBlock;</span>
+<span class="nc" id="L153">        this.unitTest = other.unitTest;</span>
+<span class="nc" id="L154">        this.allowFreeTx = other.allowFreeTx;</span>
+<span class="nc" id="L155">        this.protocolVersion = other.protocolVersion;</span>
+<span class="nc" id="L156">        this.nLastDsq = other.nLastDsq;</span>
+<span class="nc" id="L157">        this.nScanningErrorCount = other.nScanningErrorCount;</span>
+<span class="nc" id="L158">        this.nLastScanningErrorBlockHeight = other.nLastScanningErrorBlockHeight;</span>
+<span class="nc" id="L159">    }</span>
+
+    public Masternode(MasternodeBroadcast mnb)
+    {
+        //LOCK(cs);
+<span class="nc" id="L164">        super(mnb.params);</span>
+<span class="nc" id="L165">        context = Context.get();</span>
+<span class="nc" id="L166">        vin = mnb.vin;</span>
+<span class="nc" id="L167">        address = mnb.address;</span>
+<span class="nc" id="L168">        pubKeyCollateralAddress = mnb.pubKeyCollateralAddress;</span>
+<span class="nc" id="L169">        pubKeyMasternode = mnb.pubKeyMasternode;</span>
+<span class="nc" id="L170">        sig = mnb.sig;</span>
+<span class="nc" id="L171">        activeState = State.MASTERNODE_ENABLED;</span>
+<span class="nc" id="L172">        sigTime = mnb.sigTime;</span>
+<span class="nc" id="L173">        lastPing = mnb.lastPing;</span>
+<span class="nc" id="L174">        cacheInputAge = 0;</span>
+<span class="nc" id="L175">        cacheInputAgeBlock = 0;</span>
+<span class="nc" id="L176">        unitTest = false;</span>
+<span class="nc" id="L177">        allowFreeTx = true;</span>
+<span class="nc" id="L178">        protocolVersion = mnb.protocolVersion;</span>
+<span class="nc" id="L179">        nLastDsq = mnb.nLastDsq;</span>
+<span class="nc" id="L180">        nScanningErrorCount = 0;</span>
+<span class="nc" id="L181">        nLastScanningErrorBlockHeight = 0;</span>
+<span class="nc" id="L182">        lastTimeChecked = 0;</span>
+<span class="nc" id="L183">    }</span>
+
+    protected static int calcLength(byte[] buf, int offset) {
+        VarInt varint;
+
+<span class="nc" id="L188">        int cursor = offset;</span>
+
+        //vin
+<span class="nc" id="L191">        cursor += 36;</span>
+<span class="nc" id="L192">        varint = new VarInt(buf, cursor);</span>
+<span class="nc" id="L193">        long scriptLen = varint.value;</span>
+        // 4 = length of sequence field (unint32)
+<span class="nc" id="L195">        cursor += scriptLen + 4 + varint.getOriginalSizeInBytes();</span>
+
+        //MasternodeAddress address;
+<span class="nc" id="L198">        cursor += MasternodeAddress.MESSAGE_SIZE;</span>
+        //PublicKey pubkey;
+<span class="nc" id="L200">        cursor += PublicKey.calcLength(buf, cursor);</span>
+
+        //PublicKey pubKeyMasternode;
+<span class="nc" id="L203">        cursor += PublicKey.calcLength(buf, cursor);</span>
+
+        // byte [] sig;
+<span class="nc" id="L206">        cursor += MasternodeSignature.calcLength(buf, cursor);</span>
+
+
+        //long sigTime; //mnb message time
+<span class="nc" id="L210">        cursor += 8;</span>
+        //protocol Version
+<span class="nc" id="L212">        cursor += 4;</span>
+        //public int activeState;
+<span class="nc" id="L214">        cursor += 4;</span>
+        //        MasternodePing lastPing;
+<span class="nc" id="L216">        cursor += MasternodePing.calcLength(buf, offset);</span>
+        //int cacheInputAge;
+<span class="nc" id="L218">        cursor += 4;</span>
+        //int cacheInputAgeBlock;
+<span class="nc" id="L220">        cursor += 4;</span>
+        //boolean unitTest;
+<span class="nc" id="L222">        cursor += 1;</span>
+        //boolean allowFreeTx;
+<span class="nc" id="L224">        cursor += 1;</span>
+        //int protocolVersion;
+<span class="nc" id="L226">        cursor += 4;</span>
+
+        //the dsq count from the last dsq broadcast of this node
+        //long nLastDsq;
+<span class="nc" id="L230">        cursor += 8;</span>
+        //int nScanningErrorCount;
+<span class="nc" id="L232">        cursor += 4;</span>
+        //int nLastScanningErrorBlockHeight;
+<span class="nc" id="L234">        cursor += 4;</span>
+
+<span class="nc" id="L236">        return cursor - offset;</span>
+    }
+
+    public int calculateMessageSizeInBytes()
+    {
+<span class="nc" id="L241">        int cursor = 0;</span>
+
+        //vin
+<span class="nc" id="L244">        cursor += 36;</span>
+
+<span class="nc" id="L246">        long scriptLen = vin.getScriptBytes().length;</span>
+        // 4 = length of sequence field (unint32)
+<span class="nc" id="L248">        cursor += scriptLen + 4 + VarInt.sizeOf(scriptLen);</span>
+
+        //MasternodeAddress address;
+<span class="nc" id="L251">        cursor += MasternodeAddress.MESSAGE_SIZE;</span>
+        //PublicKey pubkey;
+<span class="nc" id="L253">        cursor += pubKeyCollateralAddress.calculateMessageSizeInBytes();</span>
+
+        //PublicKey pubKeyMasternode;
+<span class="nc" id="L256">        cursor += pubKeyMasternode.calculateMessageSizeInBytes();</span>
+
+        // byte [] sig;
+<span class="nc" id="L259">        cursor += sig.calculateMessageSizeInBytes(); //calcLength(buf, cursor);</span>
+
+
+        //long sigTime; //mnb message time
+<span class="nc" id="L263">        cursor += 8;</span>
+        //protocol Version
+<span class="nc" id="L265">        cursor += 4;</span>
+        //public int activeState;
+<span class="nc" id="L267">        cursor += 4;</span>
+        //        MasternodePing lastPing;
+<span class="nc" id="L269">        cursor += lastPing.calculateMessageSizeInBytes();</span>
+        //int cacheInputAge;
+<span class="nc" id="L271">        cursor += 4;</span>
+        //int cacheInputAgeBlock;
+<span class="nc" id="L273">        cursor += 4;</span>
+        //boolean unitTest;
+<span class="nc" id="L275">        cursor += 1;</span>
+        //boolean allowFreeTx;
+<span class="nc" id="L277">        cursor += 1;</span>
+        //int protocolVersion;
+<span class="nc" id="L279">        cursor += 4;</span>
+
+        //the dsq count from the last dsq broadcast of this node
+        //long nLastDsq;
+<span class="nc" id="L283">        cursor += 8;</span>
+        //int nScanningErrorCount;
+<span class="nc" id="L285">        cursor += 4;</span>
+        //int nLastScanningErrorBlockHeight;
+<span class="nc" id="L287">        cursor += 4;</span>
+
+<span class="nc" id="L289">        return cursor;</span>
+    }
+
+    @Override
+    protected void parse() throws ProtocolException {
+
+<span class="nc" id="L295">        vin = new TransactionInput(params, null, payload, cursor);</span>
+<span class="nc" id="L296">        cursor += vin.getMessageSize();</span>
+
+<span class="nc" id="L298">        address = new MasternodeAddress(params, payload, cursor, CoinDefinition.PROTOCOL_VERSION);</span>
+<span class="nc" id="L299">        cursor += address.getMessageSize();</span>
+
+<span class="nc" id="L301">        pubKeyCollateralAddress = new PublicKey(params, payload, cursor);</span>
+<span class="nc" id="L302">        cursor += pubKeyCollateralAddress.getMessageSize();</span>
+
+<span class="nc" id="L304">        pubKeyMasternode = new PublicKey(params, payload, cursor);</span>
+<span class="nc" id="L305">        cursor += pubKeyMasternode.getMessageSize();</span>
+
+<span class="nc" id="L307">        sig = new MasternodeSignature(params, payload, cursor);</span>
+<span class="nc" id="L308">        cursor += sig.getMessageSize();</span>
+
+<span class="nc" id="L310">        sigTime = readInt64();</span>
+<span class="nc" id="L311">        nLastDsq = readInt64();</span>
+
+<span class="nc" id="L313">        nTimeLastChecked = readInt64();</span>
+<span class="nc" id="L314">        nTimeLastPaid = readInt64();</span>
+<span class="nc" id="L315">        nTimeLastWatchdogVote = readInt64();</span>
+
+<span class="nc" id="L317">        activeState = State.forValue((int)readUint32());</span>
+
+<span class="nc" id="L319">        nCacheCollateralBlock = (int) readUint32();</span>
+<span class="nc" id="L320">        nBlockLastPaid = (int)readUint32();</span>
+<span class="nc" id="L321">        protocolVersion = (int)readUint32();</span>
+
+<span class="nc" id="L323">        nPoSeBanScore = (int)readUint32();</span>
+<span class="nc" id="L324">        nPoSeBanHeight = (int)readUint32();</span>
+
+<span class="nc bnc" id="L326" title="All 2 branches missed.">        fAllowMixingTx = readBytes(1)[0] == 1;</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">        unitTest = readBytes(1)[0] == 1;</span>
+
+<span class="nc" id="L329">        long entries = readVarInt();</span>
+
+
+<span class="nc bnc" id="L332" title="All 2 branches missed.">        for(long i = 0; i &lt; entries; ++i)</span>
+        {
+<span class="nc" id="L334">            mapGovernanceObjectsVotedOn.put(readHash(), (int)readUint32());</span>
+        }
+
+
+
+
+<span class="nc" id="L340">        length = cursor - offset;</span>
+
+<span class="nc" id="L342">    }</span>
+
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+
+<span class="nc" id="L347">        vin.bitcoinSerialize(stream);</span>
+<span class="nc" id="L348">        address.bitcoinSerialize(stream);</span>
+<span class="nc" id="L349">        pubKeyCollateralAddress.bitcoinSerialize(stream);</span>
+<span class="nc" id="L350">        pubKeyMasternode.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L352">        sig.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L354">        Utils.int64ToByteStreamLE(sigTime, stream);</span>
+<span class="nc" id="L355">        Utils.int64ToByteStreamLE(nLastDsq, stream);</span>
+<span class="nc" id="L356">        Utils.int64ToByteStreamLE(nTimeLastChecked, stream);</span>
+<span class="nc" id="L357">        Utils.int64ToByteStreamLE(nTimeLastPaid, stream);</span>
+<span class="nc" id="L358">        Utils.int64ToByteStreamLE(nTimeLastWatchdogVote, stream);</span>
+<span class="nc" id="L359">        Utils.uint32ToByteStreamLE(activeState.getValue(), stream);</span>
+
+<span class="nc" id="L361">        Utils.uint32ToByteStreamLE(nCacheCollateralBlock, stream);</span>
+<span class="nc" id="L362">        Utils.uint32ToByteStreamLE(nBlockLastPaid, stream);</span>
+<span class="nc" id="L363">        Utils.uint32ToByteStreamLE(protocolVersion, stream);</span>
+<span class="nc" id="L364">        Utils.uint32ToByteStreamLE(nPoSeBanScore, stream);</span>
+<span class="nc" id="L365">        Utils.uint32ToByteStreamLE(nPoSeBanHeight, stream);</span>
+
+<span class="nc" id="L367">        byte value [] = new byte[1];</span>
+
+<span class="nc bnc" id="L369" title="All 2 branches missed.">        value[0] = (byte)(fAllowMixingTx ? 1 : 0);</span>
+<span class="nc" id="L370">        stream.write(value);</span>
+
+<span class="nc bnc" id="L372" title="All 2 branches missed.">        value[0] = (byte)(unitTest ? 1 : 0);</span>
+<span class="nc" id="L373">        stream.write(value);</span>
+
+<span class="nc" id="L375">        stream.write(new VarInt(mapGovernanceObjectsVotedOn.size()).encode());</span>
+<span class="nc bnc" id="L376" title="All 2 branches missed.">        for(Map.Entry&lt;Sha256Hash, Integer&gt; e: mapGovernanceObjectsVotedOn.entrySet())</span>
+        {
+<span class="nc" id="L378">            stream.write(e.getKey().getReversedBytes());</span>
+<span class="nc" id="L379">            Utils.uint32ToByteStreamLE(e.getValue(), stream);</span>
+<span class="nc" id="L380">        }</span>
+
+<span class="nc" id="L382">    }</span>
+
+    //
+    // Deterministically calculate a given &quot;score&quot; for a Masternode depending on how close it's hash is to
+    // the proof of work for that block. The further away they are the better, the furthest will win the election
+    // and get paid this block
+    //
+    Sha256Hash calculateScore(int mod, int nBlockHeight)
+    {
+        //if(blockChain.getChainHead() == null)
+        //    return Sha256Hash.ZERO_HASH;
+
+        //uint256 hash = 0;
+        // todo: hashstore bad structured in the code.
+<span class="nc" id="L396">        Sha256Hash hash = null;//context.hashStore.getBlockHash(nBlockHeight);</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">        if(hash.equals(Sha256Hash.ZERO_HASH))</span>
+        {
+<span class="nc" id="L399">            log.info(&quot;CalculateScore ERROR - nHeight {} - Returned 0&quot;, nBlockHeight);</span>
+<span class="nc" id="L400">            return Sha256Hash.ZERO_HASH;</span>
+        }
+
+<span class="nc" id="L403">        return calculateScore(mod, hash);</span>
+    }
+
+    Sha256Hash calculateScore(int mod, Sha256Hash hash)
+    {
+<span class="nc" id="L408">        return calculateScore(vin, hash);</span>
+
+    }
+
+    static Sha256Hash calculateScore(TransactionInput vin, Sha256Hash hash)
+    {
+        //uint256 hash = 0;
+<span class="nc" id="L415">        BigInteger bi_aux = vin.getOutpoint().getHash().toBigInteger().add(BigInteger.valueOf(vin.getOutpoint().getIndex()));</span>
+<span class="nc" id="L416">        byte [] temp = new byte[32];</span>
+<span class="nc" id="L417">        byte [] bi_bytes = bi_aux.toByteArray();</span>
+<span class="nc bnc" id="L418" title="All 2 branches missed.">        int length = bi_bytes[0] == 0 ?</span>
+<span class="nc" id="L419">                java.lang.Math.min(bi_bytes.length -1, 32) :</span>
+<span class="nc" id="L420">                java.lang.Math.min(bi_bytes.length, 32);</span>
+<span class="nc bnc" id="L421" title="All 2 branches missed.">        System.arraycopy(bi_bytes, bi_bytes[0] == 0 ? 1 : 0, temp, 0, length);</span>
+<span class="nc" id="L422">        Sha256Hash aux = Sha256Hash.wrap(temp);</span>
+
+        //uint256 aux = vin.prevout.hash + vin.prevout.n;
+
+        /*if(!GetBlockHash(hash, nBlockHeight)) {
+            log.info(&quot;CalculateScore ERROR - nHeight {} - Returned 0&quot;, nBlockHeight);
+            return 0;
+        }*/
+
+/*        if(hash.equals(Sha256Hash.ZERO_HASH))
+        {
+            log.info(&quot;CalculateScore ERROR - Returned 0&quot;);
+            return Sha256Hash.ZERO_HASH;
+        }*/
+
+
+
+        //CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
+        //ss &lt;&lt; hash;
+        //uint256 hash2 = ss.GetHash();
+
+<span class="nc" id="L443">        Sha256Hash hash2 = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(hash.getReversedBytes()));</span>
+
+        /*CHashWriter ss2(SER_GETHASH, PROTOCOL_VERSION);
+        ss2 &lt;&lt; hash;
+        ss2 &lt;&lt; aux;
+        uint256 hash3 = ss2.GetHash();*/
+        try {
+<span class="nc" id="L450">            UnsafeByteArrayOutputStream bos = new UnsafeByteArrayOutputStream();</span>
+<span class="nc" id="L451">            bos.write(hash.getReversedBytes());</span>
+<span class="nc" id="L452">            bos.write(aux.getReversedBytes());</span>
+<span class="nc" id="L453">            Sha256Hash hash3 = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(bos.toByteArray()));</span>
+
+<span class="nc" id="L455">            BigInteger bhash2 = hash2.toBigInteger();</span>
+<span class="nc" id="L456">            BigInteger bhash3 = hash3.toBigInteger();</span>
+
+            //uint256 r = (hash3 &gt; hash2 ? hash3 - hash2 : hash2 - hash3);
+<span class="nc bnc" id="L459" title="All 2 branches missed.">            if (bhash3.compareTo(bhash2) &gt; 0)</span>
+            {
+<span class="nc" id="L461">                byte [] subtraction = bhash3.subtract(bhash2).toByteArray();</span>
+<span class="nc bnc" id="L462" title="All 2 branches missed.">                length = subtraction[0] == 0 ?</span>
+<span class="nc" id="L463">                        java.lang.Math.min(subtraction.length -1, 32) :</span>
+<span class="nc" id="L464">                        java.lang.Math.min(subtraction.length, 32);</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">                System.arraycopy(subtraction, subtraction[0] == 0 ? 1 : 0, temp, 0, length);</span>
+<span class="nc" id="L466">                return Sha256Hash.wrap(temp);</span>
+            }
+            else
+            {
+<span class="nc" id="L470">                byte [] subtraction = bhash2.subtract(bhash3).toByteArray();</span>
+<span class="nc bnc" id="L471" title="All 2 branches missed.">                length = subtraction[0] == 0 ?</span>
+<span class="nc" id="L472">                        java.lang.Math.min(subtraction.length -1, 32) :</span>
+<span class="nc" id="L473">                        java.lang.Math.min(subtraction.length, 32);</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">                System.arraycopy(subtraction, subtraction[0] == 0 ? 1 : 0, temp, 0, length);</span>
+<span class="nc" id="L475">                return Sha256Hash.wrap(temp);</span>
+            }
+        }
+<span class="nc" id="L478">        catch (IOException x)</span>
+        {
+<span class="nc" id="L480">            return Sha256Hash.ZERO_HASH;</span>
+        }
+
+    }
+
+
+       /*public void UpdateLastSeen()
+        { UpdateLastSeen(0);}
+        public void UpdateLastSeen(long override)
+        {
+            if(override == 0){
+            //lastTimeSeen = Utils.currentTimeSeconds();
+            } else {
+            //lastTimeSeen = override;
+            }
+        }*/
+
+        /*long SliceHash(Sha256Hash hash, int slice)
+        {
+            long n = 0;
+            //Utils.readInt64()
+            memcpy(&amp;n, &amp;hash+slice*64, 64);
+            return n;
+        }*/
+
+<span class="nc" id="L505">        public void check() { check(false); }</span>
+
+    public void check(boolean forceCheck)
+    {
+
+        //if(ShutdownRequested()) return;
+
+<span class="nc bnc" id="L512" title="All 4 branches missed.">        if(!forceCheck &amp;&amp; (Utils.currentTimeSeconds() - lastTimeChecked &lt; MASTERNODE_CHECK_SECONDS)) return;</span>
+<span class="nc" id="L513">        lastTimeChecked = Utils.currentTimeSeconds();</span>
+
+
+        //once spent, stop doing the checks
+<span class="nc bnc" id="L517" title="All 2 branches missed.">        if(activeState == State.MASTERNODE_VIN_SPENT) return;</span>
+
+        // If there are no pings for quite a long time ...
+<span class="nc bnc" id="L520" title="All 2 branches missed.">        if(!isPingedWithin(MASTERNODE_REMOVAL_SECONDS)</span>
+                // or doesn't meet payments requirements ...
+<span class="nc bnc" id="L522" title="All 2 branches missed.">                || protocolVersion &lt; context.masternodePayments.getMinMasternodePaymentsProto()</span>
+                // or it's our own node and we just updated it to the new protocol but we are still waiting for activation -
+<span class="nc bnc" id="L524" title="All 4 branches missed.">                || (pubKeyMasternode.equals(context.activeMasternode.pubKeyMasternode) &amp;&amp; protocolVersion &lt; params.getProtocolVersionNum(NetworkParameters.ProtocolVersion.CURRENT))){</span>
+<span class="nc" id="L525">            activeState = State.MASTERNODE_REMOVE;</span>
+<span class="nc" id="L526">            return;</span>
+        }
+
+<span class="nc bnc" id="L529" title="All 2 branches missed.">        if(!isPingedWithin(MASTERNODE_EXPIRATION_SECONDS)){</span>
+<span class="nc" id="L530">            activeState = State.MASTERNODE_EXPIRED;</span>
+<span class="nc" id="L531">            return;</span>
+        }
+
+
+<span class="nc bnc" id="L535" title="All 2 branches missed.">        if(lastPing.sigTime - sigTime &lt; MASTERNODE_MIN_MNP_SECONDS){</span>
+<span class="nc" id="L536">            activeState = State.MASTERNODE_PRE_ENABLED;</span>
+<span class="nc" id="L537">            return;</span>
+        }
+
+<span class="nc bnc" id="L540" title="All 2 branches missed.">        if(!unitTest){</span>
+            //TODO:  Not sure how to impliment this
+            /*CValidationState state;
+            //CMutableTransaction tx = CMutableTransaction();
+            Transaction tx = new Transaction(context);
+            TransactionOutput vout = new TransactionOutput(tx, Coin.valueOf(999, 99), darkSendPool.collateralPubKey);
+            tx.addInput(vin);
+            tx.addOutput(vout);
+            {
+                //TRY_LOCK(cs_main, lockMain);
+                //if(!lockMain) return;
+
+                if(!AcceptableInputs(mempool, state, CTransaction(tx), false, NULL)){
+                    activeState = MASTERNODE_VIN_SPENT;
+                    return;
+
+                }
+            }
+            */
+        }
+
+<span class="nc" id="L561">        activeState = State.MASTERNODE_ENABLED; // OK</span>
+<span class="nc" id="L562">    }</span>
+
+        public boolean UpdatedWithin(int seconds)
+        {
+            // LogPrintf(&quot;UpdatedWithin %d, %d --  %d \n&quot;, GetAdjustedTime() , lastTimeSeen, (GetAdjustedTime() - lastTimeSeen) &lt; seconds);
+<span class="nc" id="L567">            return false;//(Utils.currentTimeSeconds() - lastTimeSeen) &lt; seconds;</span>
+            //return (GetAdjustedTime() - lastTimeSeen) &lt; seconds;
+        }
+
+        public void Disable()
+        {
+            /*lastTimeSeen = 0;*/
+<span class="nc" id="L574">        }</span>
+
+        public boolean isEnabled()
+        {
+            /*return enabled == 1;*/
+<span class="nc bnc" id="L579" title="All 2 branches missed.">            return activeState == State.MASTERNODE_ENABLED;</span>
+        }
+        public boolean isPreEnabled()
+        {
+<span class="nc bnc" id="L583" title="All 2 branches missed.">            return activeState == State.MASTERNODE_PRE_ENABLED;</span>
+        }
+
+    public String status() {
+<span class="nc" id="L587">        String strStatus = &quot;unknown&quot;;</span>
+
+<span class="nc bnc" id="L589" title="All 2 branches missed.">        if(activeState == State.MASTERNODE_PRE_ENABLED) strStatus = &quot;PRE_ENABLED&quot;;</span>
+<span class="nc bnc" id="L590" title="All 2 branches missed.">        if(activeState == State.MASTERNODE_ENABLED) strStatus     = &quot;ENABLED&quot;;</span>
+<span class="nc bnc" id="L591" title="All 2 branches missed.">        if(activeState == State.MASTERNODE_EXPIRED) strStatus     = &quot;EXPIRED&quot;;</span>
+<span class="nc bnc" id="L592" title="All 2 branches missed.">        if(activeState == State.MASTERNODE_VIN_SPENT) strStatus   = &quot;VIN_SPENT&quot;;</span>
+<span class="nc bnc" id="L593" title="All 2 branches missed.">        if(activeState == State.MASTERNODE_REMOVE) strStatus      = &quot;REMOVE&quot;;</span>
+<span class="nc bnc" id="L594" title="All 2 branches missed.">        if(activeState == State.MASTERNODE_POS_ERROR) strStatus   = &quot;POS_ERROR&quot;;</span>
+
+<span class="nc" id="L596">        return strStatus;</span>
+    }
+
+        boolean isBroadcastedWithin(int seconds)
+        {
+<span class="nc bnc" id="L601" title="All 2 branches missed.">            return (Utils.currentTimeSeconds() - sigTime) &lt; seconds;</span>
+        }
+        boolean isPingedWithin(int seconds, long now)
+        {
+<span class="nc bnc" id="L605" title="All 2 branches missed.">            if(now == -1)</span>
+<span class="nc" id="L606">                now = Utils.currentTimeSeconds();</span>
+
+<span class="nc bnc" id="L608" title="All 4 branches missed.">            return (lastPing.equals(MasternodePing.empty()))</span>
+                    ? false
+                    : (now - lastPing.sigTime) &lt; seconds;
+        }
+        boolean isPingedWithin(int seconds)
+        {
+<span class="nc" id="L614">            return isPingedWithin(seconds, -1);</span>
+        }
+
+    //
+// When a new masternode broadcast is sent, update our information
+//
+    boolean updateFromNewBroadcast(MasternodeBroadcast mnb)
+    {
+<span class="nc bnc" id="L622" title="All 2 branches missed.">        if(mnb.sigTime &gt; sigTime) {</span>
+<span class="nc" id="L623">            pubKeyMasternode = mnb.pubKeyMasternode;</span>
+<span class="nc" id="L624">            sigTime = mnb.sigTime;</span>
+<span class="nc" id="L625">            sig = mnb.sig;</span>
+<span class="nc" id="L626">            protocolVersion = mnb.protocolVersion;</span>
+<span class="nc" id="L627">            address = mnb.address.duplicate();</span>
+<span class="nc" id="L628">            lastTimeChecked = 0;</span>
+<span class="nc" id="L629">            int nDoS = 0;</span>
+<span class="nc bnc" id="L630" title="All 6 branches missed.">            if(mnb.lastPing == new MasternodePing(context) || (!mnb.lastPing.equals(new MasternodePing(context)) &amp;&amp; mnb.lastPing.checkAndUpdate(false))) {</span>
+<span class="nc" id="L631">                lastPing = mnb.lastPing;</span>
+<span class="nc" id="L632">                context.masternodeManager.updateMasternodePing(lastPing);</span>
+            }
+<span class="nc" id="L634">            return true;</span>
+        }
+<span class="nc" id="L636">        return false;</span>
+    }
+
+        /*
+        int GetMasternodeInputAge()
+        {
+            if(chainActive.Tip() == NULL) return 0;
+
+            if(cacheInputAge == 0){
+                cacheInputAge = GetInputAge(vin);
+                cacheInputAgeBlock = chainActive.Tip()-&gt;nHeight;
+            }
+
+            return cacheInputAge+(chainActive.Tip()-&gt;nHeight-cacheInputAgeBlock);
+        }
+        */
+
+    public MasternodeInfo getInfo()
+    {
+<span class="nc" id="L655">        MasternodeInfo info = new MasternodeInfo();</span>
+<span class="nc" id="L656">        info.vin = vin;</span>
+<span class="nc" id="L657">        info.addr = address;</span>
+<span class="nc" id="L658">        info.pubKeyCollateralAddress = pubKeyCollateralAddress;</span>
+<span class="nc" id="L659">        info.pubKeyMasternode = pubKeyMasternode;</span>
+<span class="nc" id="L660">        info.sigTime = sigTime;</span>
+<span class="nc" id="L661">        info.nLastDsq = nLastDsq;</span>
+<span class="nc" id="L662">        info.nTimeLastChecked = nTimeLastChecked;</span>
+<span class="nc" id="L663">        info.nTimeLastPaid = nTimeLastPaid;</span>
+<span class="nc" id="L664">        info.nTimeLastWatchdogVote = nTimeLastWatchdogVote;</span>
+<span class="nc" id="L665">        info.nActiveState = activeState;</span>
+<span class="nc" id="L666">        info.nProtocolVersion = protocolVersion;</span>
+<span class="nc" id="L667">        info.fInfoValid = true;</span>
+<span class="nc" id="L668">        return info;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

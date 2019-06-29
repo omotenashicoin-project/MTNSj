@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Sha512Hash.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">com.hashengineering.crypto</a> &gt; <span class="el_source">Sha512Hash.java</span></div><h1>Sha512Hash.java</h1><pre class="source lang-java linenums">/**
+ * Copyright 2011 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * modified OmotenashiCoin Project by kani
+ */
+
+package com.hashengineering.crypto;
+
+import com.google.common.io.ByteStreams;
+import site.mtnsj.core.Sha256Hash;
+import site.mtnsj.core.Utils;
+import org.spongycastle.util.encoders.Hex;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.Serializable;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+
+import static com.google.common.base.Preconditions.checkArgument;
+
+/**
+ * A Sha256Hash just wraps a byte[] so that equals and hashcode work correctly, allowing it to be used as keys in a
+ * map. It also checks that the length is correct and provides a bit more type safety.
+ */
+public class Sha512Hash implements Serializable, Comparable {
+    private byte[] bytes;
+<span class="nc" id="L42">    public static final Sha512Hash ZERO_HASH = new Sha512Hash(new byte[64]);</span>
+
+    /**
+     * Creates a Sha512Hash by wrapping the given byte array. It must be 64 bytes long.
+     */
+<span class="nc" id="L47">    public Sha512Hash(byte[] rawHashBytes) {</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        checkArgument(rawHashBytes.length == 64);</span>
+<span class="nc" id="L49">        this.bytes = rawHashBytes;</span>
+
+<span class="nc" id="L51">    }</span>
+
+    /**
+     * Creates a Sha512Hash by decoding the given hex string. It must be 64 characters long.
+     */
+<span class="nc" id="L56">    public Sha512Hash(String hexString) {</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        checkArgument(hexString.length() == 64);</span>
+<span class="nc" id="L58">        this.bytes = Hex.decode(hexString);</span>
+<span class="nc" id="L59">    }</span>
+
+    /**
+     * Calculates the (one-time) hash of contents and returns it as a new wrapped hash.
+     */
+    public static Sha512Hash create(byte[] contents) {
+        try {
+<span class="nc" id="L66">            MessageDigest digest = MessageDigest.getInstance(&quot;SHA-256&quot;);</span>
+<span class="nc" id="L67">            return new Sha512Hash(digest.digest(contents));</span>
+<span class="nc" id="L68">        } catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L69">            throw new RuntimeException(e);  // Cannot happen.</span>
+        }
+    }
+
+    /**
+     * Returns a hash of the given files contents. Reads the file fully into memory before hashing so only use with
+     * small files.
+     * @throws java.io.IOException
+     */
+    public static Sha512Hash hashFileContents(File f) throws IOException {
+<span class="nc" id="L79">        FileInputStream in = new FileInputStream(f);</span>
+        try {
+<span class="nc" id="L81">            return create(ByteStreams.toByteArray(in));</span>
+        } finally {
+<span class="nc" id="L83">            in.close();</span>
+<span class="nc" id="L84">        }</span>
+    }
+
+    /**
+     * Returns true if the hashes are equal.
+     */
+    @Override
+    public boolean equals(Object other) {
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (!(other instanceof Sha512Hash)) return false;</span>
+<span class="nc" id="L93">        return Arrays.equals(bytes, ((Sha512Hash) other).bytes);</span>
+    }
+
+    /**
+     * Hash code of the byte array as calculated by {@link java.util.Arrays#hashCode()}. Note the difference between a SHA256
+     * secure bytes and the type of quick/dirty bytes used by the Java hashCode method which is designed for use in
+     * bytes tables.
+     */
+    @Override
+    public int hashCode() {
+        // Use the last 4 bytes, not the first 4 which are often zeros in Bitcoin.
+<span class="nc" id="L104">        return (bytes[63] &amp; 0xFF) | ((bytes[62] &amp; 0xFF) &lt;&lt; 8) | ((bytes[61] &amp; 0xFF) &lt;&lt; 16) | ((bytes[60] &amp; 0xFF) &lt;&lt; 24);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L109">        return Utils.HEX.encode(bytes);</span>
+    }
+
+    /**
+     * Returns the bytes interpreted as a positive integer.
+     */
+    public BigInteger toBigInteger() {
+<span class="nc" id="L116">        return new BigInteger(1, bytes);</span>
+    }
+
+    public byte[] getBytes() {
+<span class="nc" id="L120">        return bytes;</span>
+    }
+
+    public Sha512Hash duplicate() {
+<span class="nc" id="L124">        return new Sha512Hash(bytes);</span>
+    }
+
+    @Override
+    public int compareTo(Object o) {
+<span class="nc" id="L129">        checkArgument(o instanceof Sha512Hash);</span>
+<span class="nc" id="L130">        int thisCode = this.hashCode();</span>
+<span class="nc" id="L131">        int oCode = ((Sha512Hash)o).hashCode();</span>
+<span class="nc bnc" id="L132" title="All 4 branches missed.">        return thisCode &gt; oCode ? 1 : (thisCode == oCode ? 0 : -1);</span>
+    }
+
+    public Sha256Hash trim256()
+    {
+<span class="nc" id="L137">        byte [] result = new byte[32];</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        for (int i = 0; i &lt; 32; i++){</span>
+<span class="nc" id="L139">            result[i] = bytes[i];</span>
+        }
+<span class="nc" id="L141">        return new Sha256Hash(result);</span>
+    }
+
+    /*public Sha512Hash bitwiseAnd(Sha512Hash x)
+    {
+        byte [] result = new byte[64];
+        for(int i = 0; i &lt; 64; ++i)
+            result[i] = bytes[i] &amp; x.bytes[i];
+        return Sha512Hash.create(result);
+    } */
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

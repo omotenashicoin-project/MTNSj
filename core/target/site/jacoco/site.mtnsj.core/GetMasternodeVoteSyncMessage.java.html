@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>GetMasternodeVoteSyncMessage.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">GetMasternodeVoteSyncMessage.java</span></div><h1>GetMasternodeVoteSyncMessage.java</h1><pre class="source lang-java linenums">package site.mtnsj.core;
+
+import java.io.IOException;
+import java.io.OutputStream;
+
+//import static com.hashengineering.crypto.X11.x11Digest;
+import com.hashengineering.crypto.Skein;
+
+/**
+ * Created by Eric on 2/8/2015.
+ */
+public class GetMasternodeVoteSyncMessage extends Message{
+
+    Sha256Hash prop;
+
+<span class="nc" id="L16">    public GetMasternodeVoteSyncMessage(NetworkParameters params) { super(params);}</span>
+
+    public GetMasternodeVoteSyncMessage(NetworkParameters params, byte [] payload, int cursor)
+    {
+<span class="nc" id="L20">        super(params, payload, cursor);</span>
+<span class="nc" id="L21">    }</span>
+    public GetMasternodeVoteSyncMessage(NetworkParameters params, Sha256Hash prop)
+    {
+<span class="nc" id="L24">        super(params);</span>
+<span class="nc" id="L25">        this.prop = prop;</span>
+<span class="nc" id="L26">    }</span>
+
+    protected static int calcLength(byte[] buf, int offset) {
+        VarInt varint;
+
+<span class="nc" id="L31">        int cursor = offset;</span>
+
+        //vin
+<span class="nc" id="L34">        cursor += 32;</span>
+<span class="nc" id="L35">        return cursor - offset;</span>
+    }
+
+    @Override
+    protected void parse() throws ProtocolException {
+
+<span class="nc" id="L41">        prop = readHash();</span>
+
+<span class="nc" id="L43">        length = cursor - offset;</span>
+
+<span class="nc" id="L45">    }</span>
+
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+<span class="nc" id="L49">        stream.write(prop.getReversedBytes());</span>
+<span class="nc" id="L50">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

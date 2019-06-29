@@ -1,0 +1,872 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>HAVALCore.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">HAVALCore.java</span></div><h1>HAVALCore.java</h1><pre class="source lang-java linenums">// $Id: HAVALCore.java 214 2010-06-03 17:25:08Z tp $
+
+package fr.cryptohash;
+
+/**
+ * This class implements the HAVAL digest algorithm, which accepts 15
+ * variants based on the number of passes and digest output.
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 214 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+abstract class HAVALCore extends DigestEngine {
+
+	/**
+	 * Create the object.
+	 *
+	 * @param outputLength   output length (in bits)
+	 * @param passes         number of passes (3, 4 or 5)
+	 */
+	HAVALCore(int outputLength, int passes)
+<span class="nc" id="L49">	{</span>
+<span class="nc" id="L50">		olen = outputLength &gt;&gt; 5;</span>
+<span class="nc" id="L51">		this.passes = passes;</span>
+<span class="nc" id="L52">	}</span>
+
+	/**
+	 * Output length, in 32-bit words (4, 5, 6, 7, or 8).
+	 */
+	private int olen;
+
+	/**
+	 * Number of passes (3, 4 or 5).
+	 */
+	private int passes;
+
+	/**
+	 * Padding buffer.
+	 */
+	private byte[] padBuf;
+
+	/**
+	 * State variables.
+	 */
+	private int s0, s1, s2, s3, s4, s5, s6, s7;
+
+	/**
+	 * Pre-allocated array for input words.
+	 */
+	private int[] inw;
+
+	/** @see DigestEngine */
+	protected Digest copyState(HAVALCore dst)
+	{
+<span class="nc" id="L82">		dst.olen = olen;</span>
+<span class="nc" id="L83">		dst.passes = passes;</span>
+<span class="nc" id="L84">		dst.s0 = s0;</span>
+<span class="nc" id="L85">		dst.s1 = s1;</span>
+<span class="nc" id="L86">		dst.s2 = s2;</span>
+<span class="nc" id="L87">		dst.s3 = s3;</span>
+<span class="nc" id="L88">		dst.s4 = s4;</span>
+<span class="nc" id="L89">		dst.s5 = s5;</span>
+<span class="nc" id="L90">		dst.s6 = s6;</span>
+<span class="nc" id="L91">		dst.s7 = s7;</span>
+<span class="nc" id="L92">		return super.copyState(dst);</span>
+	}
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L98">		return 128;</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L104">		s0 = 0x243F6A88;</span>
+<span class="nc" id="L105">		s1 = 0x85A308D3;</span>
+<span class="nc" id="L106">		s2 = 0x13198A2E;</span>
+<span class="nc" id="L107">		s3 = 0x03707344;</span>
+<span class="nc" id="L108">		s4 = 0xA4093822;</span>
+<span class="nc" id="L109">		s5 = 0x299F31D0;</span>
+<span class="nc" id="L110">		s6 = 0x082EFA98;</span>
+<span class="nc" id="L111">		s7 = 0xEC4E6C89;</span>
+<span class="nc" id="L112">	}</span>
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L117">		int dataLen = flush();</span>
+<span class="nc" id="L118">		long currentLength =</span>
+<span class="nc" id="L119">			((getBlockCount() &lt;&lt; 7) + (long)dataLen) &lt;&lt; 3;</span>
+<span class="nc" id="L120">		padBuf[0] = (byte)(0x01 | (passes &lt;&lt; 3));</span>
+<span class="nc" id="L121">		padBuf[1] = (byte)(olen &lt;&lt; 3);</span>
+<span class="nc" id="L122">		encodeLEInt((int)currentLength, padBuf, 2);</span>
+<span class="nc" id="L123">		encodeLEInt((int)(currentLength &gt;&gt;&gt; 32), padBuf, 6);</span>
+<span class="nc" id="L124">		int endLen = (dataLen + 138) &amp; ~127;</span>
+<span class="nc" id="L125">		update((byte)0x01);</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">		for (int i = dataLen + 1; i &lt; (endLen - 10); i ++)</span>
+<span class="nc" id="L127">			update((byte)0);</span>
+<span class="nc" id="L128">		update(padBuf);</span>
+
+		/*
+		 * This code is used only for debugging purposes.
+		 *
+		if (flush() != 0)
+			throw new Error(&quot;panic: buffering went astray&quot;);
+		 *
+		 */
+
+<span class="nc" id="L138">		writeOutput(output, outputOffset);</span>
+<span class="nc" id="L139">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L144">		padBuf = new byte[10];</span>
+<span class="nc" id="L145">		inw = new int[32];</span>
+<span class="nc" id="L146">		engineReset();</span>
+<span class="nc" id="L147">	}</span>
+
+<span class="nc" id="L149">	private static final int[] K2 = {</span>
+		0x452821E6, 0x38D01377, 0xBE5466CF, 0x34E90C6C,
+		0xC0AC29B7, 0xC97C50DD, 0x3F84D5B5, 0xB5470917,
+		0x9216D5D9, 0x8979FB1B, 0xD1310BA6, 0x98DFB5AC,
+		0x2FFD72DB, 0xD01ADFB7, 0xB8E1AFED, 0x6A267E96,
+		0xBA7C9045, 0xF12C7F99, 0x24A19947, 0xB3916CF7,
+		0x0801F2E2, 0x858EFC16, 0x636920D8, 0x71574E69,
+		0xA458FEA3, 0xF4933D7E, 0x0D95748F, 0x728EB658,
+		0x718BCD58, 0x82154AEE, 0x7B54A41D, 0xC25A59B5
+	};
+
+<span class="nc" id="L160">	private static final int[] K3 = {</span>
+		0x9C30D539, 0x2AF26013, 0xC5D1B023, 0x286085F0,
+		0xCA417918, 0xB8DB38EF, 0x8E79DCB0, 0x603A180E,
+		0x6C9E0E8B, 0xB01E8A3E, 0xD71577C1, 0xBD314B27,
+		0x78AF2FDA, 0x55605C60, 0xE65525F3, 0xAA55AB94,
+		0x57489862, 0x63E81440, 0x55CA396A, 0x2AAB10B6,
+		0xB4CC5C34, 0x1141E8CE, 0xA15486AF, 0x7C72E993,
+		0xB3EE1411, 0x636FBC2A, 0x2BA9C55D, 0x741831F6,
+		0xCE5C3E16, 0x9B87931E, 0xAFD6BA33, 0x6C24CF5C
+	};
+
+<span class="nc" id="L171">	private static final int[] K4 = {</span>
+		0x7A325381, 0x28958677, 0x3B8F4898, 0x6B4BB9AF,
+		0xC4BFE81B, 0x66282193, 0x61D809CC, 0xFB21A991,
+		0x487CAC60, 0x5DEC8032, 0xEF845D5D, 0xE98575B1,
+		0xDC262302, 0xEB651B88, 0x23893E81, 0xD396ACC5,
+		0x0F6D6FF3, 0x83F44239, 0x2E0B4482, 0xA4842004,
+		0x69C8F04A, 0x9E1F9B5E, 0x21C66842, 0xF6E96C9A,
+		0x670C9C61, 0xABD388F0, 0x6A51A0D2, 0xD8542F68,
+		0x960FA728, 0xAB5133A3, 0x6EEF0B6C, 0x137A3BE4
+	};
+
+<span class="nc" id="L182">	private static final int[] K5 = {</span>
+		0xBA3BF050, 0x7EFB2A98, 0xA1F1651D, 0x39AF0176,
+		0x66CA593E, 0x82430E88, 0x8CEE8619, 0x456F9FB4,
+		0x7D84A5C3, 0x3B8B5EBE, 0xE06F75D8, 0x85C12073,
+		0x401A449F, 0x56C16AA6, 0x4ED3AA62, 0x363F7706,
+		0x1BFEDF72, 0x429B023D, 0x37D0D724, 0xD00A1248,
+		0xDB0FEAD3, 0x49F1C09B, 0x075372C9, 0x80991B7B,
+		0x25D479D8, 0xF6E8DEF7, 0xE3FE501A, 0xB6794C3B,
+		0x976CE0BD, 0x04C006BA, 0xC1A94FB6, 0x409F60C4
+	};
+
+<span class="nc" id="L193">	private static final int[] wp2 = {</span>
+		 5, 14, 26, 18, 11, 28,  7, 16,  0, 23, 20, 22,  1, 10,  4,  8,
+		30,  3, 21,  9, 17, 24, 29,  6, 19, 12, 15, 13,  2, 25, 31, 27
+	};
+
+<span class="nc" id="L198">	private static final int[] wp3 = {</span>
+		19,  9,  4, 20, 28, 17,  8, 22, 29, 14, 25, 12, 24, 30, 16, 26,
+		31, 15,  7,  3,  1,  0, 18, 27, 13,  6, 21, 10, 23, 11,  5,  2
+	};
+
+<span class="nc" id="L203">	private static final int[] wp4 = {</span>
+		24,  4,  0, 14,  2,  7, 28, 23, 26,  6, 30, 20, 18, 25, 19,  3,
+		22, 11, 31, 21,  8, 27, 12,  9,  1, 29,  5, 15, 17, 10, 16, 13
+	};
+
+<span class="nc" id="L208">	private static final int[] wp5 = {</span>
+		27,  3, 21, 26, 17, 11, 20, 29, 19,  0, 12,  7, 13,  8, 31, 10,
+		 5,  9, 14, 30, 18,  6, 28, 24,  2, 23, 16, 22,  4,  1, 25, 15
+	};
+
+	/**
+	 * Encode the 32-bit word {@code val} into the array
+	 * {@code buf} at offset {@code buf}, in little-endian
+	 * convention (least significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeLEInt(int val, byte[] buf, int off)
+	{
+<span class="nc" id="L224">		buf[off + 3] = (byte)((val &gt;&gt; 24) &amp; 0xff);</span>
+<span class="nc" id="L225">		buf[off + 2] = (byte)((val &gt;&gt; 16) &amp; 0xff);</span>
+<span class="nc" id="L226">		buf[off + 1] = (byte)((val &gt;&gt; 8) &amp; 0xff);</span>
+<span class="nc" id="L227">		buf[off + 0] = (byte)(val &amp; 0xff);</span>
+<span class="nc" id="L228">	}</span>
+
+	/**
+	 * Decode a 32-bit little-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final int decodeLEInt(byte[] buf, int off)
+	{
+<span class="nc" id="L240">		return (buf[off] &amp; 0xFF)</span>
+			| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 8)
+			| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 16)
+			| ((buf[off + 3] &amp; 0xFF) &lt;&lt; 24);
+	}
+
+	/**
+	 * Circular rotation of a 32-bit word to the left. The rotation
+	 * count must lie between 1 and 31 (inclusive).
+	 *
+	 * @param x   the value to rotate
+	 * @param n   the rotation count
+	 * @return  the rotated value
+	 */
+	private static final int circularLeft(int x, int n)
+	{
+<span class="nc" id="L256">		return (x &lt;&lt; n) | (x &gt;&gt;&gt; (32 - n));</span>
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc bnc" id="L262" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i ++)</span>
+<span class="nc" id="L263">			inw[i] = decodeLEInt(data, 4 * i);</span>
+
+<span class="nc" id="L265">		int save0 = s0;</span>
+<span class="nc" id="L266">		int save1 = s1;</span>
+<span class="nc" id="L267">		int save2 = s2;</span>
+<span class="nc" id="L268">		int save3 = s3;</span>
+<span class="nc" id="L269">		int save4 = s4;</span>
+<span class="nc" id="L270">		int save5 = s5;</span>
+<span class="nc" id="L271">		int save6 = s6;</span>
+<span class="nc" id="L272">		int save7 = s7;</span>
+<span class="nc bnc" id="L273" title="All 4 branches missed.">		switch (passes) {</span>
+		case 3:
+<span class="nc" id="L275">			pass31(inw);</span>
+<span class="nc" id="L276">			pass32(inw);</span>
+<span class="nc" id="L277">			pass33(inw);</span>
+<span class="nc" id="L278">			break;</span>
+		case 4:
+<span class="nc" id="L280">			pass41(inw);</span>
+<span class="nc" id="L281">			pass42(inw);</span>
+<span class="nc" id="L282">			pass43(inw);</span>
+<span class="nc" id="L283">			pass44(inw);</span>
+<span class="nc" id="L284">			break;</span>
+		case 5:
+<span class="nc" id="L286">			pass51(inw);</span>
+<span class="nc" id="L287">			pass52(inw);</span>
+<span class="nc" id="L288">			pass53(inw);</span>
+<span class="nc" id="L289">			pass54(inw);</span>
+<span class="nc" id="L290">			pass55(inw);</span>
+			break;
+		}
+<span class="nc" id="L293">		s0 += save0;</span>
+<span class="nc" id="L294">		s1 += save1;</span>
+<span class="nc" id="L295">		s2 += save2;</span>
+<span class="nc" id="L296">		s3 += save3;</span>
+<span class="nc" id="L297">		s4 += save4;</span>
+<span class="nc" id="L298">		s5 += save5;</span>
+<span class="nc" id="L299">		s6 += save6;</span>
+<span class="nc" id="L300">		s7 += save7;</span>
+<span class="nc" id="L301">	}</span>
+
+	private static final int F1(int x6, int x5, int x4,
+		int x3, int x2, int x1, int x0)
+	{
+<span class="nc" id="L306">		return (x1 &amp; x4) ^ (x2 &amp; x5) ^ (x3 &amp; x6) ^ (x0 &amp; x1) ^ x0;</span>
+	}
+
+	private static final int F2(int x6, int x5, int x4,
+		int x3, int x2, int x1, int x0)
+	{
+<span class="nc" id="L312">		return (x2 &amp; ((x1 &amp; ~x3) ^ (x4 &amp; x5) ^ x6 ^ x0))</span>
+			^ (x4 &amp; (x1 ^ x5)) ^ ((x3 &amp; x5) ^ x0);
+	}
+
+	private static final int F3(int x6, int x5, int x4,
+		int x3, int x2, int x1, int x0)
+	{
+<span class="nc" id="L319">		return (x3 &amp; ((x1 &amp; x2) ^ x6 ^ x0))</span>
+			^ (x1 &amp; x4) ^ (x2 &amp; x5) ^ x0;
+	}
+
+	private static final int F4(int x6, int x5, int x4,
+		int x3, int x2, int x1, int x0)
+	{
+<span class="nc" id="L326">		return (x3 &amp; ((x1 &amp; x2) ^ (x4 | x6) ^ x5))</span>
+			^ (x4 &amp; ((~x2 &amp; x5) ^ x1 ^ x6 ^ x0)) ^ (x2 &amp; x6) ^ x0;
+	}
+
+	private static final int F5(int x6, int x5, int x4,
+		int x3, int x2, int x1, int x0)
+	{
+<span class="nc" id="L333">		return (x0 &amp; ~((x1 &amp; x2 &amp; x3) ^ x5))</span>
+			^ (x1 &amp; x4) ^ (x2 &amp; x5) ^ (x3 &amp; x6);
+	}
+
+	private final void pass31(int[] inw)
+	{
+<span class="nc" id="L339">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L340">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L342">			x7 = circularLeft(F1(x1, x0, x3, x5, x6, x2, x4), 25)</span>
+<span class="nc" id="L343">				+ circularLeft(x7, 21) + inw[i + 0];</span>
+<span class="nc" id="L344">			x6 = circularLeft(F1(x0, x7, x2, x4, x5, x1, x3), 25)</span>
+<span class="nc" id="L345">				+ circularLeft(x6, 21) + inw[i + 1];</span>
+<span class="nc" id="L346">			x5 = circularLeft(F1(x7, x6, x1, x3, x4, x0, x2), 25)</span>
+<span class="nc" id="L347">				+ circularLeft(x5, 21) + inw[i + 2];</span>
+<span class="nc" id="L348">			x4 = circularLeft(F1(x6, x5, x0, x2, x3, x7, x1), 25)</span>
+<span class="nc" id="L349">				+ circularLeft(x4, 21) + inw[i + 3];</span>
+<span class="nc" id="L350">			x3 = circularLeft(F1(x5, x4, x7, x1, x2, x6, x0), 25)</span>
+<span class="nc" id="L351">				+ circularLeft(x3, 21) + inw[i + 4];</span>
+<span class="nc" id="L352">			x2 = circularLeft(F1(x4, x3, x6, x0, x1, x5, x7), 25)</span>
+<span class="nc" id="L353">				+ circularLeft(x2, 21) + inw[i + 5];</span>
+<span class="nc" id="L354">			x1 = circularLeft(F1(x3, x2, x5, x7, x0, x4, x6), 25)</span>
+<span class="nc" id="L355">				+ circularLeft(x1, 21) + inw[i + 6];</span>
+<span class="nc" id="L356">			x0 = circularLeft(F1(x2, x1, x4, x6, x7, x3, x5), 25)</span>
+<span class="nc" id="L357">				+ circularLeft(x0, 21) + inw[i + 7];</span>
+		}
+<span class="nc" id="L359">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L360">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L361">	}</span>
+
+	private final void pass32(int[] inw)
+	{
+<span class="nc" id="L365">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L366">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L368">			x7 = circularLeft(F2(x4, x2, x1, x0, x5, x3, x6), 25)</span>
+<span class="nc" id="L369">				+ circularLeft(x7, 21)</span>
+				+ inw[wp2[i + 0]] + K2[i + 0];
+<span class="nc" id="L371">			x6 = circularLeft(F2(x3, x1, x0, x7, x4, x2, x5), 25)</span>
+<span class="nc" id="L372">				+ circularLeft(x6, 21)</span>
+				+ inw[wp2[i + 1]] + K2[i + 1];
+<span class="nc" id="L374">			x5 = circularLeft(F2(x2, x0, x7, x6, x3, x1, x4), 25)</span>
+<span class="nc" id="L375">				+ circularLeft(x5, 21)</span>
+				+ inw[wp2[i + 2]] + K2[i + 2];
+<span class="nc" id="L377">			x4 = circularLeft(F2(x1, x7, x6, x5, x2, x0, x3), 25)</span>
+<span class="nc" id="L378">				+ circularLeft(x4, 21)</span>
+				+ inw[wp2[i + 3]] + K2[i + 3];
+<span class="nc" id="L380">			x3 = circularLeft(F2(x0, x6, x5, x4, x1, x7, x2), 25)</span>
+<span class="nc" id="L381">				+ circularLeft(x3, 21)</span>
+				+ inw[wp2[i + 4]] + K2[i + 4];
+<span class="nc" id="L383">			x2 = circularLeft(F2(x7, x5, x4, x3, x0, x6, x1), 25)</span>
+<span class="nc" id="L384">				+ circularLeft(x2, 21)</span>
+				+ inw[wp2[i + 5]] + K2[i + 5];
+<span class="nc" id="L386">			x1 = circularLeft(F2(x6, x4, x3, x2, x7, x5, x0), 25)</span>
+<span class="nc" id="L387">				+ circularLeft(x1, 21)</span>
+				+ inw[wp2[i + 6]] + K2[i + 6];
+<span class="nc" id="L389">			x0 = circularLeft(F2(x5, x3, x2, x1, x6, x4, x7), 25)</span>
+<span class="nc" id="L390">				+ circularLeft(x0, 21)</span>
+				+ inw[wp2[i + 7]] + K2[i + 7];
+		}
+<span class="nc" id="L393">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L394">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L395">	}</span>
+
+	private final void pass33(int[] inw)
+	{
+<span class="nc" id="L399">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L400">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L401" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L402">			x7 = circularLeft(F3(x6, x1, x2, x3, x4, x5, x0), 25)</span>
+<span class="nc" id="L403">				+ circularLeft(x7, 21)</span>
+				+ inw[wp3[i + 0]] + K3[i + 0];
+<span class="nc" id="L405">			x6 = circularLeft(F3(x5, x0, x1, x2, x3, x4, x7), 25)</span>
+<span class="nc" id="L406">				+ circularLeft(x6, 21)</span>
+				+ inw[wp3[i + 1]] + K3[i + 1];
+<span class="nc" id="L408">			x5 = circularLeft(F3(x4, x7, x0, x1, x2, x3, x6), 25)</span>
+<span class="nc" id="L409">				+ circularLeft(x5, 21)</span>
+				+ inw[wp3[i + 2]] + K3[i + 2];
+<span class="nc" id="L411">			x4 = circularLeft(F3(x3, x6, x7, x0, x1, x2, x5), 25)</span>
+<span class="nc" id="L412">				+ circularLeft(x4, 21)</span>
+				+ inw[wp3[i + 3]] + K3[i + 3];
+<span class="nc" id="L414">			x3 = circularLeft(F3(x2, x5, x6, x7, x0, x1, x4), 25)</span>
+<span class="nc" id="L415">				+ circularLeft(x3, 21)</span>
+				+ inw[wp3[i + 4]] + K3[i + 4];
+<span class="nc" id="L417">			x2 = circularLeft(F3(x1, x4, x5, x6, x7, x0, x3), 25)</span>
+<span class="nc" id="L418">				+ circularLeft(x2, 21)</span>
+				+ inw[wp3[i + 5]] + K3[i + 5];
+<span class="nc" id="L420">			x1 = circularLeft(F3(x0, x3, x4, x5, x6, x7, x2), 25)</span>
+<span class="nc" id="L421">				+ circularLeft(x1, 21)</span>
+				+ inw[wp3[i + 6]] + K3[i + 6];
+<span class="nc" id="L423">			x0 = circularLeft(F3(x7, x2, x3, x4, x5, x6, x1), 25)</span>
+<span class="nc" id="L424">				+ circularLeft(x0, 21)</span>
+				+ inw[wp3[i + 7]] + K3[i + 7];
+		}
+<span class="nc" id="L427">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L428">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L429">	}</span>
+
+	private final void pass41(int[] inw)
+	{
+<span class="nc" id="L433">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L434">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L436">			x7 = circularLeft(F1(x2, x6, x1, x4, x5, x3, x0), 25)</span>
+<span class="nc" id="L437">				+ circularLeft(x7, 21) + inw[i + 0];</span>
+<span class="nc" id="L438">			x6 = circularLeft(F1(x1, x5, x0, x3, x4, x2, x7), 25)</span>
+<span class="nc" id="L439">				+ circularLeft(x6, 21) + inw[i + 1];</span>
+<span class="nc" id="L440">			x5 = circularLeft(F1(x0, x4, x7, x2, x3, x1, x6), 25)</span>
+<span class="nc" id="L441">				+ circularLeft(x5, 21) + inw[i + 2];</span>
+<span class="nc" id="L442">			x4 = circularLeft(F1(x7, x3, x6, x1, x2, x0, x5), 25)</span>
+<span class="nc" id="L443">				+ circularLeft(x4, 21) + inw[i + 3];</span>
+<span class="nc" id="L444">			x3 = circularLeft(F1(x6, x2, x5, x0, x1, x7, x4), 25)</span>
+<span class="nc" id="L445">				+ circularLeft(x3, 21) + inw[i + 4];</span>
+<span class="nc" id="L446">			x2 = circularLeft(F1(x5, x1, x4, x7, x0, x6, x3), 25)</span>
+<span class="nc" id="L447">				+ circularLeft(x2, 21) + inw[i + 5];</span>
+<span class="nc" id="L448">			x1 = circularLeft(F1(x4, x0, x3, x6, x7, x5, x2), 25)</span>
+<span class="nc" id="L449">				+ circularLeft(x1, 21) + inw[i + 6];</span>
+<span class="nc" id="L450">			x0 = circularLeft(F1(x3, x7, x2, x5, x6, x4, x1), 25)</span>
+<span class="nc" id="L451">				+ circularLeft(x0, 21) + inw[i + 7];</span>
+		}
+<span class="nc" id="L453">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L454">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L455">	}</span>
+
+	private final void pass42(int[] inw)
+	{
+<span class="nc" id="L459">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L460">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L461" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L462">			x7 = circularLeft(F2(x3, x5, x2, x0, x1, x6, x4), 25)</span>
+<span class="nc" id="L463">				+ circularLeft(x7, 21)</span>
+				+ inw[wp2[i + 0]] + K2[i + 0];
+<span class="nc" id="L465">			x6 = circularLeft(F2(x2, x4, x1, x7, x0, x5, x3), 25)</span>
+<span class="nc" id="L466">				+ circularLeft(x6, 21)</span>
+				+ inw[wp2[i + 1]] + K2[i + 1];
+<span class="nc" id="L468">			x5 = circularLeft(F2(x1, x3, x0, x6, x7, x4, x2), 25)</span>
+<span class="nc" id="L469">				+ circularLeft(x5, 21)</span>
+				+ inw[wp2[i + 2]] + K2[i + 2];
+<span class="nc" id="L471">			x4 = circularLeft(F2(x0, x2, x7, x5, x6, x3, x1), 25)</span>
+<span class="nc" id="L472">				+ circularLeft(x4, 21)</span>
+				+ inw[wp2[i + 3]] + K2[i + 3];
+<span class="nc" id="L474">			x3 = circularLeft(F2(x7, x1, x6, x4, x5, x2, x0), 25)</span>
+<span class="nc" id="L475">				+ circularLeft(x3, 21)</span>
+				+ inw[wp2[i + 4]] + K2[i + 4];
+<span class="nc" id="L477">			x2 = circularLeft(F2(x6, x0, x5, x3, x4, x1, x7), 25)</span>
+<span class="nc" id="L478">				+ circularLeft(x2, 21)</span>
+				+ inw[wp2[i + 5]] + K2[i + 5];
+<span class="nc" id="L480">			x1 = circularLeft(F2(x5, x7, x4, x2, x3, x0, x6), 25)</span>
+<span class="nc" id="L481">				+ circularLeft(x1, 21)</span>
+				+ inw[wp2[i + 6]] + K2[i + 6];
+<span class="nc" id="L483">			x0 = circularLeft(F2(x4, x6, x3, x1, x2, x7, x5), 25)</span>
+<span class="nc" id="L484">				+ circularLeft(x0, 21)</span>
+				+ inw[wp2[i + 7]] + K2[i + 7];
+		}
+<span class="nc" id="L487">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L488">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L489">	}</span>
+
+	private final void pass43(int[] inw)
+	{
+<span class="nc" id="L493">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L494">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L495" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L496">			x7 = circularLeft(F3(x1, x4, x3, x6, x0, x2, x5), 25)</span>
+<span class="nc" id="L497">				+ circularLeft(x7, 21)</span>
+				+ inw[wp3[i + 0]] + K3[i + 0];
+<span class="nc" id="L499">			x6 = circularLeft(F3(x0, x3, x2, x5, x7, x1, x4), 25)</span>
+<span class="nc" id="L500">				+ circularLeft(x6, 21)</span>
+				+ inw[wp3[i + 1]] + K3[i + 1];
+<span class="nc" id="L502">			x5 = circularLeft(F3(x7, x2, x1, x4, x6, x0, x3), 25)</span>
+<span class="nc" id="L503">				+ circularLeft(x5, 21)</span>
+				+ inw[wp3[i + 2]] + K3[i + 2];
+<span class="nc" id="L505">			x4 = circularLeft(F3(x6, x1, x0, x3, x5, x7, x2), 25)</span>
+<span class="nc" id="L506">				+ circularLeft(x4, 21)</span>
+				+ inw[wp3[i + 3]] + K3[i + 3];
+<span class="nc" id="L508">			x3 = circularLeft(F3(x5, x0, x7, x2, x4, x6, x1), 25)</span>
+<span class="nc" id="L509">				+ circularLeft(x3, 21)</span>
+				+ inw[wp3[i + 4]] + K3[i + 4];
+<span class="nc" id="L511">			x2 = circularLeft(F3(x4, x7, x6, x1, x3, x5, x0), 25)</span>
+<span class="nc" id="L512">				+ circularLeft(x2, 21)</span>
+				+ inw[wp3[i + 5]] + K3[i + 5];
+<span class="nc" id="L514">			x1 = circularLeft(F3(x3, x6, x5, x0, x2, x4, x7), 25)</span>
+<span class="nc" id="L515">				+ circularLeft(x1, 21)</span>
+				+ inw[wp3[i + 6]] + K3[i + 6];
+<span class="nc" id="L517">			x0 = circularLeft(F3(x2, x5, x4, x7, x1, x3, x6), 25)</span>
+<span class="nc" id="L518">				+ circularLeft(x0, 21)</span>
+				+ inw[wp3[i + 7]] + K3[i + 7];
+		}
+<span class="nc" id="L521">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L522">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L523">	}</span>
+
+	private final void pass44(int[] inw)
+	{
+<span class="nc" id="L527">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L528">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L529" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L530">			x7 = circularLeft(F4(x6, x4, x0, x5, x2, x1, x3), 25)</span>
+<span class="nc" id="L531">				+ circularLeft(x7, 21)</span>
+				+ inw[wp4[i + 0]] + K4[i + 0];
+<span class="nc" id="L533">			x6 = circularLeft(F4(x5, x3, x7, x4, x1, x0, x2), 25)</span>
+<span class="nc" id="L534">				+ circularLeft(x6, 21)</span>
+				+ inw[wp4[i + 1]] + K4[i + 1];
+<span class="nc" id="L536">			x5 = circularLeft(F4(x4, x2, x6, x3, x0, x7, x1), 25)</span>
+<span class="nc" id="L537">				+ circularLeft(x5, 21)</span>
+				+ inw[wp4[i + 2]] + K4[i + 2];
+<span class="nc" id="L539">			x4 = circularLeft(F4(x3, x1, x5, x2, x7, x6, x0), 25)</span>
+<span class="nc" id="L540">				+ circularLeft(x4, 21)</span>
+				+ inw[wp4[i + 3]] + K4[i + 3];
+<span class="nc" id="L542">			x3 = circularLeft(F4(x2, x0, x4, x1, x6, x5, x7), 25)</span>
+<span class="nc" id="L543">				+ circularLeft(x3, 21)</span>
+				+ inw[wp4[i + 4]] + K4[i + 4];
+<span class="nc" id="L545">			x2 = circularLeft(F4(x1, x7, x3, x0, x5, x4, x6), 25)</span>
+<span class="nc" id="L546">				+ circularLeft(x2, 21)</span>
+				+ inw[wp4[i + 5]] + K4[i + 5];
+<span class="nc" id="L548">			x1 = circularLeft(F4(x0, x6, x2, x7, x4, x3, x5), 25)</span>
+<span class="nc" id="L549">				+ circularLeft(x1, 21)</span>
+				+ inw[wp4[i + 6]] + K4[i + 6];
+<span class="nc" id="L551">			x0 = circularLeft(F4(x7, x5, x1, x6, x3, x2, x4), 25)</span>
+<span class="nc" id="L552">				+ circularLeft(x0, 21)</span>
+				+ inw[wp4[i + 7]] + K4[i + 7];
+		}
+<span class="nc" id="L555">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L556">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L557">	}</span>
+
+	private final void pass51(int[] inw)
+	{
+<span class="nc" id="L561">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L562">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L564">			x7 = circularLeft(F1(x3, x4, x1, x0, x5, x2, x6), 25)</span>
+<span class="nc" id="L565">				+ circularLeft(x7, 21) + inw[i + 0];</span>
+<span class="nc" id="L566">			x6 = circularLeft(F1(x2, x3, x0, x7, x4, x1, x5), 25)</span>
+<span class="nc" id="L567">				+ circularLeft(x6, 21) + inw[i + 1];</span>
+<span class="nc" id="L568">			x5 = circularLeft(F1(x1, x2, x7, x6, x3, x0, x4), 25)</span>
+<span class="nc" id="L569">				+ circularLeft(x5, 21) + inw[i + 2];</span>
+<span class="nc" id="L570">			x4 = circularLeft(F1(x0, x1, x6, x5, x2, x7, x3), 25)</span>
+<span class="nc" id="L571">				+ circularLeft(x4, 21) + inw[i + 3];</span>
+<span class="nc" id="L572">			x3 = circularLeft(F1(x7, x0, x5, x4, x1, x6, x2), 25)</span>
+<span class="nc" id="L573">				+ circularLeft(x3, 21) + inw[i + 4];</span>
+<span class="nc" id="L574">			x2 = circularLeft(F1(x6, x7, x4, x3, x0, x5, x1), 25)</span>
+<span class="nc" id="L575">				+ circularLeft(x2, 21) + inw[i + 5];</span>
+<span class="nc" id="L576">			x1 = circularLeft(F1(x5, x6, x3, x2, x7, x4, x0), 25)</span>
+<span class="nc" id="L577">				+ circularLeft(x1, 21) + inw[i + 6];</span>
+<span class="nc" id="L578">			x0 = circularLeft(F1(x4, x5, x2, x1, x6, x3, x7), 25)</span>
+<span class="nc" id="L579">				+ circularLeft(x0, 21) + inw[i + 7];</span>
+		}
+<span class="nc" id="L581">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L582">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L583">	}</span>
+
+	private final void pass52(int[] inw)
+	{
+<span class="nc" id="L587">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L588">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L590">			x7 = circularLeft(F2(x6, x2, x1, x0, x3, x4, x5), 25)</span>
+<span class="nc" id="L591">				+ circularLeft(x7, 21)</span>
+				+ inw[wp2[i + 0]] + K2[i + 0];
+<span class="nc" id="L593">			x6 = circularLeft(F2(x5, x1, x0, x7, x2, x3, x4), 25)</span>
+<span class="nc" id="L594">				+ circularLeft(x6, 21)</span>
+				+ inw[wp2[i + 1]] + K2[i + 1];
+<span class="nc" id="L596">			x5 = circularLeft(F2(x4, x0, x7, x6, x1, x2, x3), 25)</span>
+<span class="nc" id="L597">				+ circularLeft(x5, 21)</span>
+				+ inw[wp2[i + 2]] + K2[i + 2];
+<span class="nc" id="L599">			x4 = circularLeft(F2(x3, x7, x6, x5, x0, x1, x2), 25)</span>
+<span class="nc" id="L600">				+ circularLeft(x4, 21)</span>
+				+ inw[wp2[i + 3]] + K2[i + 3];
+<span class="nc" id="L602">			x3 = circularLeft(F2(x2, x6, x5, x4, x7, x0, x1), 25)</span>
+<span class="nc" id="L603">				+ circularLeft(x3, 21)</span>
+				+ inw[wp2[i + 4]] + K2[i + 4];
+<span class="nc" id="L605">			x2 = circularLeft(F2(x1, x5, x4, x3, x6, x7, x0), 25)</span>
+<span class="nc" id="L606">				+ circularLeft(x2, 21)</span>
+				+ inw[wp2[i + 5]] + K2[i + 5];
+<span class="nc" id="L608">			x1 = circularLeft(F2(x0, x4, x3, x2, x5, x6, x7), 25)</span>
+<span class="nc" id="L609">				+ circularLeft(x1, 21)</span>
+				+ inw[wp2[i + 6]] + K2[i + 6];
+<span class="nc" id="L611">			x0 = circularLeft(F2(x7, x3, x2, x1, x4, x5, x6), 25)</span>
+<span class="nc" id="L612">				+ circularLeft(x0, 21)</span>
+				+ inw[wp2[i + 7]] + K2[i + 7];
+		}
+<span class="nc" id="L615">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L616">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L617">	}</span>
+
+	private final void pass53(int[] inw)
+	{
+<span class="nc" id="L621">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L622">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L623" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L624">			x7 = circularLeft(F3(x2, x6, x0, x4, x3, x1, x5), 25)</span>
+<span class="nc" id="L625">				+ circularLeft(x7, 21)</span>
+				+ inw[wp3[i + 0]] + K3[i + 0];
+<span class="nc" id="L627">			x6 = circularLeft(F3(x1, x5, x7, x3, x2, x0, x4), 25)</span>
+<span class="nc" id="L628">				+ circularLeft(x6, 21)</span>
+				+ inw[wp3[i + 1]] + K3[i + 1];
+<span class="nc" id="L630">			x5 = circularLeft(F3(x0, x4, x6, x2, x1, x7, x3), 25)</span>
+<span class="nc" id="L631">				+ circularLeft(x5, 21)</span>
+				+ inw[wp3[i + 2]] + K3[i + 2];
+<span class="nc" id="L633">			x4 = circularLeft(F3(x7, x3, x5, x1, x0, x6, x2), 25)</span>
+<span class="nc" id="L634">				+ circularLeft(x4, 21)</span>
+				+ inw[wp3[i + 3]] + K3[i + 3];
+<span class="nc" id="L636">			x3 = circularLeft(F3(x6, x2, x4, x0, x7, x5, x1), 25)</span>
+<span class="nc" id="L637">				+ circularLeft(x3, 21)</span>
+				+ inw[wp3[i + 4]] + K3[i + 4];
+<span class="nc" id="L639">			x2 = circularLeft(F3(x5, x1, x3, x7, x6, x4, x0), 25)</span>
+<span class="nc" id="L640">				+ circularLeft(x2, 21)</span>
+				+ inw[wp3[i + 5]] + K3[i + 5];
+<span class="nc" id="L642">			x1 = circularLeft(F3(x4, x0, x2, x6, x5, x3, x7), 25)</span>
+<span class="nc" id="L643">				+ circularLeft(x1, 21)</span>
+				+ inw[wp3[i + 6]] + K3[i + 6];
+<span class="nc" id="L645">			x0 = circularLeft(F3(x3, x7, x1, x5, x4, x2, x6), 25)</span>
+<span class="nc" id="L646">				+ circularLeft(x0, 21)</span>
+				+ inw[wp3[i + 7]] + K3[i + 7];
+		}
+<span class="nc" id="L649">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L650">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L651">	}</span>
+
+	private final void pass54(int[] inw)
+	{
+<span class="nc" id="L655">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L656">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L657" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L658">			x7 = circularLeft(F4(x1, x5, x3, x2, x0, x4, x6), 25)</span>
+<span class="nc" id="L659">				+ circularLeft(x7, 21)</span>
+				+ inw[wp4[i + 0]] + K4[i + 0];
+<span class="nc" id="L661">			x6 = circularLeft(F4(x0, x4, x2, x1, x7, x3, x5), 25)</span>
+<span class="nc" id="L662">				+ circularLeft(x6, 21)</span>
+				+ inw[wp4[i + 1]] + K4[i + 1];
+<span class="nc" id="L664">			x5 = circularLeft(F4(x7, x3, x1, x0, x6, x2, x4), 25)</span>
+<span class="nc" id="L665">				+ circularLeft(x5, 21)</span>
+				+ inw[wp4[i + 2]] + K4[i + 2];
+<span class="nc" id="L667">			x4 = circularLeft(F4(x6, x2, x0, x7, x5, x1, x3), 25)</span>
+<span class="nc" id="L668">				+ circularLeft(x4, 21)</span>
+				+ inw[wp4[i + 3]] + K4[i + 3];
+<span class="nc" id="L670">			x3 = circularLeft(F4(x5, x1, x7, x6, x4, x0, x2), 25)</span>
+<span class="nc" id="L671">				+ circularLeft(x3, 21)</span>
+				+ inw[wp4[i + 4]] + K4[i + 4];
+<span class="nc" id="L673">			x2 = circularLeft(F4(x4, x0, x6, x5, x3, x7, x1), 25)</span>
+<span class="nc" id="L674">				+ circularLeft(x2, 21)</span>
+				+ inw[wp4[i + 5]] + K4[i + 5];
+<span class="nc" id="L676">			x1 = circularLeft(F4(x3, x7, x5, x4, x2, x6, x0), 25)</span>
+<span class="nc" id="L677">				+ circularLeft(x1, 21)</span>
+				+ inw[wp4[i + 6]] + K4[i + 6];
+<span class="nc" id="L679">			x0 = circularLeft(F4(x2, x6, x4, x3, x1, x5, x7), 25)</span>
+<span class="nc" id="L680">				+ circularLeft(x0, 21)</span>
+				+ inw[wp4[i + 7]] + K4[i + 7];
+		}
+<span class="nc" id="L683">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L684">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L685">	}</span>
+
+	private final void pass55(int[] inw)
+	{
+<span class="nc" id="L689">		int x0 = s0, x1 = s1, x2 = s2, x3 = s3;</span>
+<span class="nc" id="L690">		int x4 = s4, x5 = s5, x6 = s6, x7 = s7;</span>
+<span class="nc bnc" id="L691" title="All 2 branches missed.">		for (int i = 0; i &lt; 32; i += 8) {</span>
+<span class="nc" id="L692">			x7 = circularLeft(F5(x2, x5, x0, x6, x4, x3, x1), 25)</span>
+<span class="nc" id="L693">				+ circularLeft(x7, 21)</span>
+				+ inw[wp5[i + 0]] + K5[i + 0];
+<span class="nc" id="L695">			x6 = circularLeft(F5(x1, x4, x7, x5, x3, x2, x0), 25)</span>
+<span class="nc" id="L696">				+ circularLeft(x6, 21)</span>
+				+ inw[wp5[i + 1]] + K5[i + 1];
+<span class="nc" id="L698">			x5 = circularLeft(F5(x0, x3, x6, x4, x2, x1, x7), 25)</span>
+<span class="nc" id="L699">				+ circularLeft(x5, 21)</span>
+				+ inw[wp5[i + 2]] + K5[i + 2];
+<span class="nc" id="L701">			x4 = circularLeft(F5(x7, x2, x5, x3, x1, x0, x6), 25)</span>
+<span class="nc" id="L702">				+ circularLeft(x4, 21)</span>
+				+ inw[wp5[i + 3]] + K5[i + 3];
+<span class="nc" id="L704">			x3 = circularLeft(F5(x6, x1, x4, x2, x0, x7, x5), 25)</span>
+<span class="nc" id="L705">				+ circularLeft(x3, 21)</span>
+				+ inw[wp5[i + 4]] + K5[i + 4];
+<span class="nc" id="L707">			x2 = circularLeft(F5(x5, x0, x3, x1, x7, x6, x4), 25)</span>
+<span class="nc" id="L708">				+ circularLeft(x2, 21)</span>
+				+ inw[wp5[i + 5]] + K5[i + 5];
+<span class="nc" id="L710">			x1 = circularLeft(F5(x4, x7, x2, x0, x6, x5, x3), 25)</span>
+<span class="nc" id="L711">				+ circularLeft(x1, 21)</span>
+				+ inw[wp5[i + 6]] + K5[i + 6];
+<span class="nc" id="L713">			x0 = circularLeft(F5(x3, x6, x1, x7, x5, x4, x2), 25)</span>
+<span class="nc" id="L714">				+ circularLeft(x0, 21)</span>
+				+ inw[wp5[i + 7]] + K5[i + 7];
+		}
+<span class="nc" id="L717">		s0 = x0; s1 = x1; s2 = x2; s3 = x3;</span>
+<span class="nc" id="L718">		s4 = x4; s5 = x5; s6 = x6; s7 = x7;</span>
+<span class="nc" id="L719">	}</span>
+
+	private static final int mix128(int a0, int a1, int a2, int a3, int n)
+	{
+<span class="nc" id="L723">		int tmp = (a0 &amp; 0x000000FF)</span>
+			| (a1 &amp; 0x0000FF00)
+			| (a2 &amp; 0x00FF0000)
+			| (a3 &amp; 0xFF000000);
+<span class="nc bnc" id="L727" title="All 2 branches missed.">		if (n &gt; 0)</span>
+<span class="nc" id="L728">			tmp = circularLeft(tmp, n);</span>
+<span class="nc" id="L729">		return tmp;</span>
+	}
+
+	private static final int mix160_0(int x5, int x6, int x7)
+	{
+<span class="nc" id="L734">		return circularLeft((x5 &amp; 0x01F80000)</span>
+			| (x6 &amp; 0xFE000000) | (x7 &amp; 0x0000003F), 13);
+	}
+
+	private static final int mix160_1(int x5, int x6, int x7)
+	{
+<span class="nc" id="L740">		return circularLeft((x5 &amp; 0xFE000000)</span>
+			| (x6 &amp; 0x0000003F) | (x7 &amp; 0x00000FC0), 7);
+	}
+
+	private static final int mix160_2(int x5, int x6, int x7)
+	{
+<span class="nc" id="L746">		return (x5 &amp; 0x0000003F)</span>
+			| (x6 &amp; 0x00000FC0)
+			| (x7 &amp; 0x0007F000);
+	}
+
+	private static final int mix160_3(int x5, int x6, int x7)
+	{
+<span class="nc" id="L753">		return ((x5 &amp; 0x00000FC0)</span>
+			| (x6 &amp; 0x0007F000)
+			| (x7 &amp; 0x01F80000)) &gt;&gt;&gt; 6;
+	}
+
+	private static final int mix160_4(int x5, int x6, int x7)
+	{
+<span class="nc" id="L760">		return ((x5 &amp; 0x0007F000)</span>
+			| (x6 &amp; 0x01F80000)
+			| (x7 &amp; 0xFE000000)) &gt;&gt;&gt; 12;
+	}
+
+	private static final int mix192_0(int x6, int x7)
+	{
+<span class="nc" id="L767">		return circularLeft((x6 &amp; 0xFC000000) | (x7 &amp; 0x0000001F), 6);</span>
+	}
+
+	private static final int mix192_1(int x6, int x7)
+	{
+<span class="nc" id="L772">		return (x6 &amp; 0x0000001F) | (x7 &amp; 0x000003E0);</span>
+	}
+
+	private static final int mix192_2(int x6, int x7)
+	{
+<span class="nc" id="L777">		return ((x6 &amp; 0x000003E0) | (x7 &amp; 0x0000FC00)) &gt;&gt;&gt; 5;</span>
+	}
+
+	private static final int mix192_3(int x6, int x7)
+	{
+<span class="nc" id="L782">		return ((x6 &amp; 0x0000FC00) | (x7 &amp; 0x001F0000)) &gt;&gt;&gt; 10;</span>
+	}
+
+	private static final int mix192_4(int x6, int x7)
+	{
+<span class="nc" id="L787">		return ((x6 &amp; 0x001F0000) | (x7 &amp; 0x03E00000)) &gt;&gt;&gt; 16;</span>
+	}
+
+	private static final int mix192_5(int x6, int x7)
+	{
+<span class="nc" id="L792">		return ((x6 &amp; 0x03E00000) | (x7 &amp; 0xFC000000)) &gt;&gt;&gt; 21;</span>
+	}
+
+	private final void write128(byte[] out, int off)
+	{
+<span class="nc" id="L797">		encodeLEInt(s0 + mix128(s7, s4, s5, s6, 24), out, off);</span>
+<span class="nc" id="L798">		encodeLEInt(s1 + mix128(s6, s7, s4, s5, 16), out, off + 4);</span>
+<span class="nc" id="L799">		encodeLEInt(s2 + mix128(s5, s6, s7, s4,  8), out, off + 8);</span>
+<span class="nc" id="L800">		encodeLEInt(s3 + mix128(s4, s5, s6, s7,  0), out, off + 12);</span>
+<span class="nc" id="L801">	}</span>
+
+	private final void write160(byte[] out, int off)
+	{
+<span class="nc" id="L805">		encodeLEInt(s0 + mix160_0(s5, s6, s7), out, off);</span>
+<span class="nc" id="L806">		encodeLEInt(s1 + mix160_1(s5, s6, s7), out, off + 4);</span>
+<span class="nc" id="L807">		encodeLEInt(s2 + mix160_2(s5, s6, s7), out, off + 8);</span>
+<span class="nc" id="L808">		encodeLEInt(s3 + mix160_3(s5, s6, s7), out, off + 12);</span>
+<span class="nc" id="L809">		encodeLEInt(s4 + mix160_4(s5, s6, s7), out, off + 16);</span>
+<span class="nc" id="L810">	}</span>
+
+	private final void write192(byte[] out, int off)
+	{
+<span class="nc" id="L814">		encodeLEInt(s0 + mix192_0(s6, s7), out, off);</span>
+<span class="nc" id="L815">		encodeLEInt(s1 + mix192_1(s6, s7), out, off + 4);</span>
+<span class="nc" id="L816">		encodeLEInt(s2 + mix192_2(s6, s7), out, off + 8);</span>
+<span class="nc" id="L817">		encodeLEInt(s3 + mix192_3(s6, s7), out, off + 12);</span>
+<span class="nc" id="L818">		encodeLEInt(s4 + mix192_4(s6, s7), out, off + 16);</span>
+<span class="nc" id="L819">		encodeLEInt(s5 + mix192_5(s6, s7), out, off + 20);</span>
+<span class="nc" id="L820">	}</span>
+
+	private final void write224(byte[] out, int off)
+	{
+<span class="nc" id="L824">		encodeLEInt(s0 + ((s7 &gt;&gt;&gt; 27) &amp; 0x1F), out, off);</span>
+<span class="nc" id="L825">		encodeLEInt(s1 + ((s7 &gt;&gt;&gt; 22) &amp; 0x1F), out, off + 4);</span>
+<span class="nc" id="L826">		encodeLEInt(s2 + ((s7 &gt;&gt;&gt; 18) &amp; 0x0F), out, off + 8);</span>
+<span class="nc" id="L827">		encodeLEInt(s3 + ((s7 &gt;&gt;&gt; 13) &amp; 0x1F), out, off + 12);</span>
+<span class="nc" id="L828">		encodeLEInt(s4 + ((s7 &gt;&gt;&gt;  9) &amp; 0x0F), out, off + 16);</span>
+<span class="nc" id="L829">		encodeLEInt(s5 + ((s7 &gt;&gt;&gt;  4) &amp; 0x1F), out, off + 20);</span>
+<span class="nc" id="L830">		encodeLEInt(s6 + ((s7       ) &amp; 0x0F), out, off + 24);</span>
+<span class="nc" id="L831">	}</span>
+
+	private final void write256(byte[] out, int off)
+	{
+<span class="nc" id="L835">		encodeLEInt(s0, out, off);</span>
+<span class="nc" id="L836">		encodeLEInt(s1, out, off + 4);</span>
+<span class="nc" id="L837">		encodeLEInt(s2, out, off + 8);</span>
+<span class="nc" id="L838">		encodeLEInt(s3, out, off + 12);</span>
+<span class="nc" id="L839">		encodeLEInt(s4, out, off + 16);</span>
+<span class="nc" id="L840">		encodeLEInt(s5, out, off + 20);</span>
+<span class="nc" id="L841">		encodeLEInt(s6, out, off + 24);</span>
+<span class="nc" id="L842">		encodeLEInt(s7, out, off + 28);</span>
+<span class="nc" id="L843">	}</span>
+
+	private final void writeOutput(byte[] out, int off)
+	{
+<span class="nc bnc" id="L847" title="All 6 branches missed.">		switch (olen) {</span>
+		case 4:
+<span class="nc" id="L849">			write128(out, off);</span>
+<span class="nc" id="L850">			break;</span>
+		case 5:
+<span class="nc" id="L852">			write160(out, off);</span>
+<span class="nc" id="L853">			break;</span>
+		case 6:
+<span class="nc" id="L855">			write192(out, off);</span>
+<span class="nc" id="L856">			break;</span>
+		case 7:
+<span class="nc" id="L858">			write224(out, off);</span>
+<span class="nc" id="L859">			break;</span>
+		case 8:
+<span class="nc" id="L861">			write256(out, off);</span>
+			break;
+		}
+<span class="nc" id="L864">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L869">		return &quot;HAVAL-&quot; + passes + &quot;-&quot; + (olen &lt;&lt; 5);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

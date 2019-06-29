@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>InstantXCoinSelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.wallet</a> &gt; <span class="el_source">InstantXCoinSelector.java</span></div><h1>InstantXCoinSelector.java</h1><pre class="source lang-java linenums">package site.mtnsj.wallet;
+
+import site.mtnsj.core.Transaction;
+import site.mtnsj.core.TransactionConfidence;
+import site.mtnsj.params.RegTestParams;
+
+/**
+ * Created by Eric on 1/15/2016.
+ */
+public class InstantXCoinSelector extends DefaultCoinSelector {
+
+<span class="nc" id="L12">    boolean usingInstantX = false;</span>
+    public InstantXCoinSelector()
+<span class="nc" id="L14">    {</span>
+
+<span class="nc" id="L16">    }</span>
+    public void setUsingInstantX(boolean usingInstantX)
+    {
+<span class="nc" id="L19">        this.usingInstantX = usingInstantX;</span>
+<span class="nc" id="L20">    }</span>
+    @Override
+    protected boolean shouldSelect(Transaction tx) {
+<span class="nc bnc" id="L23" title="All 2 branches missed.">        if (tx != null) {</span>
+<span class="nc" id="L24">            return isSelectable(tx, usingInstantX);</span>
+        }
+<span class="nc" id="L26">        return true;</span>
+    }
+    public static boolean isSelectable(Transaction tx, boolean usingInstantX) {
+        // Only pick chain-included transactions, or transactions that are ours and pending.
+<span class="nc" id="L30">        TransactionConfidence confidence = tx.getConfidence();</span>
+<span class="nc" id="L31">        TransactionConfidence.ConfidenceType type = confidence.getConfidenceType();</span>
+<span class="nc bnc" id="L32" title="All 6 branches missed.">        return (type.equals(TransactionConfidence.ConfidenceType.BUILDING) &amp;&amp; ( usingInstantX ? confidence.getDepthInBlocks() &gt;= 6 : true))||</span>
+                //type.equals(TransactionConfidence.ConfidenceType.INSTANTX_LOCKED) || //TODO:InstantX
+<span class="nc bnc" id="L34" title="All 2 branches missed.">                type.equals(TransactionConfidence.ConfidenceType.PENDING) &amp;&amp;</span>
+<span class="nc bnc" id="L35" title="All 4 branches missed.">                        confidence.getSource().equals(TransactionConfidence.Source.SELF) &amp;&amp; ( usingInstantX ? false : true) &amp;&amp;</span>
+                        // In regtest mode we expect to have only one peer, so we won't see transactions propagate.
+                        // TODO: The value 1 below dates from a time when transactions we broadcast *to* were counted, set to 0
+<span class="nc bnc" id="L38" title="All 4 branches missed.">                        (confidence.numBroadcastPeers() &gt; 1 || tx.getParams() == RegTestParams.get());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

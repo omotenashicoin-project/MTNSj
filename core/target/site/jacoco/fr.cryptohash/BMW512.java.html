@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>BMW512.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">BMW512.java</span></div><h1>BMW512.java</h1><pre class="source lang-java linenums">// $Id: BMW512.java 166 2010-05-03 16:44:36Z tp $
+
+package fr.cryptohash;
+
+/**
+ * &lt;p&gt;This class implements the BMW-512 (&quot;Blue Midnight Wish&quot;) digest
+ * algorithm under the {@link Digest} API.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 166 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+public class BMW512 extends BMWBigCore {
+
+	/**
+	 * Create the engine.
+	 */
+	public BMW512()
+	{
+<span class="nc" id="L47">		super();</span>
+<span class="nc" id="L48">	}</span>
+
+	/** The initial value for BMW-512. */
+<span class="nc" id="L51">	private static final long[] initVal = {</span>
+		0x8081828384858687L, 0x88898A8B8C8D8E8FL,
+		0x9091929394959697L, 0x98999A9B9C9D9E9FL,
+		0xA0A1A2A3A4A5A6A7L, 0xA8A9AAABACADAEAFL,
+		0xB0B1B2B3B4B5B6B7L, 0xB8B9BABBBCBDBEBFL,
+		0xC0C1C2C3C4C5C6C7L, 0xC8C9CACBCCCDCECFL,
+		0xD0D1D2D3D4D5D6D7L, 0xD8D9DADBDCDDDEDFL,
+		0xE0E1E2E3E4E5E6E7L, 0xE8E9EAEBECEDEEEFL,
+		0xF0F1F2F3F4F5F6F7L, 0xF8F9FAFBFCFDFEFFL
+	};
+
+	/** @see BMWSmallCore */
+	long[] getInitVal()
+	{
+<span class="nc" id="L65">		return initVal;</span>
+	}
+
+	/** @see Digest */
+	public int getDigestLength()
+	{
+<span class="nc" id="L71">		return 64;</span>
+	}
+
+	/** @see Digest */
+	public Digest copy()
+	{
+<span class="nc" id="L77">		return copyState(new BMW512());</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

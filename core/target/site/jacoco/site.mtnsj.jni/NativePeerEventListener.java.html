@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>NativePeerEventListener.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.jni</a> &gt; <span class="el_source">NativePeerEventListener.java</span></div><h1>NativePeerEventListener.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 2013 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package site.mtnsj.jni;
+
+import site.mtnsj.core.listeners.*;
+import site.mtnsj.core.*;
+
+import javax.annotation.*;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * An event listener that relays events to a native C++ object. A pointer to that object is stored in
+ * this class using JNI on the native side, thus several instances of this can point to different actual
+ * native implementations.
+ */
+<span class="nc" id="L31">public class NativePeerEventListener implements PeerConnectionEventListener, PeerDataEventListener, OnTransactionBroadcastListener {</span>
+    public long ptr;
+
+    @Override
+    public native void onPeersDiscovered(Set&lt;PeerAddress&gt; peerAddresses);
+
+    @Override
+    public native void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft);
+
+    @Override
+    public native void onChainDownloadStarted(Peer peer, int blocksLeft);
+
+    @Override
+    public native void onPeerConnected(Peer peer, int peerCount);
+
+    @Override
+    public native void onPeerDisconnected(Peer peer, int peerCount);
+
+    @Override
+    public native Message onPreMessageReceived(Peer peer, Message m);
+
+    @Override
+    public native void onTransaction(Peer peer, Transaction t);
+
+    @Override
+    public native List&lt;Message&gt; getData(Peer peer, GetDataMessage m);
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

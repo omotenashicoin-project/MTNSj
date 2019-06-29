@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>BLAKEBigCore.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">BLAKEBigCore.java</span></div><h1>BLAKEBigCore.java</h1><pre class="source lang-java linenums">// $Id: BLAKEBigCore.java 252 2011-06-07 17:55:14Z tp $
+
+package fr.cryptohash;
+
+/**
+ * This class implements BLAKE-384 and BLAKE-512, which differ only by
+ * the IV, output length, and one bit in the padding.
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 252 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+abstract class BLAKEBigCore extends DigestEngine {
+
+<span class="nc" id="L42">	private static final int[] SIGMA = {</span>
+		 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+		14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3,
+		11,  8, 12,  0,  5,  2, 15, 13, 10, 14,  3,  6,  7,  1,  9,  4,
+		 7,  9,  3,  1, 13, 12, 11, 14,  2,  6,  5, 10,  4,  0, 15,  8,
+		 9,  0,  5,  7,  2,  4, 10, 15, 14,  1, 11, 12,  6,  8,  3, 13,
+		 2, 12,  6, 10,  0, 11,  8,  3,  4, 13,  7,  5, 15, 14,  1,  9,
+		12,  5,  1, 15, 14, 13,  4, 10,  0,  7,  6,  3,  9,  2,  8, 11,
+		13, 11,  7, 14, 12,  1,  3,  9,  5,  0, 15,  4,  8,  6,  2, 10,
+		 6, 15, 14,  9, 11,  3,  0,  8, 12,  2, 13,  7,  1,  4, 10,  5,
+		10,  2,  8,  4,  7,  6,  1,  5, 15, 11,  9, 14,  3, 12, 13,  0,
+		 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+		14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3,
+		11,  8, 12,  0,  5,  2, 15, 13, 10, 14,  3,  6,  7,  1,  9,  4,
+		 7,  9,  3,  1, 13, 12, 11, 14,  2,  6,  5, 10,  4,  0, 15,  8,
+		 9,  0,  5,  7,  2,  4, 10, 15, 14,  1, 11, 12,  6,  8,  3, 13,
+		 2, 12,  6, 10,  0, 11,  8,  3,  4, 13,  7,  5, 15, 14,  1,  9
+	};
+
+<span class="nc" id="L61">	private static final long[] CB = {</span>
+		0x243F6A8885A308D3L, 0x13198A2E03707344L,
+		0xA4093822299F31D0L, 0x082EFA98EC4E6C89L,
+		0x452821E638D01377L, 0xBE5466CF34E90C6CL,
+		0xC0AC29B7C97C50DDL, 0x3F84D5B5B5470917L,
+		0x9216D5D98979FB1BL, 0xD1310BA698DFB5ACL,
+		0x2FFD72DBD01ADFB7L, 0xB8E1AFED6A267E96L,
+		0xBA7C9045F12C7F99L, 0x24A19947B3916CF7L,
+		0x0801F2E2858EFC16L, 0x636920D871574E69L
+	};
+
+	private long h0, h1, h2, h3, h4, h5, h6, h7;
+	private long s0, s1, s2, s3;
+	private long t0, t1;
+	private long[] tmpM;
+	private byte[] tmpBuf;
+
+	/**
+	 * Create the object.
+	 */
+	BLAKEBigCore()
+<span class="nc" id="L82">	{</span>
+<span class="nc" id="L83">	}</span>
+
+	/** @see Digest */
+	public int getBlockLength()
+	{
+<span class="nc" id="L88">		return 128;</span>
+	}
+
+	/** @see DigestEngine */
+	protected Digest copyState(BLAKEBigCore dst)
+	{
+<span class="nc" id="L94">		dst.h0 = h0;</span>
+<span class="nc" id="L95">		dst.h1 = h1;</span>
+<span class="nc" id="L96">		dst.h2 = h2;</span>
+<span class="nc" id="L97">		dst.h3 = h3;</span>
+<span class="nc" id="L98">		dst.h4 = h4;</span>
+<span class="nc" id="L99">		dst.h5 = h5;</span>
+<span class="nc" id="L100">		dst.h6 = h6;</span>
+<span class="nc" id="L101">		dst.h7 = h7;</span>
+<span class="nc" id="L102">		dst.s0 = s0;</span>
+<span class="nc" id="L103">		dst.s1 = s1;</span>
+<span class="nc" id="L104">		dst.s2 = s2;</span>
+<span class="nc" id="L105">		dst.s3 = s3;</span>
+<span class="nc" id="L106">		dst.t0 = t0;</span>
+<span class="nc" id="L107">		dst.t1 = t1;</span>
+<span class="nc" id="L108">		return super.copyState(dst);</span>
+	}
+
+	/** @see DigestEngine */
+	protected void engineReset()
+	{
+<span class="nc" id="L114">		long[] iv = getInitVal();</span>
+<span class="nc" id="L115">		h0 = iv[0];</span>
+<span class="nc" id="L116">		h1 = iv[1];</span>
+<span class="nc" id="L117">		h2 = iv[2];</span>
+<span class="nc" id="L118">		h3 = iv[3];</span>
+<span class="nc" id="L119">		h4 = iv[4];</span>
+<span class="nc" id="L120">		h5 = iv[5];</span>
+<span class="nc" id="L121">		h6 = iv[6];</span>
+<span class="nc" id="L122">		h7 = iv[7];</span>
+<span class="nc" id="L123">		s0 = s1 = s2 = s3 = 0;</span>
+<span class="nc" id="L124">		t0 = t1 = 0;</span>
+<span class="nc" id="L125">	}</span>
+
+	/**
+	 * Get the initial value for this algorithm.
+	 *
+	 * @return  the initial value (eight 64-bit words)
+	 */
+	abstract long[] getInitVal();
+
+	/** @see DigestEngine */
+	protected void doPadding(byte[] output, int outputOffset)
+	{
+<span class="nc" id="L137">		int ptr = flush();</span>
+<span class="nc" id="L138">		int bitLen = ptr &lt;&lt; 3;</span>
+<span class="nc" id="L139">		long th = t1;</span>
+<span class="nc" id="L140">		long tl = t0 + bitLen;</span>
+<span class="nc" id="L141">		tmpBuf[ptr] = (byte)0x80;</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">		if (ptr == 0) {</span>
+<span class="nc" id="L143">			t0 = 0xFFFFFFFFFFFFFC00L;</span>
+<span class="nc" id="L144">			t1 = 0xFFFFFFFFFFFFFFFFL;</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">		} else if (t0 == 0) {</span>
+<span class="nc" id="L146">			t0 = (int)0xFFFFFFFFFFFFFC00L + bitLen;</span>
+<span class="nc" id="L147">			t1 --;</span>
+		} else {
+<span class="nc" id="L149">			t0 -= 1024 - bitLen;</span>
+		}
+<span class="nc bnc" id="L151" title="All 2 branches missed.">		if (ptr &lt; 112) {</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">			for (int i = ptr + 1; i &lt; 112; i ++)</span>
+<span class="nc" id="L153">				tmpBuf[i] = 0x00;</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">			if (getDigestLength() == 64)</span>
+<span class="nc" id="L155">				tmpBuf[111] |= 0x01;</span>
+<span class="nc" id="L156">			encodeBELong(th, tmpBuf, 112);</span>
+<span class="nc" id="L157">			encodeBELong(tl, tmpBuf, 120);</span>
+<span class="nc" id="L158">			update(tmpBuf, ptr, 128 - ptr);</span>
+		} else {
+<span class="nc bnc" id="L160" title="All 2 branches missed.">			for (int i = ptr + 1; i &lt; 128; i ++)</span>
+<span class="nc" id="L161">				tmpBuf[i] = 0;</span>
+<span class="nc" id="L162">			update(tmpBuf, ptr, 128 - ptr);</span>
+<span class="nc" id="L163">			t0 = 0xFFFFFFFFFFFFFC00L;</span>
+<span class="nc" id="L164">			t1 = 0xFFFFFFFFFFFFFFFFL;</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">			for (int i = 0; i &lt; 112; i ++)</span>
+<span class="nc" id="L166">				tmpBuf[i] = 0x00;</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">			if (getDigestLength() == 64)</span>
+<span class="nc" id="L168">				tmpBuf[111] = 0x01;</span>
+<span class="nc" id="L169">			encodeBELong(th, tmpBuf, 112);</span>
+<span class="nc" id="L170">			encodeBELong(tl, tmpBuf, 120);</span>
+<span class="nc" id="L171">			update(tmpBuf, 0, 128);</span>
+		}
+<span class="nc" id="L173">		encodeBELong(h0, output, outputOffset +  0);</span>
+<span class="nc" id="L174">		encodeBELong(h1, output, outputOffset +  8);</span>
+<span class="nc" id="L175">		encodeBELong(h2, output, outputOffset + 16);</span>
+<span class="nc" id="L176">		encodeBELong(h3, output, outputOffset + 24);</span>
+<span class="nc" id="L177">		encodeBELong(h4, output, outputOffset + 32);</span>
+<span class="nc" id="L178">		encodeBELong(h5, output, outputOffset + 40);</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">		if (getDigestLength() == 64) {</span>
+<span class="nc" id="L180">			encodeBELong(h6, output, outputOffset + 48);</span>
+<span class="nc" id="L181">			encodeBELong(h7, output, outputOffset + 56);</span>
+		}
+<span class="nc" id="L183">	}</span>
+
+	/** @see DigestEngine */
+	protected void doInit()
+	{
+<span class="nc" id="L188">		tmpM = new long[16];</span>
+<span class="nc" id="L189">		tmpBuf = new byte[128];</span>
+<span class="nc" id="L190">		engineReset();</span>
+<span class="nc" id="L191">	}</span>
+
+	/**
+	 * Encode the 64-bit word {@code val} into the array
+	 * {@code buf} at offset {@code off}, in big-endian
+	 * convention (most significant byte first).
+	 *
+	 * @param val   the value to encode
+	 * @param buf   the destination buffer
+	 * @param off   the destination offset
+	 */
+	private static final void encodeBELong(long val, byte[] buf, int off)
+	{
+<span class="nc" id="L204">		buf[off + 0] = (byte)(val &gt;&gt;&gt; 56);</span>
+<span class="nc" id="L205">		buf[off + 1] = (byte)(val &gt;&gt;&gt; 48);</span>
+<span class="nc" id="L206">		buf[off + 2] = (byte)(val &gt;&gt;&gt; 40);</span>
+<span class="nc" id="L207">		buf[off + 3] = (byte)(val &gt;&gt;&gt; 32);</span>
+<span class="nc" id="L208">		buf[off + 4] = (byte)(val &gt;&gt;&gt; 24);</span>
+<span class="nc" id="L209">		buf[off + 5] = (byte)(val &gt;&gt;&gt; 16);</span>
+<span class="nc" id="L210">		buf[off + 6] = (byte)(val &gt;&gt;&gt; 8);</span>
+<span class="nc" id="L211">		buf[off + 7] = (byte)val;</span>
+<span class="nc" id="L212">	}</span>
+
+	/**
+	 * Decode a 64-bit big-endian word from the array {@code buf}
+	 * at offset {@code off}.
+	 *
+	 * @param buf   the source buffer
+	 * @param off   the source offset
+	 * @return  the decoded value
+	 */
+	private static final long decodeBELong(byte[] buf, int off)
+	{
+<span class="nc" id="L224">		return ((long)(buf[off] &amp; 0xFF) &lt;&lt; 56)</span>
+			| ((long)(buf[off + 1] &amp; 0xFF) &lt;&lt; 48)
+			| ((long)(buf[off + 2] &amp; 0xFF) &lt;&lt; 40)
+			| ((long)(buf[off + 3] &amp; 0xFF) &lt;&lt; 32)
+			| ((long)(buf[off + 4] &amp; 0xFF) &lt;&lt; 24)
+			| ((long)(buf[off + 5] &amp; 0xFF) &lt;&lt; 16)
+			| ((long)(buf[off + 6] &amp; 0xFF) &lt;&lt; 8)
+			| (long)(buf[off + 7] &amp; 0xFF);
+	}
+
+	/**
+	 * Perform a circular rotation by {@code n} to the right
+	 * of the 64-bit word {@code x}. The {@code n} parameter
+	 * must lie between 1 and 63 (inclusive).
+	 *
+	 * @param x   the value to rotate
+	 * @param n   the rotation count (between 1 and 63)
+	 * @return  the rotated value
+	*/
+	static private long circularRight(long x, int n)
+	{
+<span class="nc" id="L245">		return (x &gt;&gt;&gt; n) | (x &lt;&lt; (64 - n));</span>
+	}
+
+	/** @see DigestEngine */
+	protected void processBlock(byte[] data)
+	{
+<span class="nc" id="L251">		t0 += 1024;</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">		if ((t0 &amp; ~0x3FF) == 0)</span>
+<span class="nc" id="L253">			t1 ++;</span>
+<span class="nc" id="L254">		long v0 = h0;</span>
+<span class="nc" id="L255">		long v1 = h1;</span>
+<span class="nc" id="L256">		long v2 = h2;</span>
+<span class="nc" id="L257">		long v3 = h3;</span>
+<span class="nc" id="L258">		long v4 = h4;</span>
+<span class="nc" id="L259">		long v5 = h5;</span>
+<span class="nc" id="L260">		long v6 = h6;</span>
+<span class="nc" id="L261">		long v7 = h7;</span>
+<span class="nc" id="L262">		long v8 = s0 ^ 0x243F6A8885A308D3L;</span>
+<span class="nc" id="L263">		long v9 = s1 ^ 0x13198A2E03707344L;</span>
+<span class="nc" id="L264">		long vA = s2 ^ 0xA4093822299F31D0L;</span>
+<span class="nc" id="L265">		long vB = s3 ^ 0x082EFA98EC4E6C89L;</span>
+<span class="nc" id="L266">		long vC = t0 ^ 0x452821E638D01377L;</span>
+<span class="nc" id="L267">		long vD = t0 ^ 0xBE5466CF34E90C6CL;</span>
+<span class="nc" id="L268">		long vE = t1 ^ 0xC0AC29B7C97C50DDL;</span>
+<span class="nc" id="L269">		long vF = t1 ^ 0x3F84D5B5B5470917L;</span>
+<span class="nc" id="L270">		long[] m = tmpM;</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">		for (int i = 0; i &lt; 16; i ++)</span>
+<span class="nc" id="L272">			m[i] = decodeBELong(data, 8 * i);</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">		for (int r = 0; r &lt; 16; r ++) {</span>
+<span class="nc" id="L274">			int o0 = SIGMA[(r &lt;&lt; 4) + 0x0];</span>
+<span class="nc" id="L275">			int o1 = SIGMA[(r &lt;&lt; 4) + 0x1];</span>
+<span class="nc" id="L276">			v0 += v4 + (m[o0] ^ CB[o1]);</span>
+<span class="nc" id="L277">			vC = circularRight(vC ^ v0, 32);</span>
+<span class="nc" id="L278">			v8 += vC;</span>
+<span class="nc" id="L279">			v4 = circularRight(v4 ^ v8, 25);</span>
+<span class="nc" id="L280">			v0 += v4 + (m[o1] ^ CB[o0]);</span>
+<span class="nc" id="L281">			vC = circularRight(vC ^ v0, 16);</span>
+<span class="nc" id="L282">			v8 += vC;</span>
+<span class="nc" id="L283">			v4 = circularRight(v4 ^ v8, 11);</span>
+<span class="nc" id="L284">			o0 = SIGMA[(r &lt;&lt; 4) + 0x2];</span>
+<span class="nc" id="L285">			o1 = SIGMA[(r &lt;&lt; 4) + 0x3];</span>
+<span class="nc" id="L286">			v1 += v5 + (m[o0] ^ CB[o1]);</span>
+<span class="nc" id="L287">			vD = circularRight(vD ^ v1, 32);</span>
+<span class="nc" id="L288">			v9 += vD;</span>
+<span class="nc" id="L289">			v5 = circularRight(v5 ^ v9, 25);</span>
+<span class="nc" id="L290">			v1 += v5 + (m[o1] ^ CB[o0]);</span>
+<span class="nc" id="L291">			vD = circularRight(vD ^ v1, 16);</span>
+<span class="nc" id="L292">			v9 += vD;</span>
+<span class="nc" id="L293">			v5 = circularRight(v5 ^ v9, 11);</span>
+<span class="nc" id="L294">			o0 = SIGMA[(r &lt;&lt; 4) + 0x4];</span>
+<span class="nc" id="L295">			o1 = SIGMA[(r &lt;&lt; 4) + 0x5];</span>
+<span class="nc" id="L296">			v2 += v6 + (m[o0] ^ CB[o1]);</span>
+<span class="nc" id="L297">			vE = circularRight(vE ^ v2, 32);</span>
+<span class="nc" id="L298">			vA += vE;</span>
+<span class="nc" id="L299">			v6 = circularRight(v6 ^ vA, 25);</span>
+<span class="nc" id="L300">			v2 += v6 + (m[o1] ^ CB[o0]);</span>
+<span class="nc" id="L301">			vE = circularRight(vE ^ v2, 16);</span>
+<span class="nc" id="L302">			vA += vE;</span>
+<span class="nc" id="L303">			v6 = circularRight(v6 ^ vA, 11);</span>
+<span class="nc" id="L304">			o0 = SIGMA[(r &lt;&lt; 4) + 0x6];</span>
+<span class="nc" id="L305">			o1 = SIGMA[(r &lt;&lt; 4) + 0x7];</span>
+<span class="nc" id="L306">			v3 += v7 + (m[o0] ^ CB[o1]);</span>
+<span class="nc" id="L307">			vF = circularRight(vF ^ v3, 32);</span>
+<span class="nc" id="L308">			vB += vF;</span>
+<span class="nc" id="L309">			v7 = circularRight(v7 ^ vB, 25);</span>
+<span class="nc" id="L310">			v3 += v7 + (m[o1] ^ CB[o0]);</span>
+<span class="nc" id="L311">			vF = circularRight(vF ^ v3, 16);</span>
+<span class="nc" id="L312">			vB += vF;</span>
+<span class="nc" id="L313">			v7 = circularRight(v7 ^ vB, 11);</span>
+<span class="nc" id="L314">			o0 = SIGMA[(r &lt;&lt; 4) + 0x8];</span>
+<span class="nc" id="L315">			o1 = SIGMA[(r &lt;&lt; 4) + 0x9];</span>
+<span class="nc" id="L316">			v0 += v5 + (m[o0] ^ CB[o1]);</span>
+<span class="nc" id="L317">			vF = circularRight(vF ^ v0, 32);</span>
+<span class="nc" id="L318">			vA += vF;</span>
+<span class="nc" id="L319">			v5 = circularRight(v5 ^ vA, 25);</span>
+<span class="nc" id="L320">			v0 += v5 + (m[o1] ^ CB[o0]);</span>
+<span class="nc" id="L321">			vF = circularRight(vF ^ v0, 16);</span>
+<span class="nc" id="L322">			vA += vF;</span>
+<span class="nc" id="L323">			v5 = circularRight(v5 ^ vA, 11);</span>
+<span class="nc" id="L324">			o0 = SIGMA[(r &lt;&lt; 4) + 0xA];</span>
+<span class="nc" id="L325">			o1 = SIGMA[(r &lt;&lt; 4) + 0xB];</span>
+<span class="nc" id="L326">			v1 += v6 + (m[o0] ^ CB[o1]);</span>
+<span class="nc" id="L327">			vC = circularRight(vC ^ v1, 32);</span>
+<span class="nc" id="L328">			vB += vC;</span>
+<span class="nc" id="L329">			v6 = circularRight(v6 ^ vB, 25);</span>
+<span class="nc" id="L330">			v1 += v6 + (m[o1] ^ CB[o0]);</span>
+<span class="nc" id="L331">			vC = circularRight(vC ^ v1, 16);</span>
+<span class="nc" id="L332">			vB += vC;</span>
+<span class="nc" id="L333">			v6 = circularRight(v6 ^ vB, 11);</span>
+<span class="nc" id="L334">			o0 = SIGMA[(r &lt;&lt; 4) + 0xC];</span>
+<span class="nc" id="L335">			o1 = SIGMA[(r &lt;&lt; 4) + 0xD];</span>
+<span class="nc" id="L336">			v2 += v7 + (m[o0] ^ CB[o1]);</span>
+<span class="nc" id="L337">			vD = circularRight(vD ^ v2, 32);</span>
+<span class="nc" id="L338">			v8 += vD;</span>
+<span class="nc" id="L339">			v7 = circularRight(v7 ^ v8, 25);</span>
+<span class="nc" id="L340">			v2 += v7 + (m[o1] ^ CB[o0]);</span>
+<span class="nc" id="L341">			vD = circularRight(vD ^ v2, 16);</span>
+<span class="nc" id="L342">			v8 += vD;</span>
+<span class="nc" id="L343">			v7 = circularRight(v7 ^ v8, 11);</span>
+<span class="nc" id="L344">			o0 = SIGMA[(r &lt;&lt; 4) + 0xE];</span>
+<span class="nc" id="L345">			o1 = SIGMA[(r &lt;&lt; 4) + 0xF];</span>
+<span class="nc" id="L346">			v3 += v4 + (m[o0] ^ CB[o1]);</span>
+<span class="nc" id="L347">			vE = circularRight(vE ^ v3, 32);</span>
+<span class="nc" id="L348">			v9 += vE;</span>
+<span class="nc" id="L349">			v4 = circularRight(v4 ^ v9, 25);</span>
+<span class="nc" id="L350">			v3 += v4 + (m[o1] ^ CB[o0]);</span>
+<span class="nc" id="L351">			vE = circularRight(vE ^ v3, 16);</span>
+<span class="nc" id="L352">			v9 += vE;</span>
+<span class="nc" id="L353">			v4 = circularRight(v4 ^ v9, 11);</span>
+		}
+<span class="nc" id="L355">		h0 ^= s0 ^ v0 ^ v8;</span>
+<span class="nc" id="L356">		h1 ^= s1 ^ v1 ^ v9;</span>
+<span class="nc" id="L357">		h2 ^= s2 ^ v2 ^ vA;</span>
+<span class="nc" id="L358">		h3 ^= s3 ^ v3 ^ vB;</span>
+<span class="nc" id="L359">		h4 ^= s0 ^ v4 ^ vC;</span>
+<span class="nc" id="L360">		h5 ^= s1 ^ v5 ^ vD;</span>
+<span class="nc" id="L361">		h6 ^= s2 ^ v6 ^ vE;</span>
+<span class="nc" id="L362">		h7 ^= s3 ^ v7 ^ vF;</span>
+<span class="nc" id="L363">	}</span>
+
+	/** @see Digest */
+	public String toString()
+	{
+<span class="nc" id="L368">		return &quot;BLAKE-&quot; + (getDigestLength() &lt;&lt; 3);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

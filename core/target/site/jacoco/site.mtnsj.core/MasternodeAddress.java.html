@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasternodeAddress.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.core</a> &gt; <span class="el_source">MasternodeAddress.java</span></div><h1>MasternodeAddress.java</h1><pre class="source lang-java linenums">/**
+ * Copyright 2011 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package site.mtnsj.core;
+
+import com.google.common.net.InetAddresses;
+import site.mtnsj.params.MainNetParams;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
+/**
+ * A PeerAddress holds an IP address and port number representing the network location of
+ * a peer in the Bitcoin P2P network. It exists primarily for serialization purposes.
+ */
+public class MasternodeAddress extends NetAddress {
+    private static final long serialVersionUID = 7501293709324197411L;
+    static final int MESSAGE_SIZE = 18;
+
+    private int port;
+
+    /**
+     * Construct a peer address from a serialized payload.
+     */
+    public MasternodeAddress(NetworkParameters params, byte[] payload, int offset, int protocolVersion) throws ProtocolException {
+<span class="nc" id="L43">        super(params, payload, offset, protocolVersion);</span>
+<span class="nc" id="L44">    }</span>
+
+    /**
+     * Construct a peer address from a serialized payload.
+     * @param params NetworkParameters object.
+     * @param payload Bitcoin protocol formatted byte array containing message content.
+     * @param offset The location of the first payload byte within the array.
+     * @param protocolVersion Bitcoin protocol version.
+     * @param serializer the serializer to use for this message.
+     * @throws ProtocolException
+     */
+    public MasternodeAddress(NetworkParameters params, byte[] payload, int offset, int protocolVersion, Message parent, MessageSerializer serializer) throws ProtocolException {
+<span class="nc" id="L56">        super(params, payload, offset, protocolVersion, parent, serializer);</span>
+<span class="nc" id="L57">    }</span>
+
+
+    /**
+     * Construct a peer address from a memorized or hardcoded address.
+     */
+    public MasternodeAddress(InetAddress addr, int port) {
+<span class="nc" id="L64">        super(addr);</span>
+<span class="nc" id="L65">        this.port = port;</span>
+<span class="nc" id="L66">        length = MESSAGE_SIZE;</span>
+<span class="nc" id="L67">    }</span>
+
+    /**
+     * Constructs a peer address from the given IP address. Port and protocol version are default for the mainnet.
+     */
+    public MasternodeAddress(InetAddress addr) {
+<span class="nc" id="L73">        this(addr, MainNetParams.get().getPort());</span>
+<span class="nc" id="L74">    }</span>
+
+    public MasternodeAddress(InetSocketAddress addr) {
+<span class="nc" id="L77">        this(addr.getAddress(), addr.getPort());</span>
+<span class="nc" id="L78">    }</span>
+
+    public static MasternodeAddress localhost(NetworkParameters params) {
+<span class="nc" id="L81">        return new MasternodeAddress(InetAddresses.forString(&quot;127.0.0.1&quot;), params.getPort());</span>
+    }
+
+    @Override
+    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+        // Java does not provide any utility to map an IPv4 address into IPv6 space, so we have to do it by hand.
+<span class="nc" id="L87">        super.bitcoinSerializeToStream(stream);</span>
+        // And write out the port. Unlike the rest of the protocol, address and port is in big endian byte order.
+<span class="nc" id="L89">        stream.write((byte) (0xFF &amp; port &gt;&gt; 8));</span>
+<span class="nc" id="L90">        stream.write((byte) (0xFF &amp; port));</span>
+<span class="nc" id="L91">    }</span>
+
+    @Override
+    protected void parse() throws ProtocolException {
+<span class="nc" id="L95">        super.parse();</span>
+<span class="nc" id="L96">        port = ((0xFF &amp; payload[cursor++]) &lt;&lt; 8) | (0xFF &amp; payload[cursor++]);</span>
+<span class="nc" id="L97">        length = MESSAGE_SIZE;</span>
+<span class="nc" id="L98">    }</span>
+
+    public int calculateMessageSizeInBytes()
+    {
+<span class="nc" id="L102">        return getMessageSize();</span>
+    }
+
+    public InetSocketAddress getSocketAddress() {
+<span class="nc" id="L106">        return new InetSocketAddress(getAddr(), getPort());</span>
+    }
+
+    public int getPort() {
+<span class="nc" id="L110">        return port;</span>
+    }
+
+
+    public void setPort(int port) {
+<span class="nc" id="L115">        unCache();</span>
+<span class="nc" id="L116">        this.port = port;</span>
+<span class="nc" id="L117">    }</span>
+
+
+    @Override
+    public String toString() {
+<span class="nc" id="L122">        return super.toString() + &quot;:&quot; + port;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        if (this == o) return true;</span>
+<span class="nc bnc" id="L128" title="All 4 branches missed.">        if (o == null || getClass() != o.getClass()) return false;</span>
+<span class="nc" id="L129">        MasternodeAddress other = (MasternodeAddress) o;</span>
+<span class="nc bnc" id="L130" title="All 4 branches missed.">        return other.getAddr().equals(getAddr()) &amp;&amp;</span>
+                other.port == port;
+        //TODO: including services and time could cause same peer to be added multiple times in collections
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L137">        return getAddr().hashCode() ^ port;</span>
+    }
+    
+    public InetSocketAddress toSocketAddress() {
+<span class="nc" id="L141">        return new InetSocketAddress(getAddr(), port);</span>
+    }
+
+
+<span class="nc" id="L145">    public MasternodeAddress duplicate() { return new MasternodeAddress(getAddr(), getPort()); }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

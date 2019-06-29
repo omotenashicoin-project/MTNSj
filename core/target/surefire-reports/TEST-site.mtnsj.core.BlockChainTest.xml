@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="site.mtnsj.core.BlockChainTest" time="1.106" tests="13" errors="0" skipped="0" failures="6">
+  <properties>
+    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
+    <property name="sun.boot.library.path" value="/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64"/>
+    <property name="java.vm.version" value="25.191-b12"/>
+    <property name="java.vm.vendor" value="Oracle Corporation"/>
+    <property name="maven.multiModuleProjectDirectory" value="/mnt/c/deps/wallet/MTNSj"/>
+    <property name="java.vendor.url" value="http://java.oracle.com/"/>
+    <property name="path.separator" value=":"/>
+    <property name="guice.disable.misplaced.annotation.check" value="true"/>
+    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
+    <property name="file.encoding.pkg" value="sun.io"/>
+    <property name="sun.java.launcher" value="SUN_STANDARD"/>
+    <property name="sun.os.patch.level" value="unknown"/>
+    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
+    <property name="user.dir" value="/mnt/c/deps/wallet/MTNSj"/>
+    <property name="java.runtime.version" value="1.8.0_191-8u191-b12-0ubuntu0.18.04.1-b12"/>
+    <property name="java.awt.graphicsenv" value="sun.awt.X11GraphicsEnvironment"/>
+    <property name="java.endorsed.dirs" value="/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/endorsed"/>
+    <property name="os.arch" value="amd64"/>
+    <property name="java.io.tmpdir" value="/tmp"/>
+    <property name="line.separator" value="&#10;"/>
+    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
+    <property name="os.name" value="Linux"/>
+    <property name="classworlds.conf" value="/usr/share/maven/bin/m2.conf"/>
+    <property name="sun.jnu.encoding" value="UTF-8"/>
+    <property name="java.library.path" value="/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib"/>
+    <property name="maven.conf" value="/usr/share/maven/conf"/>
+    <property name="java.specification.name" value="Java Platform API Specification"/>
+    <property name="java.class.version" value="52.0"/>
+    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
+    <property name="os.version" value="4.4.0-17763-Microsoft"/>
+    <property name="library.jansi.path" value="/usr/share/maven/lib/jansi-native"/>
+    <property name="user.home" value="/home/ubuntu"/>
+    <property name="user.timezone" value="GMT"/>
+    <property name="java.awt.printerjob" value="sun.print.PSPrinterJob"/>
+    <property name="java.specification.version" value="1.8"/>
+    <property name="file.encoding" value="UTF-8"/>
+    <property name="user.name" value="ubuntu"/>
+    <property name="java.class.path" value="/usr/share/maven/boot/plexus-classworlds-2.x.jar"/>
+    <property name="java.vm.specification.version" value="1.8"/>
+    <property name="sun.arch.data.model" value="64"/>
+    <property name="java.home" value="/usr/lib/jvm/java-8-openjdk-amd64/jre"/>
+    <property name="sun.java.command" value="org.codehaus.plexus.classworlds.launcher.Launcher install"/>
+    <property name="java.specification.vendor" value="Oracle Corporation"/>
+    <property name="user.language" value="en"/>
+    <property name="awt.toolkit" value="sun.awt.X11.XToolkit"/>
+    <property name="java.vm.info" value="mixed mode"/>
+    <property name="java.version" value="1.8.0_191"/>
+    <property name="java.ext.dirs" value="/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/ext:/usr/java/packages/lib/ext"/>
+    <property name="securerandom.source" value="file:/dev/./urandom"/>
+    <property name="sun.boot.class.path" value="/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/resources.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/rt.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/sunrsasign.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/jsse.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/jce.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/charsets.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/jfr.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/classes"/>
+    <property name="java.vendor" value="Oracle Corporation"/>
+    <property name="maven.home" value="/usr/share/maven"/>
+    <property name="file.separator" value="/"/>
+    <property name="java.vendor.url.bug" value="http://bugreport.sun.com/bugreport/"/>
+    <property name="sun.cpu.endian" value="little"/>
+    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
+    <property name="sun.cpu.isalist" value=""/>
+  </properties>
+  <testcase name="difficultyTransitions" classname="site.mtnsj.core.BlockChainTest" time="0.321">
+    <failure type="java.lang.AssertionError">java.lang.AssertionError
+	at site.mtnsj.core.BlockChainTest.difficultyTransitions(BlockChainTest.java:168)
+</failure>
+    <system-out><![CDATA[MnemonicCode class: [gown, pitch, fresh, cover, monitor, orient, similar, hawk, farm, file, neither, pottery], passphrase: , 
+toSeed: 671bb328da871fd9fb31a778135763e0bef2454754bafea70ee65965e06750769043fd7bd6c13e274b71fc9cceb74f94ecc5eeb1ed71b1f89f59521f9f3b508d
+MnemonicCode class: [exact, ocean, pave, remove, vocal, private, crane, beach, ozone, lounge, tip, ceiling], passphrase: , 
+toSeed: 5c61510b061bc7f8bab75c4c0f2a63dbcea2158dfc52ca0d5d3affd67bc4fdaaf4cf478c3cab8a598dc8c3dc9b994d7e750901605b0c7f9a64ee1adaaa6408df
+]]></system-out>
+  </testcase>
+  <testcase name="duplicates" classname="site.mtnsj.core.BlockChainTest" time="0.058"/>
+  <testcase name="estimatedBlockTime" classname="site.mtnsj.core.BlockChainTest" time="0.055">
+    <failure message="expected:&lt;Tue Oct 23 15:35:05 GMT 2012&gt; but was:&lt;Tue Dec 06 21:20:00 GMT 2022&gt;" type="java.lang.AssertionError"><![CDATA[java.lang.AssertionError: expected:<Tue Oct 23 15:35:05 GMT 2012> but was:<Tue Dec 06 21:20:00 GMT 2022>
+	at site.mtnsj.core.BlockChainTest.estimatedBlockTime(BlockChainTest.java:424)
+]]></failure>
+    <system-out><![CDATA[MnemonicCode class: [elite, wasp, future, clown, purpose, jaguar, kiss, claim, canvas, jealous, weapon, snack], passphrase: , 
+toSeed: 02cc64bbfdf3baa1aeeaed6b8d7974dd584bf82a9c96143cf0c05d9ab59b17134599bebe039a0dae92a2bd0fd45cea475e3f0377fa483c2a6141808cd80981b6
+MnemonicCode class: [pigeon, just, host, south, survey, undo, dash, laundry, blame, there, office, song], passphrase: , 
+toSeed: 162aec013586333b537040c0fa2e17584ab76e26f091096d1c11e258c0cd9eb662003d731dc38eff71cb5ca80438ab2a8b22d1b6df770af08868b9f1b203faed
+]]></system-out>
+  </testcase>
+  <testcase name="intraBlockDependencies" classname="site.mtnsj.core.BlockChainTest" time="0.083"/>
+  <testcase name="badBip66Version" classname="site.mtnsj.core.BlockChainTest" time="0.07">
+    <failure message="Expected test to throw an instance of site.mtnsj.core.VerificationException$BlockVersionOutOfDate" type="java.lang.AssertionError">java.lang.AssertionError: Expected test to throw an instance of site.mtnsj.core.VerificationException$BlockVersionOutOfDate
+</failure>
+    <system-out><![CDATA[MnemonicCode class: [leisure, sea, size, twelve, answer, supreme, acoustic, mango, proud, hunt, capable, fox], passphrase: , 
+toSeed: 0ca9560ea83ac702b1cc5ae12eeeb38b9fbfd8a9004a4c0c399c7864db8950a43e499e6be30ea74b7e7500d865ac16c5823a9299f96f8c1cbe5b609ac50850bc
+MnemonicCode class: [under, yellow, trap, october, gym, approve, anchor, near, engage, power, maximum, organ], passphrase: , 
+toSeed: 00033481d3331c3f4db2f37589d6101ed391819696733fa33a487ea9bb1ac616a4c459bac8bfacb9adff4b91c987678e308d019b865e0ab653097fe179f4591e
+]]></system-out>
+  </testcase>
+  <testcase name="falsePositives" classname="site.mtnsj.core.BlockChainTest" time="0.069"/>
+  <testcase name="unconnectedBlocks" classname="site.mtnsj.core.BlockChainTest" time="0.066"/>
+  <testcase name="receiveCoins" classname="site.mtnsj.core.BlockChainTest" time="0.064"/>
+  <testcase name="coinbaseTransactionAvailability" classname="site.mtnsj.core.BlockChainTest" time="0.109"/>
+  <testcase name="badDifficulty" classname="site.mtnsj.core.BlockChainTest" time="0.045">
+    <failure message="expected:&lt;[000000033cc282bc1fa9dcae7a533263fd7fe66490f550d80076433340831604]&gt; but was:&lt;[2f534c4999cb347759843f675da500bc1e387697acff5f0b6bbd7bae5d0fc3fb]&gt;" type="org.junit.ComparisonFailure"><![CDATA[org.junit.ComparisonFailure: expected:<[000000033cc282bc1fa9dcae7a533263fd7fe66490f550d80076433340831604]> but was:<[2f534c4999cb347759843f675da500bc1e387697acff5f0b6bbd7bae5d0fc3fb]>
+	at site.mtnsj.core.BlockChainTest.getBlock1(BlockChainTest.java:413)
+	at site.mtnsj.core.BlockChainTest.badDifficulty(BlockChainTest.java:182)
+]]></failure>
+    <system-out><![CDATA[MnemonicCode class: [mosquito, grocery, recipe, inflict, dumb, distance, shy, chunk, coyote, control, shine, rubber], passphrase: , 
+toSeed: 47682939f7ae8c559e2639b1b115b188234e6ee93b019e702c09a334dfd45a2404f8a95a9d7cfc3f8e58f8c10b280934b06444988c5b16bbe52586445af08a72
+MnemonicCode class: [mutual, wait, solid, cupboard, distance, heart, bounce, sing, chalk, erosion, viable, enough], passphrase: , 
+toSeed: c09ed92b28186f4f7b91733e21ec9e87438f093a385febed4ae1947fb3c88b840a9246580eaad6313984aa0949d37c861b95c8e7c55897e46cb7dfe6933d2058
+]]></system-out>
+  </testcase>
+  <testcase name="badBip65Version" classname="site.mtnsj.core.BlockChainTest" time="0.053">
+    <failure message="Expected test to throw an instance of site.mtnsj.core.VerificationException$BlockVersionOutOfDate" type="java.lang.AssertionError">java.lang.AssertionError: Expected test to throw an instance of site.mtnsj.core.VerificationException$BlockVersionOutOfDate
+</failure>
+    <system-out><![CDATA[MnemonicCode class: [hollow, spawn, list, wagon, phrase, twelve, mammal, bicycle, they, tooth, can, barrel], passphrase: , 
+toSeed: c720d4b6a9649548a67806cb83cbaad310b8e8a8bf9ad6cab7d524965a81aa662a50d43f4663bb49a45db13055ab2801a95c64774ae259af5fbdc0fa031b899e
+MnemonicCode class: [sun, marine, else, ticket, comfort, target, furnace, struggle, history, clever, kingdom, service], passphrase: , 
+toSeed: 920637f96ffcd566110011d90911ca9fcc27cc4bbcb85a7fce9b33b75737abd70a5e1610ed5070e9effc93251a4de2b18f807d8b36edc7e34da572a194f65bf3
+]]></system-out>
+  </testcase>
+  <testcase name="rollbackBlockStore" classname="site.mtnsj.core.BlockChainTest" time="0.051"/>
+  <testcase name="testBasicChaining" classname="site.mtnsj.core.BlockChainTest" time="0.062">
+    <failure message="expected:&lt;[000000033cc282bc1fa9dcae7a533263fd7fe66490f550d80076433340831604]&gt; but was:&lt;[2f534c4999cb347759843f675da500bc1e387697acff5f0b6bbd7bae5d0fc3fb]&gt;" type="org.junit.ComparisonFailure"><![CDATA[org.junit.ComparisonFailure: expected:<[000000033cc282bc1fa9dcae7a533263fd7fe66490f550d80076433340831604]> but was:<[2f534c4999cb347759843f675da500bc1e387697acff5f0b6bbd7bae5d0fc3fb]>
+	at site.mtnsj.core.BlockChainTest.getBlock1(BlockChainTest.java:413)
+	at site.mtnsj.core.BlockChainTest.testBasicChaining(BlockChainTest.java:103)
+]]></failure>
+    <system-out><![CDATA[MnemonicCode class: [place, ticket, pluck, goat, wine, verify, problem, enable, garlic, situate, connect, album], passphrase: , 
+toSeed: 8216d37db2da09fe0acaefde236d3ec95320c6a60837925ab10337d69498dc114de6729ceafa644a89fa2c57d7330f9f7b0cd4211e63ae6f4d5cdc1f5fed0650
+MnemonicCode class: [sugar, casual, art, betray, tennis, hip, grab, earn, toast, pottery, mad, era], passphrase: , 
+toSeed: 8e766492bb46d026a52a8cfc563e21bb597c8f83532f43596665901c7d81b62e000d2164b41070a4b00146027204be57eb4d5fab933fe6ca1db18e85354de136
+]]></system-out>
+  </testcase>
+</testsuite>

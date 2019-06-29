@@ -1,0 +1,36 @@
+-------------------------------------------------------------------------------
+Test set: site.mtnsj.core.H2FullPrunedBlockChainTest
+-------------------------------------------------------------------------------
+Tests run: 7, Failures: 2, Errors: 4, Skipped: 0, Time elapsed: 1.035 sec <<< FAILURE! - in site.mtnsj.core.H2FullPrunedBlockChainTest
+testFirst100KBlocks(site.mtnsj.core.H2FullPrunedBlockChainTest)  Time elapsed: 0 sec  <<< ERROR!
+java.lang.NullPointerException
+
+testFinalizedBlocks(site.mtnsj.core.H2FullPrunedBlockChainTest)  Time elapsed: 0.513 sec  <<< ERROR!
+site.mtnsj.core.VerificationException: 
+Could not verify block:
+ block: 
+   hash: 2b44c1fbf408dcc38d841a36852029a25ae09df5d272d7c04c138c17730cf20b
+   version: 1
+   previous block: c5c1a1f8e793af670e9d7768ee8ca7188c2efd087125e585eb852a02c1a9c2bc
+   merkle root: 461c47e7f43138b3a89f807ad562e4172603325aa633038b4ffdc40094db76ad
+   time: 1559093084 (2019-05-29T01:24:44Z)
+   difficulty target (nBits): 545259519
+   nonce: 0
+   with 1 transaction(s):
+  461c47e7f43138b3a89f807ad562e4172603325aa633038b4ffdc40094db76ad
+     == COINBASE TXN (scriptSig PUSHDATA(2)[dd00])  (scriptPubKey PUSHDATA(33)[0308efbf808ce5d545b76cf485f3866b91e1872e43daf8bafa4a4165d8fa6c44d8] CHECKSIG)
+
+Caused by: site.mtnsj.core.VerificationException: Transaction fees out of range
+
+missingHeightFromCoinbase(site.mtnsj.core.H2FullPrunedBlockChainTest)  Time elapsed: 0.041 sec  <<< ERROR!
+site.mtnsj.core.VerificationException: Transaction fees out of range
+
+testGetOpenTransactionOutputs(site.mtnsj.core.H2FullPrunedBlockChainTest)  Time elapsed: 0.014 sec  <<< FAILURE!
+java.lang.AssertionError: Wrong Number of Outputs expected:<1> but was:<0>
+
+testGeneratedChain(site.mtnsj.core.H2FullPrunedBlockChainTest)  Time elapsed: 0.411 sec  <<< FAILURE!
+java.lang.AssertionError
+
+testUTXOProviderWithWallet(site.mtnsj.core.H2FullPrunedBlockChainTest)  Time elapsed: 0.039 sec  <<< ERROR!
+site.mtnsj.core.InsufficientMoneyException: Insufficient money,  missing 0.50 MTNS
+

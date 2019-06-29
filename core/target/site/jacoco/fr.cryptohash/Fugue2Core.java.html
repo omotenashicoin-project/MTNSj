@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Fugue2Core.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">fr.cryptohash</a> &gt; <span class="el_source">Fugue2Core.java</span></div><h1>Fugue2Core.java</h1><pre class="source lang-java linenums">// $Id: Fugue2Core.java 159 2010-05-01 15:41:17Z tp $
+
+package fr.cryptohash;
+
+/**
+ * This class is the base class for Fugue-224 and Fugue-256.
+ *
+ * &lt;pre&gt;
+ * ==========================(LICENSE BEGIN)============================
+ *
+ * Copyright (c) 2007-2010  Projet RNRT SAPHIR
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * &quot;Software&quot;), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================(LICENSE END)=============================
+ * &lt;/pre&gt;
+ *
+ * @version   $Revision: 159 $
+ * @author    Thomas Pornin &amp;lt;thomas.pornin@cryptolog.com&amp;gt;
+ */
+
+<span class="nc" id="L39">abstract class Fugue2Core extends FugueCore {</span>
+
+	/** @see FugueCore */
+	void process(int w, byte[] buf, int off, int num)
+	{
+<span class="nc" id="L44">		int[] S = this.S;</span>
+<span class="nc bnc" id="L45" title="All 5 branches missed.">		switch (rshift) {</span>
+		case 1:
+<span class="nc" id="L47">			S[ 4] ^= S[24];</span>
+<span class="nc" id="L48">			S[24] = w;</span>
+<span class="nc" id="L49">			S[ 2] ^= S[24];</span>
+<span class="nc" id="L50">			S[25] ^= S[18];</span>
+<span class="nc" id="L51">			S[21] ^= S[25];</span>
+<span class="nc" id="L52">			S[22] ^= S[26];</span>
+<span class="nc" id="L53">			S[23] ^= S[27];</span>
+<span class="nc" id="L54">			S[ 6] ^= S[25];</span>
+<span class="nc" id="L55">			S[ 7] ^= S[26];</span>
+<span class="nc" id="L56">			S[ 8] ^= S[27];</span>
+<span class="nc" id="L57">			smix(21, 22, 23, 24);</span>
+<span class="nc" id="L58">			S[18] ^= S[22];</span>
+<span class="nc" id="L59">			S[19] ^= S[23];</span>
+<span class="nc" id="L60">			S[20] ^= S[24];</span>
+<span class="nc" id="L61">			S[ 3] ^= S[22];</span>
+<span class="nc" id="L62">			S[ 4] ^= S[23];</span>
+<span class="nc" id="L63">			S[ 5] ^= S[24];</span>
+<span class="nc" id="L64">			smix(18, 19, 20, 21);</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L66">				rshift = 2;</span>
+<span class="nc" id="L67">				return;</span>
+			}
+<span class="nc" id="L69">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L73">			off += 4;</span>
+			/* fall through */
+		case 2:
+<span class="nc" id="L76">			S[28] ^= S[18];</span>
+<span class="nc" id="L77">			S[18] = w;</span>
+<span class="nc" id="L78">			S[26] ^= S[18];</span>
+<span class="nc" id="L79">			S[19] ^= S[12];</span>
+<span class="nc" id="L80">			S[15] ^= S[19];</span>
+<span class="nc" id="L81">			S[16] ^= S[20];</span>
+<span class="nc" id="L82">			S[17] ^= S[21];</span>
+<span class="nc" id="L83">			S[ 0] ^= S[19];</span>
+<span class="nc" id="L84">			S[ 1] ^= S[20];</span>
+<span class="nc" id="L85">			S[ 2] ^= S[21];</span>
+<span class="nc" id="L86">			smix(15, 16, 17, 18);</span>
+<span class="nc" id="L87">			S[12] ^= S[16];</span>
+<span class="nc" id="L88">			S[13] ^= S[17];</span>
+<span class="nc" id="L89">			S[14] ^= S[18];</span>
+<span class="nc" id="L90">			S[27] ^= S[16];</span>
+<span class="nc" id="L91">			S[28] ^= S[17];</span>
+<span class="nc" id="L92">			S[29] ^= S[18];</span>
+<span class="nc" id="L93">			smix(12, 13, 14, 15);</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L95">				rshift = 3;</span>
+<span class="nc" id="L96">				return;</span>
+			}
+<span class="nc" id="L98">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L102">			off += 4;</span>
+			/* fall through */
+		case 3:
+<span class="nc" id="L105">			S[22] ^= S[12];</span>
+<span class="nc" id="L106">			S[12] = w;</span>
+<span class="nc" id="L107">			S[20] ^= S[12];</span>
+<span class="nc" id="L108">			S[13] ^= S[ 6];</span>
+<span class="nc" id="L109">			S[ 9] ^= S[13];</span>
+<span class="nc" id="L110">			S[10] ^= S[14];</span>
+<span class="nc" id="L111">			S[11] ^= S[15];</span>
+<span class="nc" id="L112">			S[24] ^= S[13];</span>
+<span class="nc" id="L113">			S[25] ^= S[14];</span>
+<span class="nc" id="L114">			S[26] ^= S[15];</span>
+<span class="nc" id="L115">			smix( 9, 10, 11, 12);</span>
+<span class="nc" id="L116">			S[ 6] ^= S[10];</span>
+<span class="nc" id="L117">			S[ 7] ^= S[11];</span>
+<span class="nc" id="L118">			S[ 8] ^= S[12];</span>
+<span class="nc" id="L119">			S[21] ^= S[10];</span>
+<span class="nc" id="L120">			S[22] ^= S[11];</span>
+<span class="nc" id="L121">			S[23] ^= S[12];</span>
+<span class="nc" id="L122">			smix( 6,  7,  8,  9);</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L124">				rshift = 4;</span>
+<span class="nc" id="L125">				return;</span>
+			}
+<span class="nc" id="L127">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L131">			off += 4;</span>
+			/* fall through */
+		case 4:
+<span class="nc" id="L134">			S[16] ^= S[ 6];</span>
+<span class="nc" id="L135">			S[ 6] = w;</span>
+<span class="nc" id="L136">			S[14] ^= S[ 6];</span>
+<span class="nc" id="L137">			S[ 7] ^= S[ 0];</span>
+<span class="nc" id="L138">			S[ 3] ^= S[ 7];</span>
+<span class="nc" id="L139">			S[ 4] ^= S[ 8];</span>
+<span class="nc" id="L140">			S[ 5] ^= S[ 9];</span>
+<span class="nc" id="L141">			S[18] ^= S[ 7];</span>
+<span class="nc" id="L142">			S[19] ^= S[ 8];</span>
+<span class="nc" id="L143">			S[20] ^= S[ 9];</span>
+<span class="nc" id="L144">			smix( 3,  4,  5,  6);</span>
+<span class="nc" id="L145">			S[ 0] ^= S[ 4];</span>
+<span class="nc" id="L146">			S[ 1] ^= S[ 5];</span>
+<span class="nc" id="L147">			S[ 2] ^= S[ 6];</span>
+<span class="nc" id="L148">			S[15] ^= S[ 4];</span>
+<span class="nc" id="L149">			S[16] ^= S[ 5];</span>
+<span class="nc" id="L150">			S[17] ^= S[ 6];</span>
+<span class="nc" id="L151">			smix( 0,  1,  2,  3);</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L153">				rshift = 0;</span>
+<span class="nc" id="L154">				return;</span>
+			}
+<span class="nc" id="L156">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L160">			off += 4;</span>
+		}
+		for (;;) {
+			/* ================ */
+<span class="nc" id="L164">			S[10] ^= S[ 0];</span>
+<span class="nc" id="L165">			S[ 0] = w;</span>
+<span class="nc" id="L166">			S[ 8] ^= S[ 0];</span>
+<span class="nc" id="L167">			S[ 1] ^= S[24];</span>
+<span class="nc" id="L168">			S[27] ^= S[ 1];</span>
+<span class="nc" id="L169">			S[28] ^= S[ 2];</span>
+<span class="nc" id="L170">			S[29] ^= S[ 3];</span>
+<span class="nc" id="L171">			S[12] ^= S[ 1];</span>
+<span class="nc" id="L172">			S[13] ^= S[ 2];</span>
+<span class="nc" id="L173">			S[14] ^= S[ 3];</span>
+<span class="nc" id="L174">			smix(27, 28, 29,  0);</span>
+<span class="nc" id="L175">			S[24] ^= S[28];</span>
+<span class="nc" id="L176">			S[25] ^= S[29];</span>
+<span class="nc" id="L177">			S[26] ^= S[ 0];</span>
+<span class="nc" id="L178">			S[ 9] ^= S[28];</span>
+<span class="nc" id="L179">			S[10] ^= S[29];</span>
+<span class="nc" id="L180">			S[11] ^= S[ 0];</span>
+<span class="nc" id="L181">			smix(24, 25, 26, 27);</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L183">				rshift = 1;</span>
+<span class="nc" id="L184">				return;</span>
+			}
+<span class="nc" id="L186">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L190">			off += 4;</span>
+			/* ================ */
+<span class="nc" id="L192">			S[ 4] ^= S[24];</span>
+<span class="nc" id="L193">			S[24] = w;</span>
+<span class="nc" id="L194">			S[ 2] ^= S[24];</span>
+<span class="nc" id="L195">			S[25] ^= S[18];</span>
+<span class="nc" id="L196">			S[21] ^= S[25];</span>
+<span class="nc" id="L197">			S[22] ^= S[26];</span>
+<span class="nc" id="L198">			S[23] ^= S[27];</span>
+<span class="nc" id="L199">			S[ 6] ^= S[25];</span>
+<span class="nc" id="L200">			S[ 7] ^= S[26];</span>
+<span class="nc" id="L201">			S[ 8] ^= S[27];</span>
+<span class="nc" id="L202">			smix(21, 22, 23, 24);</span>
+<span class="nc" id="L203">			S[18] ^= S[22];</span>
+<span class="nc" id="L204">			S[19] ^= S[23];</span>
+<span class="nc" id="L205">			S[20] ^= S[24];</span>
+<span class="nc" id="L206">			S[ 3] ^= S[22];</span>
+<span class="nc" id="L207">			S[ 4] ^= S[23];</span>
+<span class="nc" id="L208">			S[ 5] ^= S[24];</span>
+<span class="nc" id="L209">			smix(18, 19, 20, 21);</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L211">				rshift = 2;</span>
+<span class="nc" id="L212">				return;</span>
+			}
+<span class="nc" id="L214">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L218">			off += 4;</span>
+			/* ================ */
+<span class="nc" id="L220">			S[28] ^= S[18];</span>
+<span class="nc" id="L221">			S[18] = w;</span>
+<span class="nc" id="L222">			S[26] ^= S[18];</span>
+<span class="nc" id="L223">			S[19] ^= S[12];</span>
+<span class="nc" id="L224">			S[15] ^= S[19];</span>
+<span class="nc" id="L225">			S[16] ^= S[20];</span>
+<span class="nc" id="L226">			S[17] ^= S[21];</span>
+<span class="nc" id="L227">			S[ 0] ^= S[19];</span>
+<span class="nc" id="L228">			S[ 1] ^= S[20];</span>
+<span class="nc" id="L229">			S[ 2] ^= S[21];</span>
+<span class="nc" id="L230">			smix(15, 16, 17, 18);</span>
+<span class="nc" id="L231">			S[12] ^= S[16];</span>
+<span class="nc" id="L232">			S[13] ^= S[17];</span>
+<span class="nc" id="L233">			S[14] ^= S[18];</span>
+<span class="nc" id="L234">			S[27] ^= S[16];</span>
+<span class="nc" id="L235">			S[28] ^= S[17];</span>
+<span class="nc" id="L236">			S[29] ^= S[18];</span>
+<span class="nc" id="L237">			smix(12, 13, 14, 15);</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L239">				rshift = 3;</span>
+<span class="nc" id="L240">				return;</span>
+			}
+<span class="nc" id="L242">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L246">			off += 4;</span>
+			/* ================ */
+<span class="nc" id="L248">			S[22] ^= S[12];</span>
+<span class="nc" id="L249">			S[12] = w;</span>
+<span class="nc" id="L250">			S[20] ^= S[12];</span>
+<span class="nc" id="L251">			S[13] ^= S[ 6];</span>
+<span class="nc" id="L252">			S[ 9] ^= S[13];</span>
+<span class="nc" id="L253">			S[10] ^= S[14];</span>
+<span class="nc" id="L254">			S[11] ^= S[15];</span>
+<span class="nc" id="L255">			S[24] ^= S[13];</span>
+<span class="nc" id="L256">			S[25] ^= S[14];</span>
+<span class="nc" id="L257">			S[26] ^= S[15];</span>
+<span class="nc" id="L258">			smix( 9, 10, 11, 12);</span>
+<span class="nc" id="L259">			S[ 6] ^= S[10];</span>
+<span class="nc" id="L260">			S[ 7] ^= S[11];</span>
+<span class="nc" id="L261">			S[ 8] ^= S[12];</span>
+<span class="nc" id="L262">			S[21] ^= S[10];</span>
+<span class="nc" id="L263">			S[22] ^= S[11];</span>
+<span class="nc" id="L264">			S[23] ^= S[12];</span>
+<span class="nc" id="L265">			smix( 6,  7,  8,  9);</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L267">				rshift = 4;</span>
+<span class="nc" id="L268">				return;</span>
+			}
+<span class="nc" id="L270">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L274">			off += 4;</span>
+			/* ================ */
+<span class="nc" id="L276">			S[16] ^= S[ 6];</span>
+<span class="nc" id="L277">			S[ 6] = w;</span>
+<span class="nc" id="L278">			S[14] ^= S[ 6];</span>
+<span class="nc" id="L279">			S[ 7] ^= S[ 0];</span>
+<span class="nc" id="L280">			S[ 3] ^= S[ 7];</span>
+<span class="nc" id="L281">			S[ 4] ^= S[ 8];</span>
+<span class="nc" id="L282">			S[ 5] ^= S[ 9];</span>
+<span class="nc" id="L283">			S[18] ^= S[ 7];</span>
+<span class="nc" id="L284">			S[19] ^= S[ 8];</span>
+<span class="nc" id="L285">			S[20] ^= S[ 9];</span>
+<span class="nc" id="L286">			smix( 3,  4,  5,  6);</span>
+<span class="nc" id="L287">			S[ 0] ^= S[ 4];</span>
+<span class="nc" id="L288">			S[ 1] ^= S[ 5];</span>
+<span class="nc" id="L289">			S[ 2] ^= S[ 6];</span>
+<span class="nc" id="L290">			S[15] ^= S[ 4];</span>
+<span class="nc" id="L291">			S[16] ^= S[ 5];</span>
+<span class="nc" id="L292">			S[17] ^= S[ 6];</span>
+<span class="nc" id="L293">			smix( 0,  1,  2,  3);</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">			if (num -- &lt;= 0) {</span>
+<span class="nc" id="L295">				rshift = 0;</span>
+<span class="nc" id="L296">				return;</span>
+			}
+<span class="nc" id="L298">			w = (buf[off] &lt;&lt; 24)</span>
+				| ((buf[off + 1] &amp; 0xFF) &lt;&lt; 16)
+				| ((buf[off + 2] &amp; 0xFF) &lt;&lt; 8)
+				| (buf[off + 3] &amp; 0xFF);
+<span class="nc" id="L302">			off += 4;</span>
+		}
+	}
+
+	/** @see FugueCore */
+	void processFinal(byte[] out)
+	{
+<span class="nc" id="L309">		int[] S = this.S;</span>
+<span class="nc" id="L310">		ror(6 * rshift, 30);</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">		for (int i = 0; i &lt; 10; i ++) {</span>
+<span class="nc" id="L312">			ror(3, 30);</span>
+<span class="nc" id="L313">			cmix30();</span>
+<span class="nc" id="L314">			smix(0, 1, 2, 3);</span>
+		}
+<span class="nc bnc" id="L316" title="All 2 branches missed.">		for (int i = 0; i &lt; 13; i ++) {</span>
+<span class="nc" id="L317">			S[ 4] ^= S[ 0];</span>
+<span class="nc" id="L318">			S[15] ^= S[ 0];</span>
+<span class="nc" id="L319">			ror(15, 30);</span>
+<span class="nc" id="L320">			smix(0, 1, 2, 3);</span>
+<span class="nc" id="L321">			S[ 4] ^= S[ 0];</span>
+<span class="nc" id="L322">			S[16] ^= S[ 0];</span>
+<span class="nc" id="L323">			ror(14, 30);</span>
+<span class="nc" id="L324">			smix(0, 1, 2, 3);</span>
+		}
+<span class="nc" id="L326">		S[ 4] ^= S[ 0];</span>
+<span class="nc" id="L327">		S[15] ^= S[ 0];</span>
+<span class="nc" id="L328">		encodeBEInt(S[ 1], out,  0);</span>
+<span class="nc" id="L329">		encodeBEInt(S[ 2], out,  4);</span>
+<span class="nc" id="L330">		encodeBEInt(S[ 3], out,  8);</span>
+<span class="nc" id="L331">		encodeBEInt(S[ 4], out, 12);</span>
+<span class="nc" id="L332">		encodeBEInt(S[15], out, 16);</span>
+<span class="nc" id="L333">		encodeBEInt(S[16], out, 20);</span>
+<span class="nc" id="L334">		encodeBEInt(S[17], out, 24);</span>
+<span class="nc bnc" id="L335" title="All 2 branches missed.">		if (out.length &gt;= 32)</span>
+<span class="nc" id="L336">			encodeBEInt(S[18], out, 28);</span>
+<span class="nc" id="L337">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>

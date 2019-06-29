@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MasternodeDB.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mtnsj</a> &gt; <a href="index.source.html" class="el_package">site.mtnsj.store</a> &gt; <span class="el_source">MasternodeDB.java</span></div><h1>MasternodeDB.java</h1><pre class="source lang-java linenums">package site.mtnsj.store;
+
+/**
+ * Created by Hash Engineering on 2/26/2016.
+ */
+
+/** Access to the MN database (mncache.dat)
+ */
+
+import site.mtnsj.core.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.util.Arrays;
+@Deprecated
+public class MasternodeDB {
+<span class="nc" id="L18">    private static final Logger log = LoggerFactory.getLogger(MasternodeDB.class);</span>
+    private static String pathMN;
+    private static String directory;
+    private final static String strMagicMessage = &quot;MasternodeCache&quot;;
+<span class="nc" id="L22">    public enum ReadResult {</span>
+<span class="nc" id="L23">        Ok,</span>
+<span class="nc" id="L24">        FileError,</span>
+<span class="nc" id="L25">        HashReadError,</span>
+<span class="nc" id="L26">        IncorrectHash,</span>
+<span class="nc" id="L27">        IncorrectMagicMessage,</span>
+<span class="nc" id="L28">        IncorrectMagicNumber,</span>
+<span class="nc" id="L29">        IncorrectFormat,</span>
+<span class="nc" id="L30">        NoResult</span>
+    }
+
+<span class="nc" id="L33">    ReadResult lastReadResult = ReadResult.NoResult;</span>
+
+    Context context;
+
+    public MasternodeDB()
+<span class="nc" id="L38">    {</span>
+<span class="nc" id="L39">        context = Context.get();</span>
+<span class="nc" id="L40">    }</span>
+<span class="nc" id="L41">    public MasternodeDB(String directory) {</span>
+<span class="nc" id="L42">        context = Context.get();</span>
+<span class="nc" id="L43">        setPath(directory);</span>
+<span class="nc" id="L44">    }</span>
+
+    String getFileName()
+    {
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        if(context.getParams().getId().equals(NetworkParameters.ID_MAINNET))</span>
+<span class="nc" id="L49">            return &quot;mncache.dat&quot;;</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if(context.getParams().getId().equals(NetworkParameters.ID_TESTNET))</span>
+<span class="nc" id="L51">            return &quot;mncache-testnet.dat&quot;;</span>
+<span class="nc" id="L52">        return &quot;mncache-other.dat&quot;;</span>
+
+    }
+
+    void setPath(File directory)
+    {
+<span class="nc" id="L58">        this.directory = directory.getAbsolutePath();</span>
+<span class="nc" id="L59">        pathMN = directory.getAbsolutePath() + &quot;/&quot; + getFileName();</span>
+<span class="nc" id="L60">    }</span>
+
+    void setPath(String directory)
+    {
+<span class="nc" id="L64">        this.directory = directory;</span>
+<span class="nc" id="L65">        pathMN = directory + &quot;/&quot; + getFileName();</span>
+<span class="nc" id="L66">    }</span>
+    public String getDirectory()
+    {
+<span class="nc" id="L69">        return directory;</span>
+    }
+
+    public boolean write(MasternodeManager mnodemanToSave) {
+
+        try {
+<span class="nc" id="L75">            long nStart = Utils.currentTimeMillis();</span>
+
+            // serialize, checksum data up to that point, then append checksum
+<span class="nc" id="L78">            UnsafeByteArrayOutputStream stream = new UnsafeByteArrayOutputStream(mnodemanToSave.calculateMessageSizeInBytes()+4+strMagicMessage.getBytes().length);</span>
+<span class="nc" id="L79">            stream.write(strMagicMessage.getBytes());</span>
+<span class="nc" id="L80">            Utils.uint32ToByteStreamLE(mnodemanToSave.getParams().getPacketMagic(), stream);</span>
+<span class="nc" id="L81">            mnodemanToSave.bitcoinSerialize(stream);</span>
+
+<span class="nc" id="L83">            Sha256Hash hash = Sha256Hash.twiceOf(stream.toByteArray());</span>
+
+
+            // open output file, and associate with CAutoFile
+
+<span class="nc" id="L88">            FileOutputStream fileStream = new FileOutputStream(pathMN);</span>
+
+            //FILE * file = fopen(pathMN.string().c_str(), &quot;wb&quot;);
+            //CAutoFile fileout (file, SER_DISK, CLIENT_VERSION);
+            //if (fileout.IsNull())
+            //    return error(&quot;%s : Failed to open file %s&quot;, __func__, pathMN.string());
+
+
+            // Write and commit header, data
+<span class="nc" id="L97">            fileStream.write(stream.toByteArray());</span>
+<span class="nc" id="L98">            fileStream.write(hash.getBytes());</span>
+
+
+
+//    FileCommit(fileout);
+<span class="nc" id="L103">            fileStream.close();</span>
+            //fileout.fclose();
+
+<span class="nc" id="L106">            log.info(&quot;Written info to mncache.dat  {}ms\n&quot;, Utils.currentTimeMillis() - nStart);</span>
+<span class="nc" id="L107">            log.info(&quot;  {}\n&quot;, mnodemanToSave.toString());</span>
+
+<span class="nc" id="L109">            return true;</span>
+
+        }
+<span class="nc" id="L112">        catch(IOException x)</span>
+        {
+<span class="nc" id="L114">            return false;</span>
+        }
+    }
+
+    public MasternodeManager read(Context context, boolean fDryRun) {
+
+<span class="nc" id="L120">        long nStart = Utils.currentTimeMillis();</span>
+<span class="nc" id="L121">        MasternodeManager manager = null;</span>
+        try {
+            // open input file, and associate with CAutoFile
+
+<span class="nc" id="L125">            FileInputStream fileStream = new FileInputStream(pathMN);</span>
+
+<span class="nc" id="L127">            File file = new File(pathMN);</span>
+
+            /*FILE * file = fopen(pathMN.string().c_str(), &quot;rb&quot;);
+            CAutoFile filein (file, SER_DISK, CLIENT_VERSION);
+            if (filein.IsNull()) {
+                error(&quot;%s : Failed to open file %s&quot;, __func__, pathMN.string());
+                return FileError;
+            }*/
+
+            // use file size to size memory buffer
+
+<span class="nc" id="L138">            long fileSize = file.length();//fileStream.boost::filesystem::file_size(pathMN);</span>
+<span class="nc" id="L139">            long dataSize = fileSize - 32;</span>
+            // Don't try to resize to a negative number if file is small
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            if (dataSize &lt; 0)</span>
+<span class="nc" id="L142">                dataSize = 0;</span>
+
+            //vector&lt;unsigned char&gt;vchData;
+            //vchData.resize(dataSize);
+<span class="nc" id="L146">            byte [] hashIn = new byte[32];</span>
+<span class="nc" id="L147">            byte [] vchData = new byte[(int)dataSize];</span>
+
+            try {
+<span class="nc" id="L150">                fileStream.read(vchData);</span>
+<span class="nc" id="L151">                fileStream.read(hashIn);</span>
+<span class="nc" id="L152">            } catch (IOException x)</span>
+            {
+<span class="nc" id="L154">                lastReadResult =  ReadResult.HashReadError;</span>
+<span class="nc" id="L155">                return null;</span>
+<span class="nc" id="L156">            }</span>
+<span class="nc" id="L157">            fileStream.close();</span>
+
+
+
+            //CDataStream ssMasternodes (vchData, SER_DISK, CLIENT_VERSION);
+
+
+
+            // verify stored checksum matches input data
+<span class="nc" id="L166">            Sha256Hash hashTmp = Sha256Hash.twiceOf(vchData);</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">            if (!Arrays.equals(hashIn, hashTmp.getBytes())) {</span>
+<span class="nc" id="L168">                log.error(&quot;Checksum mismatch, data corrupted&quot;);</span>
+<span class="nc" id="L169">                lastReadResult = ReadResult.IncorrectHash;</span>
+<span class="nc" id="L170">                return null;</span>
+            }
+
+            long pchMsgTmp;
+            String strMagicMessageTmp;
+            try {
+                // de-serialize file header (masternode cache file specific magic message) and ..
+
+
+<span class="nc" id="L179">                strMagicMessageTmp = new String(vchData, 0, strMagicMessage.length());</span>
+
+                // ... verify the message matches predefined one
+<span class="nc bnc" id="L182" title="All 2 branches missed.">                if (!strMagicMessage.equals(strMagicMessageTmp)) {</span>
+<span class="nc" id="L183">                    log.error(&quot;Invalid masternode cache magic message&quot;);</span>
+<span class="nc" id="L184">                    lastReadResult = ReadResult.IncorrectMagicMessage;</span>
+<span class="nc" id="L185">                    return null;</span>
+                }
+
+                // de-serialize file header (network specific magic number) and ..
+                //ssMasternodes &gt;&gt; FLATDATA(pchMsgTmp);
+<span class="nc" id="L190">                pchMsgTmp = (int)Utils.readUint32(vchData, strMagicMessage.length());</span>
+
+                // ... verify the network matches ours
+<span class="nc bnc" id="L193" title="All 2 branches missed.">                if (pchMsgTmp != context.getParams().getPacketMagic()) {</span>
+<span class="nc" id="L194">                    log.error(&quot;Invalid network magic number&quot;);</span>
+<span class="nc" id="L195">                    lastReadResult = ReadResult.IncorrectMagicNumber;</span>
+<span class="nc" id="L196">                    return null;</span>
+                }
+                // de-serialize data into CMasternodeMan object
+
+<span class="nc" id="L200">                manager = new MasternodeManager(context.getParams(), vchData, strMagicMessage.length()+ 4);</span>
+
+<span class="nc" id="L202">            } catch (Exception e){</span>
+                //mnodemanToLoad.Clear();
+<span class="nc" id="L204">                log.error(&quot;Deserialize or I/O error - {}&quot;,  e.getMessage());</span>
+<span class="nc" id="L205">                lastReadResult = ReadResult.IncorrectFormat;</span>
+<span class="nc" id="L206">                return null;</span>
+<span class="nc" id="L207">            }</span>
+
+<span class="nc" id="L209">            log.info(&quot;Loaded info from mncache.dat  {}ms&quot;, Utils.currentTimeMillis() - nStart);</span>
+<span class="nc" id="L210">            log.info(&quot;  {}&quot;, manager.toString());</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">            if (!fDryRun) {</span>
+<span class="nc" id="L212">                log.info(&quot;Masternode manager - cleaning....&quot;);</span>
+<span class="nc" id="L213">                manager.checkAndRemove(true);</span>
+<span class="nc" id="L214">                log.info(&quot;Masternode manager - result:&quot;);</span>
+<span class="nc" id="L215">                log.info(&quot;  {}&quot;, manager.toString());</span>
+            }
+
+<span class="nc" id="L218">            lastReadResult = ReadResult.Ok;</span>
+<span class="nc" id="L219">            return manager;</span>
+        }
+<span class="nc" id="L221">        catch(IOException x) {</span>
+<span class="nc" id="L222">            lastReadResult = ReadResult.FileError;</span>
+<span class="nc" id="L223">            return null;</span>
+        }
+    }
+        MasternodeManager read(Context context) {
+<span class="nc" id="L227">            return read(context, false);</span>
+        }
+
+    /*public static void dumpMasternodes()
+    {
+        long nStart = Utils.currentTimeMillis();
+
+        NetworkParameters params = Context.get().getParams();
+
+        MasternodeDB mndb = new MasternodeDB(Context.get().masternodeDB.getDirectory());
+        MasternodeManager tempMnodeman;
+
+        log.info(&quot;Verifying mncache.dat format...&quot;);
+        //CMasternodeDB::ReadResult readResult =
+        tempMnodeman = mndb.read(Context.get(), true);
+        MasternodeDB.ReadResult readResult = mndb.lastReadResult;
+        // there was an error and it was not an error on file opening =&gt; do not proceed
+        if (readResult == MasternodeDB.ReadResult.FileError)
+            log.info(&quot;Missing masternode cache file - mncache.dat, will try to recreate&quot;);
+        else if (readResult != MasternodeDB.ReadResult.Ok)
+        {
+            log.info(&quot;Error reading mncache.dat: &quot;);
+            if(readResult == MasternodeDB.ReadResult.IncorrectFormat)
+                log.info(&quot;magic is ok but data has invalid format, will try to recreate&quot;);
+            else
+            {
+                log.info(&quot;file format is unknown or invalid, please fix it manually&quot;);
+                return;
+            }
+        }
+        log.info(&quot;Writing info to mncache.dat...\n&quot;);
+        mndb.write(Context.get().masternodeManager);
+
+        log.info(&quot;Masternode dump finished  {}ms&quot;, Utils.currentTimeMillis() - nStart);
+    }*/
+};
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.5.201505241946</span></div></body></html>
